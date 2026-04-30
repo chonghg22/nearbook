@@ -1,2 +1,19 @@
-// TODO Step 2 (02_drizzle_setup): 스키마·DB 클라이언트 export
-export {}
+export * from './schema'
+export * from './client'
+export {
+  eq,
+  and,
+  or,
+  not,
+  like,
+  ilike,
+  gt,
+  gte,
+  lt,
+  lte,
+  inArray,
+  sql,
+  desc,
+  asc,
+  count,
+} from 'drizzle-orm'

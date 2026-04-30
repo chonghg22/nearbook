@@ -1,7 +1,17 @@
+import { existsSync } from 'fs'
+import { resolve } from 'path'
+import { config as loadEnv } from 'dotenv'
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { AppModule } from './app.module'
+
+for (const envFile of ['.env.local', '.env']) {
+  const envPath = resolve(process.cwd(), envFile)
+  if (existsSync(envPath)) {
+    loadEnv({ path: envPath, override: false })
+  }
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)

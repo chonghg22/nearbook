@@ -34,7 +34,7 @@ export interface LibraryBook {
 export interface User {
   id: number
   supabaseUserId: string
-  email: string
+  email: string | null
   nickname: string | null
   region: string | null
   plan: 'free' | 'pro'
@@ -68,4 +68,11 @@ export interface JeongbonaruLibrary {
   homepage: string
   closed: string
   operatingTime: string
+}
+
+// Auth
+export interface JwtUser {
+  supabaseUserId: string
+  email: string | null
+  provider: string
 }

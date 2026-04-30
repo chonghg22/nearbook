@@ -1,6 +1,9 @@
+jest.mock('@nearbook/db', () => ({}))
+
 import { Test, TestingModule } from '@nestjs/testing'
 import { AppController } from './app.controller'
-import { AppService } from './app.service'
+import { JeongbonaruClient } from './modules/jeongbonaru/jeongbonaru.client'
+import { JeongbonaruService } from './modules/jeongbonaru/jeongbonaru.service'
 
 describe('AppController', () => {
   let appController: AppController
@@ -8,7 +11,25 @@ describe('AppController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        {
+          provide: JeongbonaruClient,
+          useValue: {
+            getStatus: () => ({
+              called: 0,
+              limit: 500,
+              remaining: 500,
+              utilizationPct: 0,
+            }),
+          },
+        },
+        {
+          provide: JeongbonaruService,
+          useValue: {
+            getBookByIsbn: jest.fn(),
+          },
+        },
+      ],
     }).compile()
     appController = app.get<AppController>(AppController)
   })
