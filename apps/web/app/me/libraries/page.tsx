@@ -1,12 +1,29 @@
+import { createServerClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { LibraryCardsView } from './_components/library-cards-view'
+
+const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
+
 export const metadata = { title: '내 도서관 | 우리동네책' }
 
-export default function LibrariesPage() {
+export default async function LibrariesPage() {
+  const supabase = await createServerClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) redirect('/login?next=/me/libraries')
+
+  const res = await fetch(`${API_URL}/me/library-cards`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  })
+
+  const json = res.ok ? await res.json() : { data: [], meta: { plan: 'free' } }
+
   return (
-    <div>
-      <h2 className="text-xl font-bold mb-4">내 도서관</h2>
-      <p className="text-gray-500 text-sm">
-        이 페이지는 Step 09(위시리스트)에서 완성됩니다.
-      </p>
-    </div>
+    <LibraryCardsView
+      cards={json.data ?? []}
+      plan={json.meta?.plan ?? 'free'}
+    />
   )
 }

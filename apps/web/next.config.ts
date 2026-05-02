@@ -3,8 +3,10 @@ import type { NextConfig } from 'next'
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
+      { protocol: 'http', hostname: 'image.aladin.co.kr' },
       { protocol: 'https', hostname: 'image.aladin.co.kr' },
       { protocol: 'https', hostname: 'cover.nl.go.kr' },
+      { protocol: 'https', hostname: 'bookthumb-phinf.pstatic.net' },
     ],
   },
   async rewrites() {

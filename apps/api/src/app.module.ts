@@ -9,6 +9,7 @@ import { LibrariesModule } from './modules/libraries/libraries.module'
 import { BooksModule } from './modules/books/books.module'
 import { SearchModule } from './modules/search/search.module'
 import { WishlistsModule } from './modules/wishlists/wishlists.module'
+import { LibraryCardsModule } from './modules/library-cards/library-cards.module'
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { WishlistsModule } from './modules/wishlists/wishlists.module'
     AuthModule,
     SearchModule,
     WishlistsModule,
+    LibraryCardsModule,
   ],
   controllers: [AppController],
 })

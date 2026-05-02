@@ -1,20 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { db, libraries, sql, eq } from '@nearbook/db'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
+import { JeongbonaruClient } from '../jeongbonaru/jeongbonaru.client'
 import { CacheService } from '../../common/cache.service'
 
 @Injectable()
 export class LibrariesService {
   constructor(
     private readonly jeongbonaru: JeongbonaruService,
+    private readonly jeongbonaruClient: JeongbonaruClient,
     private readonly cache: CacheService,
   ) {}
 
   async findNear(lat: number, lng: number, radiusKm = 5, limit = 20) {
     const result = await db.execute(sql`
-      SELECT id, name, address, region, lat, lng, phone, homepage, closed_days, lib_code,
+      SELECT id, name, address, region, lat, lng, phone, homepage, operating_hours, type,
         ST_Distance(location, ST_MakePoint(${lng}, ${lat})::geography) AS distance_m
-      FROM libraries
+      FROM nearbook.libraries
       WHERE ST_DWithin(location, ST_MakePoint(${lng}, ${lat})::geography, ${radiusKm * 1000})
       ORDER BY distance_m
       LIMIT ${limit}
@@ -37,9 +39,10 @@ export class LibrariesService {
         if (cached) return { ...lib, ...cached }
 
         try {
+          // lib_code가 없는 경우 id를 대신 사용 (또는 스키마에 따라 조정 필요)
           const exist = await this.jeongbonaru.checkBookExist(
             isbn,
-            String(lib['lib_code'] ?? lib['id']),
+            String(lib['id']),
           )
           const availability = {
             holdingCount: exist?.hasBook ? 1 : 0,
@@ -58,14 +61,137 @@ export class LibrariesService {
       .map((r) => r.value)
   }
 
+  async findInBounds(bounds: {
+    swLat: number
+    swLng: number
+    neLat: number
+    neLng: number
+    limit: number
+  }) {
+    const result = await db.execute(sql`
+      SELECT id, name, lat, lng, address
+      FROM nearbook.libraries
+      WHERE
+        lat BETWEEN ${bounds.swLat} AND ${bounds.neLat}
+        AND lng BETWEEN ${bounds.swLng} AND ${bounds.neLng}
+        AND lat IS NOT NULL
+        AND lng IS NOT NULL
+      ORDER BY name
+      LIMIT ${bounds.limit}
+    `)
+    return { data: result as any[] }
+  }
+
   async getById(id: number) {
     const lib = await db.query.libraries.findFirst({ where: eq(libraries.id, id) })
     if (!lib) throw new NotFoundException(`Library ${id} not found`)
     return lib
   }
 
-  async list(page = 1, limit = 20) {
+  async search(q: string, limit = 10) {
+    const result = await db.execute(sql`
+      SELECT id, name, address, region, lat, lng
+      FROM nearbook.libraries
+      WHERE name ILIKE ${'%' + q + '%'}
+      ORDER BY name
+      LIMIT ${limit}
+    `)
+    return { data: result as any[] }
+  }
+
+  async list(page = 1, limit = 20, region?: string) {
+    if (region) {
+      return this.findByRegion(region, limit)
+    }
     const offset = (page - 1) * limit
-    return db.select().from(libraries).limit(limit).offset(offset)
+    const result = await db.select().from(libraries).limit(limit).offset(offset)
+    return { data: result }
+  }
+
+  async listRegions(): Promise<{ regions: string[] }> {
+    const result = await db.execute(sql`
+      SELECT DISTINCT region
+      FROM nearbook.libraries
+      WHERE region IS NOT NULL
+      ORDER BY region ASC
+    `)
+    return { regions: (result as any[]).map((r) => r.region) }
+  }
+
+  async findByRegion(region: string, limit = 50): Promise<{ data: any[] }> {
+    const result = await db.execute(sql`
+      SELECT id, name, address, region, lat, lng
+      FROM nearbook.libraries
+      WHERE region LIKE ${`${region}%`}
+      ORDER BY name ASC
+      LIMIT ${limit}
+    `)
+    return { data: result as any[] }
+  }
+
+  async getPopularBooks(libraryId: number, limit = 20) {
+    try {
+      const res = await this.jeongbonaruClient.get<any>('/loanItemSrch', {
+        libCode: libraryId,
+        pageNo: 1,
+        pageSize: limit,
+      })
+      return res?.response?.docs?.map((d: any) => ({
+        isbn: d.doc?.isbn13,
+        title: d.doc?.bookname,
+        author: d.doc?.authors,
+        publisher: d.doc?.publisher,
+        coverUrl: d.doc?.bookImageURL ?? null,
+        loanCount: Number(d.doc?.loan_count ?? 0),
+      })) ?? []
+    } catch {
+      return []
+    }
+  }
+
+  async getRecentBooks(libraryId: number, limit = 20) {
+    const to = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+    const from = new Date(Date.now() - 30 * 86400000)
+      .toISOString().slice(0, 10).replace(/-/g, '')
+    try {
+      const res = await this.jeongbonaruClient.get<any>('/loanItemSrch', {
+        libCode: libraryId,
+        from,
+        to,
+        pageNo: 1,
+        pageSize: limit,
+      })
+      return res?.response?.docs?.map((d: any) => ({
+        isbn: d.doc?.isbn13,
+        title: d.doc?.bookname,
+        author: d.doc?.authors,
+        publisher: d.doc?.publisher,
+        coverUrl: d.doc?.bookImageURL ?? null,
+      })) ?? []
+    } catch {
+      return []
+    }
+  }
+
+  async findByRegionWithSigungu(sido: string, sigungu?: string): Promise<{ data: any[] }> {
+    if (sigungu) {
+      const result = await db.execute(sql`
+        SELECT id, name, lat, lng
+        FROM nearbook.libraries
+        WHERE region LIKE ${`${sido}%`}
+          AND address LIKE ${`%${sigungu}%`}
+          AND lat IS NOT NULL AND lng IS NOT NULL
+        LIMIT 200
+      `)
+      return { data: result as any[] }
+    }
+    const result = await db.execute(sql`
+      SELECT id, name, lat, lng
+      FROM nearbook.libraries
+      WHERE region LIKE ${`${sido}%`}
+        AND lat IS NOT NULL AND lng IS NOT NULL
+      LIMIT 200
+    `)
+    return { data: result as any[] }
   }
 }

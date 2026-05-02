@@ -1,12 +1,32 @@
-export const metadata = { title: '위시리스트 | 우리동네책' }
+import { createServerClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { WishlistView } from './_components/wishlist-view'
 
-export default function WishlistPage() {
+const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
+
+export const metadata = { title: '내 위시리스트 | 우리동네책' }
+
+export default async function WishlistPage() {
+  const supabase = await createServerClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) redirect('/login?next=/me/wishlist')
+
+  const res = await fetch(`${API_URL}/me/wishlists`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    cache: 'no-store',
+  })
+
+  const json = res.ok
+    ? await res.json()
+    : { data: [], meta: { plan: 'free', total: 0 } }
+
   return (
-    <div>
-      <h2 className="text-xl font-bold mb-4">위시리스트</h2>
-      <p className="text-gray-500 text-sm">
-        이 페이지는 Step 09(위시리스트)에서 완성됩니다.
-      </p>
-    </div>
+    <WishlistView
+      items={json.data ?? []}
+      plan={json.meta?.plan ?? 'free'}
+      total={json.meta?.total ?? 0}
+    />
   )
 }

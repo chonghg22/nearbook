@@ -30,30 +30,51 @@ async function seedLibraries() {
       const lng = parseFloat(lib['longitude'] ?? '0')
       if (!lat || !lng) continue
 
-      await db
-        .insert(libraries)
-        .values({
-          libCode: lib['libCode'] ?? '',
-          name: lib['libName'] ?? '',
-          address: lib['address'] ?? '',
-          region: lib['region'] ?? '',
-          detailRegion: lib['detailRegion'] ?? '',
-          lat,
-          lng,
-          phone: lib['tel'] ?? null,
-          homepage: lib['homepage'] ?? null,
-          closedDays: lib['closed'] ?? null,
-        })
-        .onConflictDoUpdate({
-          target: libraries.libCode,
-          set: { name: lib['libName'] ?? '', lat, lng },
-        })
+      const libCode = parseInt(lib['libCode'] ?? '0', 10)
+      if (!libCode) continue
 
-      // PostGIS location 컬럼 갱신
-      await db.execute(
-        sql`UPDATE libraries SET location = ST_MakePoint(${lng}, ${lat})::geography WHERE lib_code = ${lib['libCode']}`,
-      )
-      total++
+      // 정보나루 API에 region/detailRegion 필드 없음 → address에서 파싱
+      const addrParts = (lib['address'] ?? '').split(' ')
+      const region = addrParts.length >= 2
+        ? `${addrParts[0]} ${addrParts[1]}`
+        : addrParts[0] ?? ''
+
+      try {
+        await db
+          .insert(libraries)
+          .values({
+            id: libCode,
+            name: lib['libName'] ?? '',
+            address: lib['address'] ?? '',
+            region: region || '미분류',
+            lat,
+            lng,
+            location: sql`ST_MakePoint(${lng}, ${lat})::geography`,
+            phone: lib['tel'] || null,
+            homepage: lib['homepage'] || null,
+            operatingHours: lib['operatingTime']
+              ? { text: lib['operatingTime'], closed: lib['closed'] ?? '' }
+              : null,
+            type: lib['libType'] ?? null,
+          })
+          .onConflictDoUpdate({
+            target: libraries.id,
+            set: {
+              name: lib['libName'] ?? '',
+              address: lib['address'] ?? '',
+              region: region || '미분류',
+              lat,
+              lng,
+              location: sql`ST_MakePoint(${lng}, ${lat})::geography`,
+              phone: lib['tel'] || null,
+              homepage: lib['homepage'] || null,
+            },
+          })
+
+        total++
+      } catch (err) {
+        console.error(`도서관 ${libCode} 삽입 실패:`, (err as Error).message)
+      }
     }
 
     console.log(`페이지 ${page} 완료, 누적 ${total}개`)

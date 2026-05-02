@@ -7,6 +7,8 @@ import { SearchBar } from './search-bar'
 import { FilterPanel } from './filter-panel'
 import { ResultList } from './result-list'
 import { PopularQueries } from './popular-queries'
+import { LocationBar } from '@/components/location-bar'
+import { useLocationContext } from '@/lib/use-location-context'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL!
 
@@ -21,15 +23,23 @@ export function SearchPageInner() {
   const category = params.get('category') || ''
   const availableOnly = params.get('availableOnly') === 'true'
 
-  const queryString = new URLSearchParams({
-    ...(q && { q }),
-    ...(sort !== 'relevance' && { sort }),
-    ...(category && { category }),
-    ...(availableOnly && { availableOnly: 'true' }),
-  }).toString()
+  const { toSearchParams, isLoaded } = useLocationContext()
+
+  const buildSearchUrl = (): string | null => {
+    if (!q || !isLoaded) return null
+    const locationParams = toSearchParams()
+    const qs = new URLSearchParams({
+      q,
+      ...(sort !== 'relevance' && { sort }),
+      ...(category && { category }),
+      ...(availableOnly && { availableOnly: 'true' }),
+      ...locationParams,
+    })
+    return `${API_BASE}/search?${qs.toString()}`
+  }
 
   const { data, isLoading } = useSWR(
-    q ? `${API_BASE}/search?${queryString}` : null,
+    buildSearchUrl(),
     fetcher,
     { keepPreviousData: true },
   )
@@ -49,7 +59,11 @@ export function SearchPageInner() {
 
       {q ? (
         <>
-          <p className="my-4 text-sm text-gray-500">
+          <div className="mt-4">
+            <LocationBar />
+          </div>
+
+          <p className="text-sm text-gray-500 mb-3">
             &ldquo;{q}&rdquo; 검색결과 {data?.data?.total ?? 0}건
             {data?.data?.source === 'jeongbonaru' && (
               <span className="ml-2 text-blue-500 text-xs">(정보나루 검색)</span>

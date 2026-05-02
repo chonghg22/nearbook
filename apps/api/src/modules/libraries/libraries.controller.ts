@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { LibrariesService } from './libraries.service'
+import { ListQueryDto } from './dto/list-query.dto'
 
 @ApiTags('libraries')
 @Controller('libraries')
@@ -8,12 +9,45 @@ export class LibrariesController {
   constructor(private readonly service: LibrariesService) {}
 
   @Get()
-  @ApiOperation({ summary: '도서관 목록 (페이지네이션)' })
-  list(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  @ApiOperation({ summary: '도서관 목록 (페이지네이션 + 지역 필터 + 이름 검색)' })
+  list(@Query() query: ListQueryDto) {
+    if (query.q) {
+      return this.service.search(query.q, query.limit ?? 10)
+    }
+    return this.service.list(query.page, query.limit, query.region)
+  }
+
+  @Get('in-bounds')
+  @ApiOperation({ summary: 'viewport bounds 내 도서관 목록' })
+  inBounds(
+    @Query('swLat') swLat: string,
+    @Query('swLng') swLng: string,
+    @Query('neLat') neLat: string,
+    @Query('neLng') neLng: string,
+    @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,
   ) {
-    return this.service.list(page, limit)
+    return this.service.findInBounds({
+      swLat: parseFloat(swLat),
+      swLng: parseFloat(swLng),
+      neLat: parseFloat(neLat),
+      neLng: parseFloat(neLng),
+      limit: Math.min(limit, 200),
+    })
+  }
+
+  @Get('by-region')
+  @ApiOperation({ summary: '시도/시군구 기준 도서관 목록 (좌표 포함)' })
+  byRegion(
+    @Query('sido') sido: string,
+    @Query('sigungu') sigungu?: string,
+  ) {
+    return this.service.findByRegionWithSigungu(sido, sigungu)
+  }
+
+  @Get('regions')
+  @ApiOperation({ summary: '시도/구군 목록 (필터용)' })
+  listRegions() {
+    return this.service.listRegions()
   }
 
   @Get('near')
@@ -28,7 +62,28 @@ export class LibrariesController {
 
   @Get(':id')
   @ApiOperation({ summary: '도서관 상세' })
-  getById(@Param('id', ParseIntPipe) id: number) {
-    return this.service.getById(id)
+  async getById(@Param('id', ParseIntPipe) id: number) {
+    const data = await this.service.getById(id)
+    return { data }
+  }
+
+  @Get(':id/popular')
+  @ApiOperation({ summary: '도서관별 인기 대출 도서' })
+  async popular(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    const data = await this.service.getPopularBooks(id, limit)
+    return { data }
+  }
+
+  @Get(':id/recent')
+  @ApiOperation({ summary: '도서관별 최근 30일 신간' })
+  async recent(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    const data = await this.service.getRecentBooks(id, limit)
+    return { data }
   }
 }

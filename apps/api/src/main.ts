@@ -18,7 +18,11 @@ async function bootstrap() {
 
   // TODO Step 13 (배포): CORS_ORIGINS 환경변수로 실제 도메인 교체
   app.enableCors({
-    origin: process.env.CORS_ORIGINS?.split(',') ?? ['http://localhost:3000'],
+    origin: process.env.CORS_ORIGINS?.split(',') ?? [
+      'http://localhost:3000',
+      'https://우리동네책.kr',
+      'https://www.우리동네책.kr',
+    ],
     credentials: true,
   })
 

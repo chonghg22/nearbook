@@ -1,12 +1,12 @@
 {
-  "id": "84c01a87-22e6-41d9-b0b0-8677dd741902",
+  "id": "ff9f7211-9a82-4bea-95ec-9a2f2cbd088e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "6",
   "dialect": "postgresql",
   "tables": {
-    "public.api_usage": {
+    "nearbook.api_usage": {
       "name": "api_usage",
-      "schema": "",
+      "schema": "nearbook",
       "columns": {
         "id": {
           "name": "id",
@@ -67,9 +67,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.book_cache": {
+    "nearbook.book_cache": {
       "name": "book_cache",
-      "schema": "",
+      "schema": "nearbook",
       "columns": {
         "isbn": {
           "name": "isbn",
@@ -147,13 +147,6 @@
           ],
           "isUnique": false
         },
-        "book_cache_title_trgm_idx": {
-          "name": "book_cache_title_trgm_idx",
-          "columns": [
-            "title"
-          ],
-          "isUnique": false
-        },
         "book_cache_expires_idx": {
           "name": "book_cache_expires_idx",
           "columns": [
@@ -166,9 +159,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.events": {
+    "nearbook.events": {
       "name": "events",
-      "schema": "",
+      "schema": "nearbook",
       "columns": {
         "id": {
           "name": "id",
@@ -222,13 +215,6 @@
             "created_at"
           ],
           "isUnique": false
-        },
-        "events_user_idx": {
-          "name": "events_user_idx",
-          "columns": [
-            "user_id"
-          ],
-          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -236,6 +222,7 @@
           "name": "events_user_id_users_id_fk",
           "tableFrom": "events",
           "tableTo": "users",
+          "schemaTo": "nearbook",
           "columnsFrom": [
             "user_id"
           ],
@@ -249,9 +236,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.libraries": {
+    "nearbook.libraries": {
       "name": "libraries",
-      "schema": "",
+      "schema": "nearbook",
       "columns": {
         "id": {
           "name": "id",
@@ -347,9 +334,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.library_cards": {
+    "nearbook.library_cards": {
       "name": "library_cards",
-      "schema": "",
+      "schema": "nearbook",
       "columns": {
         "id": {
           "name": "id",
@@ -412,6 +399,7 @@
           "name": "library_cards_user_id_users_id_fk",
           "tableFrom": "library_cards",
           "tableTo": "users",
+          "schemaTo": "nearbook",
           "columnsFrom": [
             "user_id"
           ],
@@ -425,6 +413,7 @@
           "name": "library_cards_library_id_libraries_id_fk",
           "tableFrom": "library_cards",
           "tableTo": "libraries",
+          "schemaTo": "nearbook",
           "columnsFrom": [
             "library_id"
           ],
@@ -438,9 +427,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.popular_books": {
+    "nearbook.popular_books": {
       "name": "popular_books",
-      "schema": "",
+      "schema": "nearbook",
       "columns": {
         "id": {
           "name": "id",
@@ -494,22 +483,15 @@
             "period"
           ],
           "isUnique": false
-        },
-        "popular_books_isbn_idx": {
-          "name": "popular_books_isbn_idx",
-          "columns": [
-            "isbn"
-          ],
-          "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.search_logs": {
+    "nearbook.search_logs": {
       "name": "search_logs",
-      "schema": "",
+      "schema": "nearbook",
       "columns": {
         "id": {
           "name": "id",
@@ -570,6 +552,7 @@
           "name": "search_logs_user_id_users_id_fk",
           "tableFrom": "search_logs",
           "tableTo": "users",
+          "schemaTo": "nearbook",
           "columnsFrom": [
             "user_id"
           ],
@@ -583,9 +566,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {}
     },
-    "public.users": {
+    "nearbook.users": {
       "name": "users",
-      "schema": "",
+      "schema": "nearbook",
       "columns": {
         "id": {
           "name": "id",
@@ -603,7 +586,7 @@
           "name": "email",
           "type": "varchar(256)",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "nickname": {
           "name": "nickname",
@@ -664,19 +647,12 @@
           "columns": [
             "supabase_user_id"
           ]
-        },
-        "users_email_unique": {
-          "name": "users_email_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
         }
       }
     },
-    "public.wishlists": {
+    "nearbook.wishlists": {
       "name": "wishlists",
-      "schema": "",
+      "schema": "nearbook",
       "columns": {
         "id": {
           "name": "id",
@@ -732,6 +708,7 @@
           "name": "wishlists_user_id_users_id_fk",
           "tableFrom": "wishlists",
           "tableTo": "users",
+          "schemaTo": "nearbook",
           "columnsFrom": [
             "user_id"
           ],
@@ -747,7 +724,9 @@
     }
   },
   "enums": {},
-  "schemas": {},
+  "schemas": {
+    "nearbook": "nearbook"
+  },
   "_meta": {
     "columns": {},
     "schemas": {},

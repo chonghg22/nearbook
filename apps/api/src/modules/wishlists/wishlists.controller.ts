@@ -1,8 +1,19 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Req, HttpCode } from '@nestjs/common'
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+  HttpCode,
+} from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { AuthGuard } from '../auth/auth.guard'
 import { WishlistsService } from './wishlists.service'
-import { AddWishlistDto, UpdateWishlistDto } from './dto/add-wishlist.dto'
+import { AddWishlistDto, UpdateWishlistDto } from './dto'
 
 @ApiTags('wishlists')
 @ApiBearerAuth()
@@ -13,19 +24,23 @@ export class WishlistsController {
 
   @Get('me/wishlists')
   @ApiOperation({ summary: '내 위시리스트 목록' })
-  async listMine(@Req() req: any) {
+  listMine(@Req() req: any) {
     return this.service.listByUser(req.user.supabaseUserId)
   }
 
   @Post('wishlists')
   @ApiOperation({ summary: '위시리스트 추가 (Free: 10개 한도)' })
-  async add(@Req() req: any, @Body() dto: AddWishlistDto) {
+  add(@Req() req: any, @Body() dto: AddWishlistDto) {
     return this.service.add(req.user.supabaseUserId, dto)
   }
 
   @Patch('wishlists/:isbn')
   @ApiOperation({ summary: '위시리스트 메모 수정' })
-  async update(@Req() req: any, @Param('isbn') isbn: string, @Body() dto: UpdateWishlistDto) {
+  update(
+    @Req() req: any,
+    @Param('isbn') isbn: string,
+    @Body() dto: UpdateWishlistDto,
+  ) {
     return this.service.update(req.user.supabaseUserId, isbn, dto)
   }
 

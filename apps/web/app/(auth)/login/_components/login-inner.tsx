@@ -8,12 +8,25 @@ export function LoginInner() {
   const supabase = createClient()
 
   async function handleKakaoLogin() {
-    await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'kakao',
       options: {
+        skipBrowserRedirect: true,
+        scopes: 'profile_nickname',
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     })
+
+    if (error || !data.url) {
+      console.error('OAuth error:', error)
+      return
+    }
+
+    // Supabase가 붙인 scope를 profile_nickname 으로 덮어쓰기
+    const url = new URL(data.url)
+    url.searchParams.set('scope', 'profile_nickname')
+
+    window.location.href = url.toString()
   }
 
   return (
