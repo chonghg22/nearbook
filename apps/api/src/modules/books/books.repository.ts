@@ -8,9 +8,27 @@ export class BooksRepository {
   }
 
   async getPopular(region = '전국', limit = 10) {
-    return db.query.popularBooks.findMany({
-      where: eq(popularBooks.region, region),
-      orderBy: [desc(popularBooks.loanCount)],
+    // popular_books와 book_cache 조인
+    const result = await db
+      .select({
+        isbn: popularBooks.isbn,
+        title: bookCache.title,
+        author: bookCache.author,
+        coverUrl: bookCache.coverUrl,
+        loanCount: popularBooks.loanCount,
+      })
+      .from(popularBooks)
+      .innerJoin(bookCache, eq(popularBooks.isbn, bookCache.isbn))
+      .where(eq(popularBooks.region, region))
+      .orderBy(desc(popularBooks.loanCount))
+      .limit(limit)
+
+    return result
+  }
+
+  async getRecent(limit = 10) {
+    return db.query.bookCache.findMany({
+      orderBy: [desc(bookCache.cachedAt)],
       limit,
     })
   }

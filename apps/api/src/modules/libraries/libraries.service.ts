@@ -125,6 +125,15 @@ export class LibrariesService {
     return { data: result }
   }
 
+  async getPopular(limit = 8) {
+    const data = await db
+      .select()
+      .from(libraries)
+      .orderBy(asc(libraries.id))
+      .limit(limit)
+    return { data }
+  }
+
   async listRegions(): Promise<{ regions: string[] }> {
     const result = await db
       .selectDistinct({ region: libraries.region })

@@ -9,12 +9,22 @@ export class BooksController {
 
   @Get('popular')
   @ApiOperation({ summary: '인기 대출 도서' })
-  getPopular(
+  async getPopular(
     @Query('region', new DefaultValuePipe('전국')) region: string,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ) {
     limit = Math.min(limit, 5000)
-    return this.service.getPopular(region, limit)
+    const data = await this.service.getPopular(region, limit)
+    return { data }
+  }
+
+  @Get('recent')
+  @ApiOperation({ summary: '최신 도서' })
+  async getRecent(
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    const data = await this.service.getRecent(limit)
+    return { data }
   }
 
   @Get(':isbn/with-libraries')

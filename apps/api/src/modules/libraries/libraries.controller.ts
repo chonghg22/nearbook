@@ -60,6 +60,14 @@ export class LibrariesController {
     return this.service.findNear(parseFloat(lat), parseFloat(lng), radius)
   }
 
+  @Get('popular')
+  @ApiOperation({ summary: '인기 도서관' })
+  listPopular(
+    @Query('limit', new DefaultValuePipe(8), ParseIntPipe) limit: number,
+  ) {
+    return this.service.getPopular(limit)
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '도서관 상세' })
   async getById(@Param('id', ParseIntPipe) id: number) {
@@ -69,7 +77,7 @@ export class LibrariesController {
 
   @Get(':id/popular')
   @ApiOperation({ summary: '도서관별 인기 대출 도서' })
-  async popular(
+  async getLibraryPopular(
     @Param('id', ParseIntPipe) id: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
@@ -79,7 +87,7 @@ export class LibrariesController {
 
   @Get(':id/recent')
   @ApiOperation({ summary: '도서관별 최근 30일 신간' })
-  async recent(
+  async getLibraryRecent(
     @Param('id', ParseIntPipe) id: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {

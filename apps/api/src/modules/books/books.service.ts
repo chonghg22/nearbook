@@ -44,6 +44,15 @@ export class BooksService {
     return rows
   }
 
+  async getRecent(limit = 10) {
+    const cacheKey = `recent:${limit}`
+    const hit = this.cache.get<unknown[]>(cacheKey)
+    if (hit) return hit
+    const rows = await this.repo.getRecent(limit)
+    this.cache.set(cacheKey, rows, 60 * 60 * 1000) // 1시간
+    return rows
+  }
+
   async getWithLibraries(isbn: string, lat: number, lng: number, radiusKm = 5) {
     const [book, libsWithAvail, affiliateLinks] = await Promise.all([
       this.getByIsbn(isbn),
