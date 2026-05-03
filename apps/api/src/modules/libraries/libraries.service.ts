@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, libraries, sql, eq } from '@nearbook/db'
+import { db, libraries, sql, eq, and, gte, lte, ilike, asc } from '@nearbook/db'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 import { JeongbonaruClient } from '../jeongbonaru/jeongbonaru.client'
 import { CacheService } from '../../common/cache.service'
@@ -13,10 +13,11 @@ export class LibrariesService {
   ) {}
 
   async findNear(lat: number, lng: number, radiusKm = 5, limit = 20) {
+    // PostGIS 전용 쿼리는 raw SQL 유지 (nearbook 스키마 명시)
     const result = await db.execute(sql`
       SELECT id, name, address, region, lat, lng, phone, homepage, operating_hours, type,
         ST_Distance(location, ST_MakePoint(${lng}, ${lat})::geography) AS distance_m
-      FROM nearbook.libraries
+      FROM "nearbook"."libraries"
       WHERE ST_DWithin(location, ST_MakePoint(${lng}, ${lat})::geography, ${radiusKm * 1000})
       ORDER BY distance_m
       LIMIT ${limit}
@@ -68,18 +69,27 @@ export class LibrariesService {
     neLng: number
     limit: number
   }) {
-    const result = await db.execute(sql`
-      SELECT id, name, lat, lng, address
-      FROM nearbook.libraries
-      WHERE
-        lat BETWEEN ${bounds.swLat} AND ${bounds.neLat}
-        AND lng BETWEEN ${bounds.swLng} AND ${bounds.neLng}
-        AND lat IS NOT NULL
-        AND lng IS NOT NULL
-      ORDER BY name
-      LIMIT ${bounds.limit}
-    `)
-    return { data: result as any[] }
+    const data = await db
+      .select({
+        id: libraries.id,
+        name: libraries.name,
+        lat: libraries.lat,
+        lng: libraries.lng,
+        address: libraries.address,
+      })
+      .from(libraries)
+      .where(
+        and(
+          gte(libraries.lat, bounds.swLat),
+          lte(libraries.lat, bounds.neLat),
+          gte(libraries.lng, bounds.swLng),
+          lte(libraries.lng, bounds.neLng),
+        ),
+      )
+      .orderBy(asc(libraries.name))
+      .limit(bounds.limit)
+
+    return { data }
   }
 
   async getById(id: number) {
@@ -89,14 +99,21 @@ export class LibrariesService {
   }
 
   async search(q: string, limit = 10) {
-    const result = await db.execute(sql`
-      SELECT id, name, address, region, lat, lng
-      FROM nearbook.libraries
-      WHERE name ILIKE ${'%' + q + '%'}
-      ORDER BY name
-      LIMIT ${limit}
-    `)
-    return { data: result as any[] }
+    const data = await db
+      .select({
+        id: libraries.id,
+        name: libraries.name,
+        address: libraries.address,
+        region: libraries.region,
+        lat: libraries.lat,
+        lng: libraries.lng,
+      })
+      .from(libraries)
+      .where(ilike(libraries.name, `%${q}%`))
+      .orderBy(asc(libraries.name))
+      .limit(limit)
+
+    return { data }
   }
 
   async list(page = 1, limit = 20, region?: string) {
@@ -109,24 +126,31 @@ export class LibrariesService {
   }
 
   async listRegions(): Promise<{ regions: string[] }> {
-    const result = await db.execute(sql`
-      SELECT DISTINCT region
-      FROM nearbook.libraries
-      WHERE region IS NOT NULL
-      ORDER BY region ASC
-    `)
-    return { regions: (result as any[]).map((r) => r.region) }
+    const result = await db
+      .selectDistinct({ region: libraries.region })
+      .from(libraries)
+      .where(sql`${libraries.region} IS NOT NULL`)
+      .orderBy(asc(libraries.region))
+
+    return { regions: result.map((r) => r.region) }
   }
 
   async findByRegion(region: string, limit = 50): Promise<{ data: any[] }> {
-    const result = await db.execute(sql`
-      SELECT id, name, address, region, lat, lng
-      FROM nearbook.libraries
-      WHERE region LIKE ${`${region}%`}
-      ORDER BY name ASC
-      LIMIT ${limit}
-    `)
-    return { data: result as any[] }
+    const data = await db
+      .select({
+        id: libraries.id,
+        name: libraries.name,
+        address: libraries.address,
+        region: libraries.region,
+        lat: libraries.lat,
+        lng: libraries.lng,
+      })
+      .from(libraries)
+      .where(ilike(libraries.region, `${region}%`))
+      .orderBy(asc(libraries.name))
+      .limit(limit)
+
+    return { data }
   }
 
   async getPopularBooks(libraryId: number, limit = 20) {
@@ -175,23 +199,41 @@ export class LibrariesService {
 
   async findByRegionWithSigungu(sido: string, sigungu?: string): Promise<{ data: any[] }> {
     if (sigungu) {
-      const result = await db.execute(sql`
-        SELECT id, name, lat, lng
-        FROM nearbook.libraries
-        WHERE region LIKE ${`${sido}%`}
-          AND address LIKE ${`%${sigungu}%`}
-          AND lat IS NOT NULL AND lng IS NOT NULL
-        LIMIT 200
-      `)
-      return { data: result as any[] }
+      const data = await db
+        .select({
+          id: libraries.id,
+          name: libraries.name,
+          lat: libraries.lat,
+          lng: libraries.lng,
+        })
+        .from(libraries)
+        .where(
+          and(
+            ilike(libraries.region, `${sido}%`),
+            ilike(libraries.address, `%${sigungu}%`),
+            sql`${libraries.lat} IS NOT NULL`,
+            sql`${libraries.lng} IS NOT NULL`,
+          ),
+        )
+        .limit(200)
+      return { data }
     }
-    const result = await db.execute(sql`
-      SELECT id, name, lat, lng
-      FROM nearbook.libraries
-      WHERE region LIKE ${`${sido}%`}
-        AND lat IS NOT NULL AND lng IS NOT NULL
-      LIMIT 200
-    `)
-    return { data: result as any[] }
+    const data = await db
+      .select({
+        id: libraries.id,
+        name: libraries.name,
+        lat: libraries.lat,
+        lng: libraries.lng,
+      })
+      .from(libraries)
+      .where(
+        and(
+          ilike(libraries.region, `${sido}%`),
+          sql`${libraries.lat} IS NOT NULL`,
+          sql`${libraries.lng} IS NOT NULL`,
+        ),
+      )
+      .limit(200)
+    return { data }
   }
 }

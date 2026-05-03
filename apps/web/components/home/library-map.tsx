@@ -3,6 +3,7 @@ import { useEffect, useCallback, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getStaticMapUrl } from '@/lib/maps'
+import { cn } from '@/lib/utils'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'
 
@@ -16,10 +17,10 @@ interface LibraryMarker {
 }
 
 interface LibraryMapProps {
-  initialLat?: number
-  initialLng?: number
-  initialZoom?: number
-  regionFilter?: string
+  initialLat?: number | undefined
+  initialLng?: number | undefined
+  initialZoom?: number | undefined
+  regionFilter?: string | undefined
 }
 
 export function LibraryMap({
@@ -60,43 +61,52 @@ export function LibraryMap({
     fetchLibraries(lat, lng, regionFilter).then(setLibraries)
   }, [initialLat, initialLng, regionFilter, fetchLibraries])
 
-  const centerLat = libraries.length > 0 ? libraries[0].lat : initialLat
-  const centerLng = libraries.length > 0 ? libraries[0].lng : initialLng
+  const centerLat = libraries.length > 0 ? (libraries[0]?.lat ?? initialLat) : initialLat
+  const centerLng = libraries.length > 0 ? (libraries[0]?.lng ?? initialLng) : initialLng
   const mapUrl = getStaticMapUrl(centerLat, centerLng, { w: 800, h: 480, level: 13 })
 
   return (
     <div className="relative w-full">
-      <div className="w-full rounded-xl overflow-hidden border border-gray-200">
-        <Image
-          src={mapUrl}
-          alt="도서관 위치 지도"
-          width={800}
-          height={480}
-          className="w-full"
-          unoptimized
-        />
+      <div className="w-full rounded-2xl overflow-hidden border border-border shadow-card bg-white p-1">
+        <div className="relative aspect-[16/10] sm:aspect-[21/9] rounded-xl overflow-hidden grayscale-[0.3] contrast-[1.1]">
+          <Image
+            src={mapUrl}
+            alt="도서관 위치 지도"
+            fill
+            className="object-cover"
+            unoptimized
+          />
+        </div>
       </div>
 
       {loading && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/90 px-4 py-1.5 rounded-full text-sm text-gray-600 shadow-md border border-gray-100 z-10">
-          🔍 도서관 검색 중…
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-semibold text-primary shadow-card-md border border-primary/20 z-10 flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          도서관 검색 중…
         </div>
       )}
 
       {!loading && libraries.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <p className="text-sm text-gray-500">📍 {libraries.length}개 도서관</p>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="mt-8 space-y-4">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+            📍 근처 {libraries.length}개 도서관
+          </p>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {libraries.slice(0, 10).map((lib) => (
               <li key={lib.id}>
                 <Link
                   href={`/library/${lib.id}`}
-                  className="block p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors"
+                  className="block p-4 rounded-xl bg-white border border-border hover:border-primary/50 hover:shadow-card-hover transition-all duration-300 group"
                 >
-                  <p className="font-medium text-sm">{lib.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{lib.address}</p>
+                  <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">{lib.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">{lib.address}</p>
                   {lib.distanceKm != null && (
-                    <p className="text-xs text-blue-600 mt-0.5">{lib.distanceKm.toFixed(1)}km</p>
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-primary px-2 py-0.5 bg-primary/5 rounded-full">
+                        {lib.distanceKm.toFixed(1)}km
+                      </span>
+                      <span className="text-[10px] text-subtle-foreground">상세보기 →</span>
+                    </div>
                   )}
                 </Link>
               </li>

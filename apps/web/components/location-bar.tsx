@@ -12,19 +12,19 @@ export function LocationBar() {
 
   return (
     <>
-      <div className="flex items-center gap-1.5 text-sm text-gray-600 mb-3">
-        <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <MapPin className="w-3.5 h-3.5 text-primary flex-shrink-0" />
         <span>
-          <span className="font-medium text-gray-900">{location.label}</span>
+          <span className="font-semibold text-foreground">{location.label}</span>
           {location.mode !== 'library' && ' 주변 도서관 기준'}
           {location.mode === 'library' && ' 도서관 기준'}
         </span>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-0.5 text-blue-600 hover:text-blue-700 hover:underline ml-1"
+          className="flex items-center gap-0.5 text-primary hover:text-primary-600 font-medium ml-1"
         >
           변경
-          <ChevronDown className="w-3.5 h-3.5" />
+          <ChevronDown className="w-3 h-3" />
         </button>
       </div>
 

@@ -3,9 +3,10 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { LocationMap } from '@/components/library/location-map'
+import { BookCard } from '@/components/book/book-card'
 
 const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
-export const revalidate = 60 * 60 * 24 * 7 // 1주
+export const revalidate = 604800 // 1주
 
 function fetchWithTimeout(
   url: string,
@@ -66,118 +67,136 @@ export default async function LibraryPage({
       : []
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-8">
-      {/* 헤더 */}
-      <section className="mb-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold mb-1">{library.name}</h1>
-            <p className="text-gray-600 text-sm mb-1">{library.address}</p>
-            {library.phone && (
-              <p className="text-gray-600 text-sm mb-1">{library.phone}</p>
-            )}
-            {library.operatingHours?.weekday && (
-              <p className="text-gray-600 text-sm">
-                {library.operatingHours.weekday}
+    <main className="bg-canvas min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+        {/* 헤더 */}
+        <section className="mb-10 bg-white rounded-2xl p-6 md:p-8 border border-border shadow-card">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">{library.name}</h1>
+              <p className="text-muted-foreground text-sm flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                {library.address}
               </p>
-            )}
-          </div>
-          {library.homepage && (
-            <a
-              href={library.homepage}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 text-sm text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50"
-            >
-              홈페이지
-            </a>
-          )}
-        </div>
-      </section>
-
-      {/* 인기 대출 도서 */}
-      <section className="mb-8">
-        <h2 className="text-lg font-bold mb-3">
-          이 도서관 인기 대출 TOP 20
-        </h2>
-        {popular.length === 0 ? (
-          <p className="text-gray-400 text-sm">인기도서 정보를 불러오는 중입니다.</p>
-        ) : (
-          <ol className="space-y-2">
-            {popular.map((book: any, i: number) => (
-              <li key={book.isbn ?? i}>
-                <Link
-                  href={`/book/${book.isbn}`}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <span className="text-gray-400 text-sm w-5 shrink-0">
-                    {i + 1}
-                  </span>
-                  {book.coverUrl && (
-                    <Image
-                      src={book.coverUrl}
-                      alt={book.title}
-                      width={36}
-                      height={48}
-                      className="rounded object-cover shrink-0"
-                    />
-                  )}
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{book.title}</p>
-                    <p className="text-gray-500 text-xs truncate">{book.author}</p>
-                  </div>
-                  {book.loanCount > 0 && (
-                    <span className="ml-auto text-xs text-gray-400 shrink-0">
-                      {book.loanCount}회
-                    </span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-
-      {/* 신간 */}
-      <section className="mb-8">
-        <h2 className="text-lg font-bold mb-3">최근 30일 신간</h2>
-        {recent.length === 0 ? (
-          <p className="text-gray-400 text-sm">신간 정보가 없습니다.</p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {recent.map((book: any, i: number) => (
-              <Link
-                key={book.isbn ?? i}
-                href={`/book/${book.isbn}`}
-                className="group"
-              >
-                {book.coverUrl ? (
-                  <Image
-                    src={book.coverUrl}
-                    alt={book.title}
-                    width={100}
-                    height={140}
-                    className="w-full rounded shadow-sm group-hover:shadow-md transition-shadow"
-                  />
-                ) : (
-                  <div className="w-full aspect-[5/7] bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">
-                    표지없음
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
+                {library.phone && (
+                  <div className="flex justify-between text-xs py-1 border-b border-border/50">
+                    <span className="text-subtle-foreground">전화번호</span>
+                    <span className="text-foreground font-medium">{library.phone}</span>
                   </div>
                 )}
-                <p className="mt-1 text-xs font-medium line-clamp-2">
-                  {book.title}
-                </p>
-                <p className="text-xs text-gray-500 truncate">{book.author}</p>
-              </Link>
-            ))}
+                {library.operatingHours?.weekday && (
+                  <div className="flex justify-between text-xs py-1 border-b border-border/50">
+                    <span className="text-subtle-foreground">운영시간</span>
+                    <span className="text-foreground font-medium">{library.operatingHours.weekday}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {library.homepage && (
+              <a
+                href={library.homepage}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 flex items-center justify-center h-10 px-6 rounded-full
+                           bg-primary text-white text-sm font-semibold hover:bg-primary-600 transition-colors shadow-card"
+              >
+                도서관 홈페이지 방문
+              </a>
+            )}
           </div>
-        )}
-      </section>
+        </section>
 
-      {/* 위치 지도 */}
-      {library.lat && library.lng && (
-        <LocationMap library={library} />
-      )}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-8">
+          <div className="space-y-12">
+            {/* 인기 대출 도서 */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <span className="text-primary text-xl">🏆</span> 인기도서 TOP 20
+                </h2>
+              </div>
+              {popular.length === 0 ? (
+                <div className="p-12 text-center bg-white rounded-xl border border-border border-dashed">
+                  <p className="text-muted-foreground text-sm">인기도서 정보를 불러오는 중입니다.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {popular.map((book: any, i: number) => (
+                    <div key={book.isbn ?? i} className="relative">
+                      <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-canvas-muted border border-border flex items-center justify-center text-[10px] font-bold text-muted-foreground z-10 shadow-sm">
+                        {i + 1}
+                      </div>
+                      <BookCard
+                        isbn={book.isbn}
+                        title={book.title}
+                        author={book.author}
+                        coverUrl={book.coverUrl}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* 신간 */}
+            <section>
+              <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                <span className="text-primary text-xl">✨</span> 최근 30일 신간
+              </h2>
+              {recent.length === 0 ? (
+                <div className="p-12 text-center bg-white rounded-xl border border-border border-dashed">
+                  <p className="text-muted-foreground text-sm">신간 정보가 없습니다.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {recent.map((book: any, i: number) => (
+                    <Link
+                      key={book.isbn ?? i}
+                      href={`/book/${book.isbn}`}
+                      className="group"
+                    >
+                      <div className="aspect-[2/3] relative rounded-lg overflow-hidden border border-border shadow-card group-hover:shadow-card-hover transition-all duration-300">
+                        {book.coverUrl ? (
+                          <Image
+                            src={book.coverUrl}
+                            alt={book.title}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-canvas-muted flex items-center justify-center text-subtle-foreground text-xs">
+                            표지없음
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                        {book.title}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">{book.author}</p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* 사이드바 */}
+          <aside className="space-y-8">
+            {/* 위치 지도 */}
+            {library.lat && library.lng && (
+              <div className="rounded-2xl overflow-hidden border border-border shadow-card">
+                <div className="px-4 py-3 bg-white border-b border-border">
+                  <h3 className="text-sm font-bold text-foreground">도서관 위치</h3>
+                </div>
+                <div className="h-60 grayscale-[0.5]">
+                  <LocationMap library={library} />
+                </div>
+              </div>
+            )}
+          </aside>
+        </div>
+      </div>
     </main>
   )
 }

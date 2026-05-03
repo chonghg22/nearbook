@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Heart } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api-client'
+import { cn } from '@/lib/utils'
 
 interface Props {
   isbn: string
@@ -61,24 +62,24 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
         onClick={handleClick}
         disabled={loading}
         aria-label={added ? '위시리스트에서 제거' : '위시리스트에 추가'}
-        className={`flex items-center gap-1.5 px-4 py-2 rounded-lg border text-sm font-medium transition-colors
-          ${
-            added
-              ? 'bg-red-50 text-red-600 border-red-300 hover:bg-red-100'
-              : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-          }
-          disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={cn(
+          'flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all duration-200',
+          added
+            ? 'bg-red-50 text-red-500 border-red-200 hover:bg-red-100'
+            : 'bg-white text-muted-foreground border-border hover:border-primary/50 hover:text-primary shadow-card',
+          'disabled:opacity-50 disabled:cursor-not-allowed'
+        )}
       >
         <Heart
           size={16}
           fill={added ? 'currentColor' : 'none'}
-          className="shrink-0"
+          className={cn('shrink-0 transition-transform duration-300', added && 'scale-110')}
         />
         {added ? '찜됨' : '찜하기'}
       </button>
 
       {toastMsg && (
-        <div className="absolute top-full mt-2 left-0 bg-gray-800 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap z-50">
+        <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-foreground text-canvas text-2xs px-3 py-1.5 rounded-md shadow-card-md whitespace-nowrap z-50 animate-in fade-in zoom-in duration-200">
           {toastMsg}
         </div>
       )}

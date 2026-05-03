@@ -8,72 +8,102 @@ const config: Config = {
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
   ],
-  prefix: '',
   theme: {
-    container: {
-      center: true,
-      padding: '2rem',
-      screens: {
-        '2xl': '1400px',
-      },
-    },
     extend: {
-      fontFamily: {
-        pretendard: ['var(--font-pretendard)', 'Pretendard', 'sans-serif'],
-      },
       colors: {
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
+        // 배경 — 크림 오프화이트 (책 페이지 분위기)
+        canvas: {
+          DEFAULT: '#FAF9F6',   // 메인 배경
+          subtle: '#F4F2EE',    // 카드 내부 구분 영역
+          muted: '#EDEBE6',     // 비활성 영역
+        },
+
+        // 브랜드 — 따뜻한 파랑 (기존 파랑보다 살짝 따뜻하게)
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
+          50:  '#EFF6FF',
+          100: '#DBEAFE',
+          200: '#BFDBFE',
+          500: '#3B7DD8',   // 메인 (약간 따뜻한 파랑)
+          600: '#2563C8',
+          700: '#1D4EAE',
+          900: '#1E3A5F',
+          DEFAULT: '#3B7DD8',
+          foreground: '#FFFFFF',
         },
-        secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
+
+        // 상태 배지 — 채도 낮춘 자연색
+        available: {
+          bg:   '#ECFDF5',
+          text: '#065F46',
+          dot:  '#10B981',
         },
-        destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
+        waiting: {
+          bg:   '#FFFBEB',
+          text: '#92400E',
+          dot:  '#F59E0B',
         },
-        muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
+        unavailable: {
+          bg:   '#F9FAFB',
+          text: '#6B7280',
+          dot:  '#D1D5DB',
         },
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-        },
-        popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
-        },
-        card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
-        },
+
+        // 중립
+        border: '#E5E2DC',
+        input:  '#F0EDE8',
+        ring:   '#3B7DD8',
+
+        // 텍스트 계층
+        foreground:       '#1C1917',  // 주 텍스트 (warm black)
+        'muted-foreground': '#78716C', // 보조 텍스트
+        'subtle-foreground': '#A8A29E', // 플레이스홀더
       },
+
+      fontFamily: {
+        sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      },
+
+      fontSize: {
+        '2xs': ['11px', { lineHeight: '16px' }],
+        xs:   ['12px', { lineHeight: '18px' }],
+        sm:   ['14px', { lineHeight: '22px' }],
+        base: ['16px', { lineHeight: '26px' }],
+        lg:   ['18px', { lineHeight: '28px' }],
+        xl:   ['20px', { lineHeight: '30px' }],
+        '2xl':['24px', { lineHeight: '34px', letterSpacing: '-0.02em' }],
+        '3xl':['30px', { lineHeight: '40px', letterSpacing: '-0.02em' }],
+        '4xl':['36px', { lineHeight: '46px', letterSpacing: '-0.03em' }],
+      },
+
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        sm:  '6px',
+        DEFAULT: '10px',
+        md:  '10px',
+        lg:  '14px',
+        xl:  '18px',
+        '2xl': '24px',
+        full: '9999px',
       },
-      keyframes: {
-        'accordion-down': {
-          from: { height: '0' },
-          to: { height: 'var(--radix-accordion-content-height)' },
-        },
-        'accordion-up': {
-          from: { height: 'var(--radix-accordion-content-height)' },
-          to: { height: '0' },
-        },
+
+      boxShadow: {
+        'card':    '0 1px 3px rgba(28,25,23,0.06), 0 1px 2px rgba(28,25,23,0.04)',
+        'card-md': '0 4px 12px rgba(28,25,23,0.08), 0 2px 4px rgba(28,25,23,0.04)',
+        'card-hover': '0 8px 24px rgba(28,25,23,0.10), 0 3px 8px rgba(28,25,23,0.06)',
+        'input':   '0 1px 2px rgba(28,25,23,0.04) inset',
+        'none':    'none',
       },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
+
+      spacing: {
+        '4.5': '18px',
+        '13':  '52px',
+        '15':  '60px',
+        '18':  '72px',
+      },
+
+      transitionTimingFunction: {
+        'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
     },
   },

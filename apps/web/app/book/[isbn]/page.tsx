@@ -1,5 +1,8 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { LibraryCard } from '@/components/library/library-card'
+import type { Status } from '@/components/ui/status-badge'
+import { WishlistButton } from '@/components/book/wishlist-button'
 
 const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3001'
 export const revalidate = 2592000 // 30일
@@ -77,66 +80,111 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
         }}
       />
 
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        <section className="flex gap-6 mb-8">
-          {book.coverUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={book.coverUrl}
-              alt={book.title}
-              width={120}
-              height={180}
-              className="rounded shadow-md object-cover"
-            />
-          )}
-          <div>
-            <h1 className="text-2xl font-bold">{book.title}</h1>
-            <p className="text-gray-500 mt-1">{book.author}</p>
-            <p className="text-gray-400 text-sm mt-1">
-              {book.publisher} {book.publishedYear && `· ${book.publishedYear}`}
-            </p>
-          </div>
-        </section>
-
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold mb-3">📚 주변 도서관 보유 현황</h2>
-          {libraries?.length ? (
-            <ul className="space-y-2">
-              {libraries.map((lib: Record<string, any>) => (
-                <li key={String(lib.id)} className="border rounded-lg p-3 flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{String(lib.name ?? '')}</p>
-                    <p className="text-sm text-gray-400">
-                      {lib.distanceKm}km · {String(lib.address ?? '')}
-                    </p>
+      <main className="bg-canvas min-h-screen">
+        <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+          {/* 상단 2-컬럼 레이아웃 (데스크톱) */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_340px] gap-8 md:gap-12 items-start">
+            
+            {/* 왼쪽: 책 상세 정보 */}
+            <div className="space-y-8">
+              <section className="flex flex-col sm:flex-row gap-6 md:gap-8">
+                {book.coverUrl && (
+                  <div className="shrink-0 mx-auto sm:mx-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={book.coverUrl}
+                      alt={book.title}
+                      width={160}
+                      height={240}
+                      className="rounded-lg shadow-card-md object-cover border border-border/50"
+                    />
                   </div>
-                  <span className={`text-sm font-semibold ${lib.loanAvailable ? 'text-green-600' : 'text-gray-400'}`}>
-                    {lib.loanAvailable ? '✅ 대출 가능' : '⏳ 대출 중'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-400">반경 5km 내 도서관 정보가 없습니다.</p>
-          )}
-        </section>
+                )}
+                <div className="flex-1 text-center sm:text-left">
+                  <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight text-balance leading-tight">
+                    {book.title}
+                  </h1>
+                  <p className="text-lg text-muted-foreground mt-2">{book.author}</p>
+                  <p className="text-sm text-subtle-foreground mt-2">
+                    {book.publisher} {book.publishedYear && `· ${book.publishedYear}`}
+                  </p>
+                  
+                  <div className="mt-6 flex flex-wrap justify-center sm:justify-start gap-3">
+                    <WishlistButton isbn={book.isbn} />
+                  </div>
+                </div>
+              </section>
 
-        <section>
-          <h2 className="text-lg font-semibold mb-3">🛒 구매·대여 옵션</h2>
-          <div className="flex gap-3 flex-wrap">
-            {affiliates?.map((a: Record<string, any>) => (
-              <a
-                key={String(a.provider)}
-                href={String(a.url)}
-                target="_blank"
-                rel="noopener noreferrer sponsored"
-                className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50 transition"
-              >
-                {String(a.provider)} ({String(a.type)})
-              </a>
-            ))}
+              <section>
+                <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                  📚 주변 도서관 보유 현황
+                </h2>
+                {libraries?.length ? (
+                  <div className="grid grid-cols-1 gap-4">
+                    {libraries.map((lib: Record<string, any>) => {
+                      const status: Status = lib.loanAvailable ? 'available' : 'unavailable'
+                      return (
+                        <LibraryCard
+                          key={String(lib.id)}
+                          libraryId={String(lib.id)}
+                          libraryName={String(lib.name ?? '')}
+                          distanceKm={lib.distanceKm}
+                          availableCount={lib.loanAvailable ? 1 : 0} // 데이터 구조에 맞춰 조정 필요할 수 있음
+                          status={status}
+                        />
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="bg-white border border-border border-dashed rounded-lg p-12 text-center">
+                    <p className="text-muted-foreground">반경 5km 내 도서관 정보가 없습니다.</p>
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h2 className="text-lg font-bold text-foreground mb-4">🛒 구매·대여 옵션</h2>
+                <div className="flex gap-2 flex-wrap">
+                  {affiliates?.map((a: Record<string, any>) => (
+                    <a
+                      key={String(a.provider)}
+                      href={String(a.url)}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                      className="px-4 py-2 bg-white border border-border rounded-lg text-sm font-medium
+                                 text-muted-foreground hover:border-primary/50 hover:text-primary
+                                 transition-colors shadow-card"
+                    >
+                      {String(a.provider)}
+                    </a>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            {/* 오른쪽: 사이드바 (데스크톱) */}
+            <aside className="hidden md:block space-y-6">
+              <div className="bg-canvas-subtle rounded-xl p-5 border border-border">
+                <h3 className="font-semibold text-foreground mb-2 text-sm">도서 정보</h3>
+                <dl className="space-y-3 text-xs">
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">ISBN</dt>
+                    <dd className="font-mono text-foreground">{book.isbn}</dd>
+                  </div>
+                  {book.publishedYear && (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">발행일</dt>
+                      <dd className="text-foreground">{book.publishedYear}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+              
+              {/* 여기에 광고나 추가 정보를 넣을 수 있음 */}
+            </aside>
+
           </div>
-        </section>
+        </div>
       </main>
     </>
   )
