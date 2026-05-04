@@ -1,6 +1,8 @@
 import { HeroSection } from './_components/hero-section'
 import { BookListSection } from './_components/book-list-section'
 import { LibrariesNearMe } from './_components/libraries-near-me'
+import { AboutSection } from './_components/about-section'
+import { AdSenseSlot } from './_components/adsense-slot'
 
 export const revalidate = 86400 // 1일
 
@@ -47,6 +49,8 @@ export default async function HomePage() {
       <HeroSection />
       
       <div className="space-y-8 pb-20">
+        <LibrariesNearMe fallbackLibraries={libraries.data ?? []} />
+
         <BookListSection 
           title="🔥 이번 주 인기 도서" 
           items={popular.data ?? []} 
@@ -58,19 +62,10 @@ export default async function HomePage() {
           items={newBooks.data ?? []} 
           viewAllHref="/recent"
         />
-        
-        <LibrariesNearMe fallbackLibraries={libraries.data ?? []} />
       </div>
 
-      <section className="bg-gray-50 py-20 px-4">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-6">우리 동네 도서관을 더 가깝게</h2>
-          <p className="text-lg text-gray-600 leading-relaxed">
-            전국 1,400개 이상의 공공도서관 데이터를 통합하여<br />
-            내가 읽고 싶은 책이 지금 어디에 있는지, 바로 빌릴 수 있는지 알려드립니다.
-          </p>
-        </div>
-      </section>
+      <AboutSection />
+      <AdSenseSlot slot="home-footer" />
     </main>
   )
 }

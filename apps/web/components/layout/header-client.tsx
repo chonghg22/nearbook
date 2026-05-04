@@ -45,46 +45,45 @@ export function HeaderClient({ nickname }: { nickname?: string | undefined }) {
           {/* 모바일 검색 아이콘 */}
           <button
             onClick={() => setIsSearchOpen(true)}
-            className="md:hidden flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition-colors"
+            className="md:hidden flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
             aria-label="검색"
           >
             <Search className="w-5 h-5 text-gray-600" />
           </button>
 
-          {/* 내 책장 버튼 (데스크톱) */}
-          <Link
-            href={nickname ? '/me/wishlist' : '/login?next=/me/wishlist'}
-            className="hidden md:flex items-center px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            내 책장
-          </Link>
+          {nickname ? (
+            <div className="flex items-center gap-2">
+              <Link
+                href="/me"
+                className="flex items-center px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                내 책장
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="hidden md:block px-4 py-2 text-sm font-medium text-red-500 bg-white border border-red-100 rounded-full hover:bg-red-50 transition-colors"
+              >
+                로그아웃
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              로그인
+            </Link>
+          )}
 
-          {/* 모바일 내 책장 버튼 (아이콘 없이 텍스트만) */}
-          <Link
-            href={nickname ? '/me/wishlist' : '/login?next=/me/wishlist'}
-            className="md:hidden flex items-center px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            내 책장
-          </Link>
-
-          {/* 모바일 햄버거 메뉴 (필요 시) */}
+          {/* 모바일 햄버거 메뉴 (로그인 시에만) */}
           {nickname && (
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="md:hidden flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition-colors"
+              className="md:hidden flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
               aria-label={menuOpen ? '메뉴 닫기' : '메뉴 열기'}
             >
               {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-          )}
-
-          {!nickname && (
-            <Link
-              href="/login"
-              className="hidden md:block text-sm font-medium text-gray-500 hover:text-gray-900 ml-2"
-            >
-              로그인
-            </Link>
           )}
         </nav>
       </div>

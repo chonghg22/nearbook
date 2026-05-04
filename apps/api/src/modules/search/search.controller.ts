@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common'
+import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { SearchService } from './search.service'
 import { SearchQueryDto } from './dto/search-query.dto'
@@ -19,5 +19,13 @@ export class SearchController {
   async suggest(@Query('q') q: string) {
     if (!q || q.length < 2) return { data: [] }
     return { data: await this.service.suggest(q) }
+  }
+
+  @Get('trending')
+  @ApiOperation({ summary: '인기 검색어' })
+  async trending(
+    @Query('limit', new DefaultValuePipe(8), ParseIntPipe) limit: number,
+  ): Promise<string[]> {
+    return this.service.getTrending(Math.min(limit, 20))
   }
 }

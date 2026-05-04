@@ -76,23 +76,23 @@ export function SearchBar({
           autoFocus={autoFocus}
           placeholder={placeholder}
           aria-label="책 제목·저자·ISBN 검색"
-          className="w-full h-11 pl-11 pr-10 rounded-full border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+          className="w-full h-12 pl-12 pr-14 rounded-full border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all shadow-sm"
         />
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary-500" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
         {q && (
           <button
             type="button"
             onClick={() => setQ('')}
-            className="absolute right-12 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 transition"
+            className="absolute right-14 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 transition"
           >
             <X className="w-4 h-4 text-gray-400" />
           </button>
         )}
         <button
           type="submit"
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-primary-500 text-white hover:bg-primary-600 transition"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-primary-500 text-white hover:bg-primary-600 transition flex items-center justify-center shadow-sm"
         >
-          <Search className="w-4 h-4" />
+          <Search className="w-5 h-5" />
         </button>
       </form>
 
