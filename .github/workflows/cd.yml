@@ -9,8 +9,8 @@ env:
   IMAGE_NAME_PREFIX: ${{ github.repository }}
 
 jobs:
-  build-and-push:
-    name: Build and Push Docker Images
+  build-and-push-api:
+    name: Build and Push API Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -44,21 +44,3 @@ jobs:
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
-
-      - name: Extract metadata (tags, labels) for Web
-        id: meta-web
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}-web
-          tags: |
-            type=sha
-            type=raw,value=latest
-
-      - name: Build and push Web Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          push: true
-          tags: ${{ steps.meta-web.outputs.tags }}
-          labels: ${{ steps.meta-web.outputs.labels }}

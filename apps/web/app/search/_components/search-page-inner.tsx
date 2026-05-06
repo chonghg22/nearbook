@@ -48,10 +48,20 @@ export function SearchPageInner() {
     router.push(`/search?q=${encodeURIComponent(query)}`)
   }, [router])
 
-  const handleFilterChange = useCallback((filters: Record<string, string>) => {
-    const next = new URLSearchParams({ q, ...filters })
+  const handleFilterChange = useCallback((key: string, value: string | null) => {
+    const next = new URLSearchParams({
+      q,
+      sort,
+      category,
+      availableOnly: availableOnly.toString(),
+    })
+    if (value === null) {
+      next.delete(key)
+    } else {
+      next.set(key, value)
+    }
     router.push(`/search?${next.toString()}`)
-  }, [q, router])
+  }, [q, sort, category, availableOnly, router])
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -70,14 +80,15 @@ export function SearchPageInner() {
             )}
           </p>
           <FilterPanel
-            current={{ sort, category, availableOnly }}
+            sort={sort}
+            category={category}
+            availableOnly={availableOnly}
             onChange={handleFilterChange}
           />
           <ResultList
             isLoading={isLoading}
             items={data?.data?.items}
-            suggestions={data?.data?.suggestions}
-            trending={data?.data?.trending}
+            query={q}
           />
         </>
       ) : (
