@@ -19,7 +19,8 @@ RUN pnpm install --frozen-lockfile
 # Build the project
 COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
-RUN npx turbo run build --filter=@nearbook/web
+ENV CI=true
+RUN pnpm exec turbo run build --filter=@nearbook/web...
 
 FROM node:20-slim AS runner
 WORKDIR /app
