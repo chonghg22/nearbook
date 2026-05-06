@@ -1,31 +1,27 @@
-FROM node:20-slim AS builder
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+FROM node:20-alpine AS builder
+RUN apk add --no-cache libc6-compat
 RUN npm install -g pnpm turbo
-
 WORKDIR /app
 COPY . .
 RUN turbo prune --scope=@nearbook/api --docker
 
-FROM node:20-slim AS installer
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+FROM node:20-alpine AS installer
+RUN apk add --no-cache libc6-compat
 RUN npm install -g pnpm
 WORKDIR /app
 
-# Install dependencies for the pruned project
+# Copy all pruned files at once to maintain workspace structure
 COPY --from=builder /app/out/json/ .
-COPY --from=builder /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-RUN pnpm install --frozen-lockfile
-
-# Build the project
 COPY --from=builder /app/out/full/ .
+COPY --from=builder /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY turbo.json turbo.json
-# RE-INSTALL to restore symlinks broken by the full source copy
+
+# Install and build in one clean environment
 RUN pnpm install --frozen-lockfile
 ENV CI=true
-# Build dependencies first then the app
-RUN npx turbo build --filter="@nearbook/api..." --log-order=stream
+RUN pnpm build --filter=@nearbook/api...
 
-FROM node:20-slim AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
@@ -40,7 +36,7 @@ USER nestjs
 COPY --from=installer /app/node_modules ./node_modules
 COPY --from=installer /app/packages ./packages
 COPY --from=installer /app/apps/api/dist ./apps/api/dist
-COPY --from=installer /app/apps/api/package.json ./package.json
+COPY --from=installer /app/apps/api/package.json ./apps/api/package.json
 
 EXPOSE 3001
 ENV PORT 3001
