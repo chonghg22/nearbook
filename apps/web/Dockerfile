@@ -1,13 +1,13 @@
-FROM node:20-alpine AS builder
-RUN apk add --no-cache libc6-compat
+FROM node:20-slim AS builder
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm turbo
 
 WORKDIR /app
 COPY . .
 RUN turbo prune --scope=@nearbook/web --docker
 
-FROM node:20-alpine AS installer
-RUN apk add --no-cache libc6-compat
+FROM node:20-slim AS installer
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm
 WORKDIR /app
 
@@ -21,7 +21,7 @@ COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
 RUN npx turbo run build --filter=@nearbook/web
 
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
