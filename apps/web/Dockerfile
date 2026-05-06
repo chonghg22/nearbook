@@ -1,27 +1,18 @@
-FROM node:20-alpine AS builder
-RUN apk add --no-cache libc6-compat
+FROM node:20-slim AS builder
+RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm turbo
+
 WORKDIR /app
 COPY . .
-RUN turbo prune --scope=@nearbook/web --docker
 
-FROM node:20-alpine AS installer
-RUN apk add --no-cache libc6-compat
-RUN npm install -g pnpm
-WORKDIR /app
+# Install all dependencies with hoisting to avoid symlink issues in Docker
+RUN pnpm install --frozen-lockfile --shamefully-hoist
 
-# Copy all pruned files at once to maintain workspace structure
-COPY --from=builder /app/out/json/ .
-COPY --from=builder /app/out/full/ .
-COPY --from=builder /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY turbo.json turbo.json
-
-# Install and build in one clean environment
-RUN pnpm install --frozen-lockfile
+# Build all packages
 ENV CI=true
-RUN pnpm build --filter=@nearbook/web...
+RUN npx turbo run build --filter=@nearbook/web...
 
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV production
@@ -32,9 +23,9 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 USER nestjs
 
-COPY --from=installer /app/apps/web/public ./apps/web/public
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
 EXPOSE 3000
 ENV PORT 3000
