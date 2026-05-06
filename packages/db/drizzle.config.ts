@@ -5,10 +5,10 @@ export default {
   schema: './src/schema.ts',
   out: './src/migrations',
   dialect: 'postgresql',
+  schemaFilter: ['nearbook'],
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
-  schemaFilter: ['nearbook'],   // ← 추가
   verbose: true,
   strict: true,
 } satisfies Config

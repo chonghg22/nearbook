@@ -1,2 +1,5 @@
 .env
-dist/
+.env.local
+node_modules
+dist
+src/migrations/meta

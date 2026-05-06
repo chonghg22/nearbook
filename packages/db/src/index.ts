@@ -2,6 +2,7 @@ export * from './schema'
 export * from './client'
 export {
   eq,
+  isNull,
   and,
   or,
   not,
@@ -12,8 +13,6 @@ export {
   lt,
   lte,
   inArray,
-  isNull,
-  isNotNull,
   sql,
   desc,
   asc,

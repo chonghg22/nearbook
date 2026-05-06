@@ -1,6 +1,4 @@
-SET search_path TO nearbook, public, extensions;
---> statement-breakpoint
-CREATE SCHEMA IF NOT EXISTS "nearbook";
+CREATE SCHEMA "nearbook";
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "nearbook"."api_usage" (
 	"id" serial PRIMARY KEY NOT NULL,
@@ -42,7 +40,7 @@ CREATE TABLE IF NOT EXISTS "nearbook"."libraries" (
 	"region" varchar(64) NOT NULL,
 	"lat" double precision NOT NULL,
 	"lng" double precision NOT NULL,
-	"location" geography(Point, 4326) NOT NULL,
+	"location" "geography(Point, 4326)" NOT NULL,
 	"phone" varchar(32),
 	"homepage" varchar(256),
 	"operating_hours" jsonb,
@@ -81,13 +79,14 @@ CREATE TABLE IF NOT EXISTS "nearbook"."search_logs" (
 CREATE TABLE IF NOT EXISTS "nearbook"."users" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"supabase_user_id" varchar(64) NOT NULL,
-	"email" varchar(256),
+	"email" varchar(256) NOT NULL,
 	"nickname" varchar(64),
 	"region" varchar(64),
 	"plan" varchar(16) DEFAULT 'free' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "users_supabase_user_id_unique" UNIQUE("supabase_user_id")
+	CONSTRAINT "users_supabase_user_id_unique" UNIQUE("supabase_user_id"),
+	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "nearbook"."wishlists" (
@@ -128,19 +127,22 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "api_usage_provider_created_idx" ON "nearbook"."api_usage" ("provider","created_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "book_cache_title_idx" ON "nearbook"."book_cache" ("title");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "book_cache_expires_idx" ON "nearbook"."book_cache" ("expires_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "events_type_idx" ON "nearbook"."events" ("type");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "events_created_idx" ON "nearbook"."events" ("created_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "libraries_region_idx" ON "nearbook"."libraries" ("region");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "libraries_location_gix" ON "nearbook"."libraries" ("location");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "library_cards_user_idx" ON "nearbook"."library_cards" ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "library_cards_unique" ON "nearbook"."library_cards" ("user_id","library_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "popular_books_region_period_idx" ON "nearbook"."popular_books" ("region","period");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "search_logs_query_idx" ON "nearbook"."search_logs" ("query");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "search_logs_created_idx" ON "nearbook"."search_logs" ("created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "users_email_idx" ON "nearbook"."users" ("email");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "users_supabase_idx" ON "nearbook"."users" ("supabase_user_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "wishlists_user_idx" ON "nearbook"."wishlists" ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "wishlists_unique" ON "nearbook"."wishlists" ("user_id","isbn");
+CREATE INDEX IF NOT EXISTS "api_usage_provider_created_idx" ON "nearbook"."api_usage" USING btree ("provider","created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "book_cache_title_idx" ON "nearbook"."book_cache" USING gin ("title");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "book_cache_title_trgm_idx" ON "nearbook"."book_cache" USING gin ("title");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "book_cache_expires_idx" ON "nearbook"."book_cache" USING btree ("expires_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "events_type_idx" ON "nearbook"."events" USING btree ("type");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "events_created_idx" ON "nearbook"."events" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "events_user_idx" ON "nearbook"."events" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "libraries_region_idx" ON "nearbook"."libraries" USING btree ("region");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "libraries_location_gix" ON "nearbook"."libraries" USING gist ("location");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "library_cards_user_idx" ON "nearbook"."library_cards" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "library_cards_unique" ON "nearbook"."library_cards" USING btree ("user_id","library_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "popular_books_region_period_idx" ON "nearbook"."popular_books" USING btree ("region","period");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "popular_books_isbn_idx" ON "nearbook"."popular_books" USING btree ("isbn");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "search_logs_query_idx" ON "nearbook"."search_logs" USING btree ("query");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "search_logs_created_idx" ON "nearbook"."search_logs" USING btree ("created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "users_email_idx" ON "nearbook"."users" USING btree ("email");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "users_supabase_idx" ON "nearbook"."users" USING btree ("supabase_user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "wishlists_user_idx" ON "nearbook"."wishlists" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "wishlists_unique" ON "nearbook"."wishlists" USING btree ("user_id","isbn");

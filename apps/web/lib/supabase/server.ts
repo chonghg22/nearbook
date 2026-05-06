@@ -1,10 +1,13 @@
-import { createServerClient as createSSRServerClient } from '@supabase/ssr'
+import { createServerClient as _createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export async function createServerClient() {
+/**
+ * Next.js 15 의 cookies() 는 async 이므로 이 헬퍼도 async.
+ */
+export async function createClient() {
   const cookieStore = await cookies()
 
-  return createSSRServerClient(
+  return _createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -14,16 +17,17 @@ export async function createServerClient() {
         },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
+            cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
-            )
+            })
           } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            // Server Component 에서 호출되면 set 불가.
           }
         },
       },
     },
   )
 }
+
+// 기존 코드 호환성을 위해 alias 로 export
+export const createServerClient = createClient

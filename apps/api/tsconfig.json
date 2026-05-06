@@ -11,8 +11,8 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@nearbook/db": ["../../packages/db/dist"],
-      "@nearbook/shared-types": ["../../packages/shared-types/dist"]
+      "@nearbook/db": ["../../packages/db/src"],
+      "@nearbook/shared-types": ["../../packages/shared-types/src"]
     },
     "incremental": true,
     "skipLibCheck": true,

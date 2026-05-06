@@ -1,22 +1,34 @@
 import {
-  pgSchema, serial, text, varchar, timestamp, integer, boolean, jsonb,
-  uniqueIndex, index, primaryKey, customType, doublePrecision,
+  pgSchema,
+  serial,
+  text,
+  varchar,
+  timestamp,
+  integer,
+  boolean,
+  jsonb,
+  uniqueIndex,
+  index,
+  customType,
+  doublePrecision,
 } from 'drizzle-orm/pg-core'
 import { relations, sql } from 'drizzle-orm'
 
-// nearbook 스키마 선언
-export const nearbook = pgSchema('nearbook')
+// 모든 테이블은 nearbook 스키마에 위치 (public 금지)
+export const nearbookSchema = pgSchema('nearbook')
 
-// PostGIS geography type
+// PostGIS geography type (위치 좌표)
 const geography = customType<{ data: string; driverData: string }>({
-  dataType() { return 'geography(Point, 4326)' },
+  dataType() {
+    return 'geography'
+  },
 })
 
-// 1. 사용자 (email nullable — 카카오는 이메일 미제공)
-export const users = nearbook.table('users', {
+// 1. 사용자
+export const users = nearbookSchema.table('users', {
   id: serial('id').primaryKey(),
   supabaseUserId: varchar('supabase_user_id', { length: 64 }).notNull().unique(),
-  email: varchar('email', { length: 256 }),           // ← nullable로 변경
+  email: varchar('email', { length: 256 }).unique(),
   nickname: varchar('nickname', { length: 64 }),
   region: varchar('region', { length: 64 }),
   plan: varchar('plan', { length: 16 }).notNull().default('free'),
@@ -30,10 +42,11 @@ export const users = nearbook.table('users', {
 export const usersRelations = relations(users, ({ many }) => ({
   wishlists: many(wishlists),
   libraryCards: many(libraryCards),
+  feedbacks: many(feedback),
 }))
 
-// 2. 도서관
-export const libraries = nearbook.table('libraries', {
+// 2. 도서관 (1,400+ 마스터)
+export const libraries = nearbookSchema.table('libraries', {
   id: integer('id').primaryKey(),
   name: varchar('name', { length: 128 }).notNull(),
   address: varchar('address', { length: 256 }).notNull(),
@@ -48,11 +61,11 @@ export const libraries = nearbook.table('libraries', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ({
   regionIdx: index('libraries_region_idx').on(t.region),
-  locationIdx: index('libraries_location_gix').on(t.location).using(sql`gist`),
+  locationIdx: index('libraries_location_gix').using('gist', t.location),
 }))
 
-// 3. 도서관 카드
-export const libraryCards = nearbook.table('library_cards', {
+// 3. 사용자 도서관 카드
+export const libraryCards = nearbookSchema.table('library_cards', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   libraryId: integer('library_id').notNull().references(() => libraries.id),
@@ -70,7 +83,7 @@ export const libraryCardsRelations = relations(libraryCards, ({ one }) => ({
 }))
 
 // 4. 책 메타 캐시
-export const bookCache = nearbook.table('book_cache', {
+export const bookCache = nearbookSchema.table('book_cache', {
   isbn: varchar('isbn', { length: 20 }).primaryKey(),
   title: varchar('title', { length: 512 }).notNull(),
   author: varchar('author', { length: 256 }),
@@ -84,11 +97,12 @@ export const bookCache = nearbook.table('book_cache', {
   expiresAt: timestamp('expires_at').notNull(),
 }, (t) => ({
   titleIdx: index('book_cache_title_idx').on(t.title),
+  titleSearchIdx: index('book_cache_title_trgm_idx').using('gin', t.title.op('gin_trgm_ops')),
   expiresIdx: index('book_cache_expires_idx').on(t.expiresAt),
 }))
 
 // 5. 위시리스트
-export const wishlists = nearbook.table('wishlists', {
+export const wishlists = nearbookSchema.table('wishlists', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   isbn: varchar('isbn', { length: 20 }).notNull(),
@@ -104,7 +118,7 @@ export const wishlistsRelations = relations(wishlists, ({ one }) => ({
 }))
 
 // 6. 검색 로그
-export const searchLogs = nearbook.table('search_logs', {
+export const searchLogs = nearbookSchema.table('search_logs', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
   query: varchar('query', { length: 256 }).notNull(),
@@ -116,8 +130,28 @@ export const searchLogs = nearbook.table('search_logs', {
   createdIdx: index('search_logs_created_idx').on(t.createdAt),
 }))
 
-// 7. 인기도서
-export const popularBooks = nearbook.table('popular_books', {
+// 7. 피드백
+export const feedback = nearbookSchema.table('feedback', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  category: varchar('category', { length: 32 }).notNull(),
+  title: varchar('title', { length: 256 }).notNull(),
+  body: text('body').notNull(),
+  contactEmail: varchar('contact_email', { length: 256 }),
+  pageUrl: varchar('page_url', { length: 512 }),
+  userAgent: varchar('user_agent', { length: 512 }),
+  status: varchar('status', { length: 16 }).notNull().default('pending'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('feedback_user_idx').on(t.userId),
+}))
+
+export const feedbackRelations = relations(feedback, ({ one }) => ({
+  user: one(users, { fields: [feedback.userId], references: [users.id] }),
+}))
+
+// 8. 인기도서 집계
+export const popularBooks = nearbookSchema.table('popular_books', {
   id: serial('id').primaryKey(),
   region: varchar('region', { length: 64 }).notNull(),
   period: varchar('period', { length: 16 }).notNull(),
@@ -127,10 +161,11 @@ export const popularBooks = nearbook.table('popular_books', {
   computedAt: timestamp('computed_at').notNull().defaultNow(),
 }, (t) => ({
   regionPeriodIdx: index('popular_books_region_period_idx').on(t.region, t.period),
+  isbnIdx: index('popular_books_isbn_idx').on(t.isbn),
 }))
 
-// 8. 분석 이벤트
-export const events = nearbook.table('events', {
+// 9. 분석 이벤트
+export const events = nearbookSchema.table('events', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
   type: varchar('type', { length: 32 }).notNull(),
@@ -140,85 +175,48 @@ export const events = nearbook.table('events', {
 }, (t) => ({
   typeIdx: index('events_type_idx').on(t.type),
   createdIdx: index('events_created_idx').on(t.createdAt),
+  userIdx: index('events_user_idx').on(t.userId),
 }))
 
-// 9. API 호출 한도 추적
-export const apiUsage = nearbook.table('api_usage', {
+// 10. API 호출 한도 추적
+export const apiUsage = nearbookSchema.table('api_usage', {
   id: serial('id').primaryKey(),
   provider: varchar('provider', { length: 32 }).notNull(),
   endpoint: varchar('endpoint', { length: 128 }).notNull(),
   statusCode: integer('status_code'),
   cachedHit: boolean('cached_hit').notNull().default(false),
   durationMs: integer('duration_ms'),
-  priority: varchar('priority', { length: 8 }),
-  // 'HIGH' | 'LOW' | null (legacy 데이터 호환)
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   providerCreatedIdx: index('api_usage_provider_created_idx').on(t.provider, t.createdAt),
-  providerDayIdx: index('api_usage_provider_day_idx').on(t.provider, t.statusCode, t.createdAt),
-}))
-
-// 10. 정보나루 호출 미스 큐 (한도 초과 시 적재, cron이 다음날 처리)
-export const pendingLookups = nearbook.table('pending_lookups', {
-  id: serial('id').primaryKey(),
-  lookupType: varchar('lookup_type', { length: 16 }).notNull(),
-  // 'isbn' | 'keyword' | 'lib_book'
-  dedupeKey: varchar('dedupe_key', { length: 256 }).notNull(),
-  // 정규화 형식: "isbn:{isbn13}" | "keyword:{normalizedKeyword}" | "lib_book:{isbn}:{libCode}"
-  payload: jsonb('payload').notNull(),
-  // lookupType별 호출 파라미터 jsonb
-  priority: varchar('priority', { length: 8 }).notNull().default('LOW'),
-  // 'HIGH' (사용자 직접 트리거) | 'LOW' (백그라운드)
-  retryCount: integer('retry_count').notNull().default(0),
-  lastError: text('last_error'),
-  requestedAt: timestamp('requested_at').notNull().defaultNow(),
-  processedAt: timestamp('processed_at'),
-}, (t) => ({
-  // 미처리 상태에서만 중복 INSERT 차단 (partial unique)
-  dedupePartial: uniqueIndex('pending_lookups_dedupe_partial')
-    .on(t.lookupType, t.dedupeKey)
-    .where(sql`processed_at IS NULL`),
-  // cron 처리용 큐 스캔 인덱스 (priority, requested_at 순)
-  pendingIdx: index('pending_lookups_pending_idx')
-    .on(t.priority, t.requestedAt)
-    .where(sql`processed_at IS NULL`),
-  // 회수율 분석용
-  processedIdx: index('pending_lookups_processed_idx').on(t.processedAt),
 }))
 
 // 11. 공지사항
-export const notices = nearbook.table('notices', {
+export const notices = nearbookSchema.table('notices', {
   id: serial('id').primaryKey(),
   title: varchar('title', { length: 256 }).notNull(),
-  body: text('body').notNull(),
+  content: text('content').notNull(),
   category: varchar('category', { length: 32 }).notNull().default('general'),
-  isPublished: boolean('is_published').notNull().default(true),
   isPinned: boolean('is_pinned').notNull().default(false),
+  isPublished: boolean('is_published').notNull().default(true),
   publishedAt: timestamp('published_at').notNull().defaultNow(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ({
   publishedIdx: index('notices_published_idx').on(t.isPublished, t.publishedAt),
-  categoryIdx: index('notices_category_idx').on(t.category),
 }))
 
-// 12. 오류 신고 / 개선 제안
-export const feedback = nearbook.table('feedback', {
+// 12. 비동기 정보 조회 큐 (정보나루 한도 초과 시 사용)
+export const pendingLookups = nearbookSchema.table('pending_lookups', {
   id: serial('id').primaryKey(),
-  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
-  category: varchar('category', { length: 32 }).notNull(),
-  title: varchar('title', { length: 256 }).notNull(),
-  body: text('body').notNull(),
-  contactEmail: varchar('contact_email', { length: 256 }),
-  pageUrl: varchar('page_url', { length: 512 }),
-  userAgent: varchar('user_agent', { length: 512 }),
-  status: varchar('status', { length: 32 }).notNull().default('open'),
-  adminNote: text('admin_note'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  lookupType: varchar('lookup_type', { length: 32 }).notNull(), // 'isbn', 'keyword', 'lib_book'
+  dedupeKey: varchar('dedupe_key', { length: 256 }).unique(),
+  payload: jsonb('payload').notNull(),
+  priority: varchar('priority', { length: 16 }).notNull().default('LOW'), // 'HIGH', 'LOW'
+  retryCount: integer('retry_count').notNull().default(0),
+  requestedAt: timestamp('requested_at').notNull().defaultNow(),
+  processedAt: timestamp('processed_at'),
+  lastError: text('last_error'),
 }, (t) => ({
-  statusIdx: index('feedback_status_idx').on(t.status, t.createdAt),
-  categoryIdx: index('feedback_category_idx').on(t.category),
-  userIdx: index('feedback_user_idx').on(t.userId),
+  statusIdx: index('pending_lookups_status_idx').on(t.processedAt, t.retryCount),
 }))
-

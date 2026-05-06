@@ -1,43 +1,21 @@
-import { Controller, Get, Param } from '@nestjs/common'
-import { ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Controller, Get } from '@nestjs/common'
 import { JeongbonaruClient } from './modules/jeongbonaru/jeongbonaru.client'
-import { JeongbonaruService } from './modules/jeongbonaru/jeongbonaru.service'
-import { PendingLookupService } from './modules/jeongbonaru/pending-lookup.service'
+import { CacheService } from './common/cache/cache.service'
 
-@ApiTags('health')
 @Controller()
 export class AppController {
   constructor(
-    private readonly jeongbonaruClient: JeongbonaruClient,
-    private readonly jeongbonaruService: JeongbonaruService,
-    private readonly pendingLookupService: PendingLookupService,
+    private readonly jeongbonaru: JeongbonaruClient,
+    private readonly cache: CacheService,
   ) {}
 
   @Get('health')
-  @ApiOperation({ summary: '서버 상태 확인' })
-  async getHealth() {
-    const [quota, pending] = await Promise.all([
-      this.jeongbonaruClient.getStatus(),
-      this.pendingLookupService.getStats(),
-    ])
-
+  health() {
     return {
       status: 'ok',
       time: new Date().toISOString(),
-      providers: {
-        jeongbonaru: quota,
-      },
-      pendingLookups: {
-        pending: pending.pending,
-        failed: pending.failed,
-        oldestRequestedAt: pending.oldestRequestedAt?.toISOString() ?? null,
-      },
+      jeongbonaru: this.jeongbonaru.getStatus(),
+      cache: { memorySize: this.cache.size },
     }
-  }
-
-  @Get('books/isbn/:isbn')
-  @ApiOperation({ summary: 'ISBN으로 책 캐시/정보나루 조회' })
-  getBookByIsbn(@Param('isbn') isbn: string) {
-    return this.jeongbonaruService.getBookByIsbn(isbn)
   }
 }
