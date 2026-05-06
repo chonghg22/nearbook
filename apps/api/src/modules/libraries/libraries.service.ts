@@ -41,13 +41,14 @@ export class LibrariesService {
 
         try {
           // lib_code가 없는 경우 id를 대신 사용 (또는 스키마에 따라 조정 필요)
-          const exist = await this.jeongbonaru.checkBookExist(
+          const res = await this.jeongbonaru.getBookOwnership(
             isbn,
             String(lib['id']),
           )
+          const exist = res?.response?.result
           const availability = {
-            holdingCount: exist?.hasBook ? 1 : 0,
-            loanAvailable: exist?.loanAvailable ? 1 : 0,
+            holdingCount: exist?.hasBook === 'Y' ? 1 : 0,
+            loanAvailable: exist?.loanAvailable === 'Y' ? 1 : 0,
           }
           this.cache.set(cacheKey, availability, 5 * 60 * 1000)
           return { ...lib, ...availability }
@@ -168,7 +169,7 @@ export class LibrariesService {
         libCode: libraryId,
         pageNo: 1,
         pageSize: limit,
-      })
+      }, { priority: 'LOW' })
       return res?.response?.docs?.map((d: any) => ({
         isbn: d.doc?.isbn13,
         title: d.doc?.bookname,
@@ -193,7 +194,7 @@ export class LibrariesService {
         to,
         pageNo: 1,
         pageSize: limit,
-      })
+      }, { priority: 'LOW' })
       return res?.response?.docs?.map((d: any) => ({
         isbn: d.doc?.isbn13,
         title: d.doc?.bookname,

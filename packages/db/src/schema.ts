@@ -1,7 +1,6 @@
 import {
-  pgTable, pgSchema, serial, text, varchar, timestamp,
-  integer, boolean, jsonb, uniqueIndex, index,
-  customType, doublePrecision,
+  pgSchema, serial, text, varchar, timestamp, integer, boolean, jsonb,
+  uniqueIndex, index, primaryKey, customType, doublePrecision,
 } from 'drizzle-orm/pg-core'
 import { relations, sql } from 'drizzle-orm'
 
@@ -143,7 +142,7 @@ export const events = nearbook.table('events', {
   createdIdx: index('events_created_idx').on(t.createdAt),
 }))
 
-// 9. API 호출 추적
+// 9. API 호출 한도 추적
 export const apiUsage = nearbook.table('api_usage', {
   id: serial('id').primaryKey(),
   provider: varchar('provider', { length: 32 }).notNull(),
@@ -151,7 +150,75 @@ export const apiUsage = nearbook.table('api_usage', {
   statusCode: integer('status_code'),
   cachedHit: boolean('cached_hit').notNull().default(false),
   durationMs: integer('duration_ms'),
+  priority: varchar('priority', { length: 8 }),
+  // 'HIGH' | 'LOW' | null (legacy 데이터 호환)
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   providerCreatedIdx: index('api_usage_provider_created_idx').on(t.provider, t.createdAt),
+  providerDayIdx: index('api_usage_provider_day_idx').on(t.provider, t.statusCode, t.createdAt),
 }))
+
+// 10. 정보나루 호출 미스 큐 (한도 초과 시 적재, cron이 다음날 처리)
+export const pendingLookups = nearbook.table('pending_lookups', {
+  id: serial('id').primaryKey(),
+  lookupType: varchar('lookup_type', { length: 16 }).notNull(),
+  // 'isbn' | 'keyword' | 'lib_book'
+  dedupeKey: varchar('dedupe_key', { length: 256 }).notNull(),
+  // 정규화 형식: "isbn:{isbn13}" | "keyword:{normalizedKeyword}" | "lib_book:{isbn}:{libCode}"
+  payload: jsonb('payload').notNull(),
+  // lookupType별 호출 파라미터 jsonb
+  priority: varchar('priority', { length: 8 }).notNull().default('LOW'),
+  // 'HIGH' (사용자 직접 트리거) | 'LOW' (백그라운드)
+  retryCount: integer('retry_count').notNull().default(0),
+  lastError: text('last_error'),
+  requestedAt: timestamp('requested_at').notNull().defaultNow(),
+  processedAt: timestamp('processed_at'),
+}, (t) => ({
+  // 미처리 상태에서만 중복 INSERT 차단 (partial unique)
+  dedupePartial: uniqueIndex('pending_lookups_dedupe_partial')
+    .on(t.lookupType, t.dedupeKey)
+    .where(sql`processed_at IS NULL`),
+  // cron 처리용 큐 스캔 인덱스 (priority, requested_at 순)
+  pendingIdx: index('pending_lookups_pending_idx')
+    .on(t.priority, t.requestedAt)
+    .where(sql`processed_at IS NULL`),
+  // 회수율 분석용
+  processedIdx: index('pending_lookups_processed_idx').on(t.processedAt),
+}))
+
+// 11. 공지사항
+export const notices = nearbook.table('notices', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 256 }).notNull(),
+  body: text('body').notNull(),
+  category: varchar('category', { length: 32 }).notNull().default('general'),
+  isPublished: boolean('is_published').notNull().default(true),
+  isPinned: boolean('is_pinned').notNull().default(false),
+  publishedAt: timestamp('published_at').notNull().defaultNow(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  publishedIdx: index('notices_published_idx').on(t.isPublished, t.publishedAt),
+  categoryIdx: index('notices_category_idx').on(t.category),
+}))
+
+// 12. 오류 신고 / 개선 제안
+export const feedback = nearbook.table('feedback', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
+  category: varchar('category', { length: 32 }).notNull(),
+  title: varchar('title', { length: 256 }).notNull(),
+  body: text('body').notNull(),
+  contactEmail: varchar('contact_email', { length: 256 }),
+  pageUrl: varchar('page_url', { length: 512 }),
+  userAgent: varchar('user_agent', { length: 512 }),
+  status: varchar('status', { length: 32 }).notNull().default('open'),
+  adminNote: text('admin_note'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  statusIdx: index('feedback_status_idx').on(t.status, t.createdAt),
+  categoryIdx: index('feedback_category_idx').on(t.category),
+  userIdx: index('feedback_user_idx').on(t.userId),
+}))
+

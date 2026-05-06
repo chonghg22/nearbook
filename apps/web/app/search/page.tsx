@@ -9,20 +9,16 @@ export const metadata: Metadata = {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<SearchSkeleton />}>
+    <Suspense fallback={<SearchPageFallback />}>
       <SearchPageInner />
     </Suspense>
   )
 }
 
-function SearchSkeleton() {
+function SearchPageFallback() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 animate-pulse">
-      <div className="h-12 bg-gray-200 rounded-lg mb-4" />
-      <div className="h-4 bg-gray-100 rounded w-1/3 mb-6" />
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className="h-24 bg-gray-100 rounded mb-3" />
-      ))}
-    </div>
+    <main className="max-w-5xl mx-auto px-4 py-6">
+      <div className="h-14 rounded-lg bg-gray-100 animate-pulse" />
+    </main>
   )
 }

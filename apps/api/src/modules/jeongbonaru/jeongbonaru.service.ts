@@ -1,96 +1,175 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
-import { bookCache, db, eq } from '@nearbook/db'
-import { CacheService } from '../../common/cache.service'
-import { BookExistDto } from './dto/book-exist.dto'
+import { Injectable, Logger } from '@nestjs/common'
 import { JeongbonaruClient } from './jeongbonaru.client'
+import { db, bookCache, sql, eq, or, ilike } from '@nearbook/db'
+import { Priority } from '../quota/quota.service'
+import { DedupeKey } from './dedupe-key.util'
 
 @Injectable()
 export class JeongbonaruService {
   private readonly logger = new Logger(JeongbonaruService.name)
 
-  constructor(
-    private readonly client: JeongbonaruClient,
-    private readonly cache: CacheService,
-  ) {}
+  constructor(private client: JeongbonaruClient) {}
 
-  async getBookByIsbn(isbn: string): Promise<BookExistDto | null> {
-    const memKey = `book:${isbn}`
-    const memHit = this.cache.get<BookExistDto>(memKey)
-    if (memHit) {
-      this.logger.debug(`메모리 캐시 히트: ${isbn}`)
-      return memHit
-    }
-
-    const dbHit = await db.query.bookCache.findFirst({
+  // 사용자 직접 — HIGH
+  async getBookByIsbn(isbn: string, priority: Priority = 'HIGH') {
+    const cached = await db.query.bookCache.findFirst({
       where: eq(bookCache.isbn, isbn),
     })
-
-    if (dbHit && dbHit.expiresAt > new Date()) {
-      this.logger.debug(`DB 캐시 히트: ${isbn}`)
-      const mapped = this.mapDbCache(dbHit)
-      this.cache.set(memKey, mapped)
-      return mapped
-    }
+    if (cached && cached.expiresAt > new Date()) return cached
 
     try {
-      return await this.fetchAndCacheBook(isbn, memKey, dbHit ?? undefined)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown error'
-      if (dbHit) {
-        this.logger.warn(`API 실패, 만료 캐시 사용: ${isbn} (${message})`)
-        return this.mapDbCache(dbHit)
-      }
+      const response = await this.client.get<any>(
+        '/srchBooks',
+        { keyword: isbn, pageNo: 1, pageSize: 1 },
+        {
+          priority,
+          enqueueOnBlock: {
+            lookupType: 'isbn',
+            dedupeKey: DedupeKey.isbn(isbn),
+            payload: { isbn },
+          },
+        },
+      )
+      const item = response?.response?.docs?.[0]?.doc
+      if (!item) return cached || null
 
-      if (message === 'API_LIMIT_EXCEEDED') {
-        this.logger.error(`API 한도 초과, 캐시도 없음: ${isbn}`)
-        throw new HttpException('API_LIMIT_EXCEEDED', HttpStatus.TOO_MANY_REQUESTS)
+      return await this.saveBookCache(item)
+    } catch (err: any) {
+      if (err.message === 'QUOTA_BLOCKED_ALL' || err.message === 'QUOTA_BLOCKED_LOW') {
+        this.logger.warn(`Quota blocked, fallback to cache for isbn: ${isbn}`)
+        return cached || null
       }
-
-      this.logger.error(`API 실패, 캐시도 없음: ${isbn}`)
-      return null
+      this.logger.error(`API call failed for isbn: ${isbn}`, err.message)
+      return cached || null
     }
   }
 
-  private async fetchAndCacheBook(
-    isbn: string,
-    memKey: string,
-    existingDbRow: typeof bookCache.$inferSelect | undefined,
-  ): Promise<BookExistDto | null> {
-    const response = await this.client.get<JeongbonaruSearchRaw>('/srchBooks', {
-      isbn13: isbn,
-      pageNo: 1,
-      pageSize: 1,
-    })
+  // 사용자 직접 — HIGH
+  async getBookOwnership(isbn: string, libCode: string | number, priority: Priority = 'HIGH') {
+    try {
+      return await this.client.get<any>(
+        '/bookExist',
+        { isbn13: isbn, libCode },
+        {
+          priority,
+          enqueueOnBlock: {
+            lookupType: 'lib_book',
+            dedupeKey: DedupeKey.libBook(isbn, libCode),
+            payload: { isbn, libCode },
+          },
+        },
+      )
+    } catch (err: any) {
+      if (err.message === 'QUOTA_BLOCKED_ALL' || err.message === 'QUOTA_BLOCKED_LOW') {
+        return { response: { error: 'QUOTA_BLOCKED', note: '정보나루 한도 초과로 확인 불가' } }
+      }
+      throw err
+    }
+  }
 
-    const item = response.response?.docs?.[0]?.doc
-    if (!item) {
-      return existingDbRow ? this.mapDbCache(existingDbRow) : null
+  // 사용자 직접 — HIGH
+  async searchBooks(keyword: string, page = 1, priority: Priority = 'HIGH') {
+    try {
+      const response = await this.client.get<any>(
+        '/srchBooks',
+        { keyword, pageNo: page, pageSize: 20 },
+        {
+          priority,
+          enqueueOnBlock: {
+            lookupType: 'keyword',
+            dedupeKey: DedupeKey.keyword(keyword),
+            payload: { keyword, page, pageSize: 20 },
+          },
+        },
+      )
+      const items = response?.response?.docs?.map((d: any) => d.doc) || []
+      
+      // 검색 결과 비동기 캐싱 (background)
+      if (items.length > 0) {
+        void Promise.all(items.map((item: any) => this.saveBookCache(item)))
+      }
+
+      return {
+        items,
+        source: 'jeongbonaru' as const,
+      }
+    } catch (err: any) {
+      if (err.message === 'QUOTA_BLOCKED_ALL' || err.message === 'QUOTA_BLOCKED_LOW') {
+        // pg_trgm 폴백 (ILike 사용 - DB에 trgm 인덱스 필요)
+        const fallback = await db
+          .select()
+          .from(bookCache)
+          .where(
+            or(
+              ilike(bookCache.title, `%${keyword}%`),
+              ilike(bookCache.author, `%${keyword}%`),
+            ),
+          )
+          .limit(20)
+
+        return {
+          items: fallback,
+          source: 'cache_fallback' as const,
+          note: '정보나루 일일 한도 초과로 캐시 결과만 표시',
+        }
+      }
+      throw err
+    }
+  }
+
+  // Cron 전용 메서드
+  async getBookByIsbnAsCron(isbn: string) {
+    const response = await this.client.get<any>(
+      '/srchBooks',
+      { keyword: isbn, pageNo: 1, pageSize: 1 },
+      { priority: 'LOW' },
+    )
+    const item = response?.response?.docs?.[0]?.doc
+    if (item) await this.saveBookCache(item)
+  }
+
+  async searchBooksAsCron(keyword: string, page = 1) {
+    const response = await this.client.get<any>(
+      '/srchBooks',
+      { keyword, pageNo: page, pageSize: 20 },
+      { priority: 'LOW' },
+    )
+    const items = response?.response?.docs?.map((d: any) => d.doc) || []
+    if (items.length > 0) {
+      await Promise.all(items.map((item: any) => this.saveBookCache(item)))
+    }
+  }
+
+  async getBookOwnershipAsCron(isbn: string, libCode: string | number) {
+    await this.client.get<any>(
+      '/bookExist',
+      { isbn13: isbn, libCode },
+      { priority: 'LOW' },
+    )
+    // bookExist는 캐시할 메타데이터가 없음 (소장여부만 반환)
+  }
+
+  private async saveBookCache(item: any) {
+    const year = item.publication_year ? parseInt(item.publication_year) : null
+    const book = {
+      isbn: item.isbn13 || item.isbn,
+      title: item.bookname,
+      author: item.authors,
+      publisher: item.publisher,
+      publishedYear: isNaN(year as number) ? null : year,
+      coverUrl: item.bookImageURL || null,
+      summary: item.description || null,
+      category: item.class_nm || null,
     }
 
-    const book: BookExistDto = {
-      isbn: item.isbn13 ?? isbn,
-      hasBook: true,
-      loanAvailable: Number(item.loan_count ?? 0) > 0,
-      title: item.bookname ?? '',
-      author: item.authors ?? '',
-      publisher: item.publisher ?? '',
-      publishedYear: item.publication_year ? parseInt(item.publication_year, 10) : null,
-      coverUrl: item.bookImageURL ?? null,
-      callNumber: null,
-    }
+    if (!book.isbn) return null
 
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     await db
       .insert(bookCache)
       .values({
-        isbn: book.isbn,
-        title: book.title,
-        author: book.author,
-        publisher: book.publisher,
-        publishedYear: book.publishedYear,
-        coverUrl: book.coverUrl,
+        ...book,
         cachedAt: new Date(),
-        expiresAt,
+        expiresAt: sql`now() + interval '30 days'`,
       })
       .onConflictDoUpdate({
         target: bookCache.isbn,
@@ -100,126 +179,36 @@ export class JeongbonaruService {
           publisher: book.publisher,
           publishedYear: book.publishedYear,
           coverUrl: book.coverUrl,
+          summary: book.summary,
+          category: book.category,
           cachedAt: new Date(),
-          expiresAt,
+          expiresAt: sql`now() + interval '30 days'`,
         },
       })
 
-    this.cache.set(memKey, book)
     return book
   }
 
-  async searchBooks(params: { keyword: string; pageNo: number; pageSize: number }) {
-    const res = await this.client.get<JeongbonaruSearchRaw>('/srchBooks', {
-      keyword: params.keyword,
-      pageNo: params.pageNo,
-      pageSize: params.pageSize,
-    })
-    const docs = res?.response?.docs ?? []
-    return docs.map((d: any) => ({
-      isbn: d.doc?.isbn13 ?? d.doc?.isbn,
-      title: d.doc?.bookname,
-      author: d.doc?.authors,
-      publisher: d.doc?.publisher,
-      publishedYear: d.doc?.publication_year ? parseInt(d.doc.publication_year, 10) : null,
-      coverUrl: d.doc?.bookImageURL ?? null,
-      loanCount: Number(d.doc?.loan_count ?? 0),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-    }))
+  // 백그라운드 시드 — LOW
+  async listLibraries(pageNo = 1, pageSize = 100, priority: Priority = 'LOW') {
+    const response = await this.client.get<any>(
+      '/libSrch',
+      { pageNo, pageSize },
+      { priority },
+    )
+    return response?.response?.libs || []
   }
 
-  async checkBookExist(isbn: string, libCode: string): Promise<BookExistDto | null> {
-    const cacheKey = `exist:${isbn}:${libCode}`
-    const hit = this.cache.get<BookExistDto>(cacheKey)
-    if (hit) {
-      return hit
-    }
-
-    const raw = await this.client.get<JeongbonaruBookExistRaw>('/bookExist', {
-      isbn13: isbn,
-      libCode,
-    })
-
-    const result = raw.response?.result
-    if (!result) {
-      return null
-    }
-
-    const dto: BookExistDto = {
-      isbn,
-      hasBook: result.hasBook === 'Y',
-      loanAvailable: result.loanAvailable === 'Y',
-      title: result.title ?? '',
-      author: result.author ?? '',
-      publisher: result.publisher ?? '',
-      publishedYear: result.publishedYear ? parseInt(result.publishedYear, 10) : null,
-      coverUrl: result.bookImageURL ?? null,
-      callNumber: result.callNumber ?? null,
-    }
-
-    this.cache.set(cacheKey, dto, 5 * 60 * 1000)
-    return dto
-  }
-
-  async getPopularBooks(libCode: string) {
+  // 백그라운드 cron — LOW
+  async getPopularBooks(libCode?: string, period = 'week', priority: Priority = 'LOW') {
     const today = new Date().toISOString().slice(0, 10)
-    const past = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const past = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10)
 
-    const response = await this.client.get<JeongbonaruSearchRaw>('/loanItemSrch', {
-      libCode,
-      from: past,
-      to: today,
-      pageNo: 1,
-      pageSize: 100,
-    })
-
-    return response.response?.docs?.map((doc) => doc.doc) ?? []
-  }
-
-  private mapDbCache(row: typeof bookCache.$inferSelect): BookExistDto {
-    return {
-      isbn: row.isbn,
-      hasBook: true,
-      loanAvailable: false,
-      title: row.title,
-      author: row.author ?? '',
-      publisher: row.publisher ?? '',
-      publishedYear: row.publishedYear ?? null,
-      coverUrl: row.coverUrl ?? null,
-      callNumber: null,
-    }
-  }
-}
-
-interface JeongbonaruBookDoc {
-  isbn13?: string
-  loan_count?: number | string
-  bookname?: string
-  authors?: string
-  publisher?: string
-  publication_year?: string
-  bookImageURL?: string
-}
-
-interface JeongbonaruSearchRaw {
-  response?: {
-    docs?: Array<{
-      doc: JeongbonaruBookDoc
-    }>
-  }
-}
-
-interface JeongbonaruBookExistRaw {
-  response?: {
-    result?: {
-      hasBook?: string
-      loanAvailable?: string
-      title?: string
-      author?: string
-      publisher?: string
-      publishedYear?: string
-      bookImageURL?: string
-      callNumber?: string
-    }
+    const response = await this.client.get<any>(
+      '/loanItemSrch',
+      { libCode, from: past, to: today, pageNo: 1, pageSize: 100 },
+      { priority },
+    )
+    return response?.response?.docs?.map((d: any) => d.doc) || []
   }
 }

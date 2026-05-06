@@ -47,6 +47,11 @@ export class SearchQueryDto {
   @Max(50)
   pageSize?: number = 20
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  regionSlug?: string
+
   @ApiPropertyOptional({ description: '위도 (도서관 매칭용)' })
   @IsOptional()
   @Type(() => Number)

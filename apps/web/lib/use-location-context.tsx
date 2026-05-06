@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { REGION_COORDS } from './region-coords'
 
 export type LocationMode = 'gps' | 'region' | 'library'
@@ -30,6 +31,15 @@ export interface LibraryLocation {
 
 export type LocationContext = GpsLocation | RegionLocation | LibraryLocation
 
+interface LocationContextValue {
+  location: LocationContext
+  isLoaded: boolean
+  requestGps: () => Promise<GpsLocation>
+  selectRegion: (regionSlug: string) => void
+  selectLibrary: (lib: { id: number; name: string; lat: number; lng: number }) => void
+  toSearchParams: () => Record<string, string>
+}
+
 const STORAGE_KEY = 'nearbook_location_ctx'
 const DEFAULT_LOCATION: LocationContext = {
   mode: 'region',
@@ -39,7 +49,9 @@ const DEFAULT_LOCATION: LocationContext = {
   label: '서울 전체',
 }
 
-export function useLocationContext() {
+const LocationContext = createContext<LocationContextValue | undefined>(undefined)
+
+export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocationState] = useState<LocationContext>(DEFAULT_LOCATION)
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -123,18 +135,37 @@ export function useLocationContext() {
     if (location.mode === 'library') {
       return { libraryId: String(location.libraryId) }
     }
+    if (location.mode === 'region') {
+      return {
+        regionSlug: location.regionSlug,
+        lat: String(location.lat),
+        lng: String(location.lng),
+      }
+    }
     return {
       lat: String(location.lat),
       lng: String(location.lng),
     }
   }, [location])
 
-  return {
-    location,
-    isLoaded,
-    requestGps,
-    selectRegion,
-    selectLibrary,
-    toSearchParams,
+  return (
+    <LocationContext.Provider value={{
+      location,
+      isLoaded,
+      requestGps,
+      selectRegion,
+      selectLibrary,
+      toSearchParams,
+    }}>
+      {children}
+    </LocationContext.Provider>
+  )
+}
+
+export function useLocationContext() {
+  const context = useContext(LocationContext)
+  if (context === undefined) {
+    throw new Error('useLocationContext must be used within a LocationProvider')
   }
+  return context
 }

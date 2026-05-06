@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { db, bookCache, searchLogs, sql } from '@nearbook/db'
+import { db, bookCache, searchLogs, sql, or, ilike, and, eq } from '@nearbook/db'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 import { LibrariesService } from '../libraries/libraries.service'
 import { SearchQueryDto } from './dto/search-query.dto'
@@ -14,7 +14,6 @@ const POPULAR_QUERIES_FALLBACK = [
 @Injectable()
 export class SearchService {
   private readonly logger = new Logger(SearchService.name)
-  // 간단한 in-memory 검색 캐시 (1분 TTL)
   private cache = new Map<string, { data: SearchResultDto; expiresAt: number }>()
   private trendingCache: { items: string[]; at: number } | null = null
 
@@ -30,10 +29,9 @@ export class SearchService {
     }
 
     try {
-      // 7일 전 데이터 기준
       const rows = await db.execute<{ query: string; count: number }>(sql`
         SELECT query, COUNT(*)::int as count 
-        FROM search_logs
+        FROM ${searchLogs}
         WHERE created_at > now() - interval '7 days'
         GROUP BY query
         HAVING COUNT(*) >= 5
@@ -58,190 +56,231 @@ export class SearchService {
       this.trendingCache = { items: merged, at: now }
       return merged.slice(0, limit)
     } catch (err) {
-      this.logger.error('Failed to get trending queries', err)
+      this.logger.error('[Trending] Failed', err)
       return POPULAR_QUERIES_FALLBACK.slice(0, limit)
     }
   }
 
   async search(query: SearchQueryDto): Promise<SearchResultDto> {
     const start = Date.now()
-    const cacheKey = JSON.stringify(query)
+    
+    // NaN 방어 코드
+    const lat = typeof query.lat === 'number' && !isNaN(query.lat) ? query.lat : undefined
+    const lng = typeof query.lng === 'number' && !isNaN(query.lng) ? query.lng : undefined
+    const page = typeof query.page === 'number' && !isNaN(query.page) ? query.page : 1
+    const pageSize = typeof query.pageSize === 'number' && !isNaN(query.pageSize) ? query.pageSize : 20
+
+    const cacheKey = JSON.stringify({ ...query, lat, lng, page, pageSize })
     const cached = this.cache.get(cacheKey)
     if (cached && cached.expiresAt > Date.now()) return cached.data
 
-    // 1차: Postgres pg_trgm
-    const localResults = await this.searchLocal(query)
-
-    if (localResults.length >= 5) {
-      const result: SearchResultDto = {
-        items: localResults.slice(
-          (query.page! - 1) * query.pageSize!,
-          query.page! * query.pageSize!,
-        ),
-        total: localResults.length,
-        page: query.page!,
-        pageSize: query.pageSize!,
-        source: 'cache',
-        durationMs: Date.now() - start,
-      }
-      this.cache.set(cacheKey, { data: result, expiresAt: Date.now() + 60_000 })
-      await this.logSearch(query, result.total)
-      return result
-    }
-
-    // 2차: 정보나루 fallback
     try {
-      const remoteResults = await this.jeongbonaru.searchBooks({
-        keyword: query.q,
-        pageNo: query.page!,
-        pageSize: query.pageSize!,
-      })
-      for (const book of remoteResults) await this.cacheBook(book)
+      this.logger.log(`[Search] Query: "${query.q}" (lat=${lat}, lng=${lng})`)
 
-      const merged = this.mergeResults(localResults, remoteResults)
-      const enriched =
-        query.lat && query.lng
-          ? await this.enrichWithLibraries(merged, query.lat, query.lng)
-          : merged.map(b => ({ ...b, libraryHoldings: 0, loanAvailable: 0 }))
+      // 1. Local Search
+      const localResults = await this.searchLocal(query) as any[]
+      
+      // 2. Remote Search
+      let merged: any[] = localResults
+      let source: 'cache' | 'jeongbonaru' | 'mixed' = 'cache'
 
-      await this.logSearch(query, enriched.length)
+      if (localResults.length < 10) {
+        try {
+          const remote = await this.jeongbonaru.searchBooks(query.q)
+          // 필드명 정규화 (표준 규격으로 변환)
+          const remoteResults = ((remote.items || []) as any[]).map(item => ({
+            ...item,
+            isbn: item.isbn13 || item.isbn,
+            title: item.bookname || item.title,
+            author: item.authors || item.author,
+            publisher: item.publisher,
+            coverUrl: item.bookImageURL || item.coverUrl
+          }))
 
-      const result: SearchResultDto = {
-        items: enriched.slice(
-          (query.page! - 1) * query.pageSize!,
-          query.page! * query.pageSize!,
-        ),
-        total: enriched.length,
-        page: query.page!,
-        pageSize: query.pageSize!,
-        source: localResults.length > 0 ? 'mixed' : 'jeongbonaru',
-        durationMs: Date.now() - start,
-      }
-      this.cache.set(cacheKey, { data: result, expiresAt: Date.now() + 60_000 })
-      return result
-    } catch (err) {
-      this.logger.error('search remote failed', err)
-      if (localResults.length === 0) {
-        const suggestions = await this.findSimilar(query.q)
-        const trending = await this.getTrending(5)
-        return {
-          items: [],
-          total: 0,
-          page: query.page!,
-          pageSize: query.pageSize!,
-          source: 'cache',
-          durationMs: Date.now() - start,
-          suggestions,
-          trending,
+          if (remoteResults.length > 0) {
+            merged = this.mergeResults(localResults, remoteResults)
+            source = remote.source === 'cache_fallback' ? 'cache' : (localResults.length > 0 ? 'mixed' : 'jeongbonaru')
+            // Async caching
+            this.cacheRemoteResults(remoteResults).catch(e => this.logger.warn(`[Cache] Fail: ${e.message}`))
+          }
+        } catch (err: any) {
+          this.logger.error(`[Remote] Fail: ${err.message}`)
         }
       }
+
+      // 3. Library Enrichment
+      let finalResults: any[] = merged
+
+      if (query.availableOnly && lat && lng) {
+        finalResults = await this.enrichWithLibraries(merged, lat, lng)
+        finalResults = finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
+      }
+
+      const total = finalResults.length
+      const itemsToDisplay = finalResults.slice((page - 1) * pageSize, page * pageSize)
+
+      let items: any[] = itemsToDisplay
+      if (!query.availableOnly && lat && lng && itemsToDisplay.length > 0) {
+        items = await this.enrichWithLibraries(itemsToDisplay, lat, lng)
+      } else if (!lat || !lng) {
+        items = itemsToDisplay.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0 }))
+      }
+
+      await this.logSearch(query, total).catch(() => {})
+
+      const result: SearchResultDto = {
+        items: items as any,
+        total,
+        page,
+        pageSize,
+        source,
+        durationMs: Date.now() - start,
+      }
+
+      if (total === 0) {
+        result.suggestions = await this.findSimilar(query.q).catch(() => [])
+        result.trending = await this.getTrending(5).catch(() => [])
+      }
+
+      this.cache.set(cacheKey, { data: result, expiresAt: Date.now() + 60_000 })
+      return result
+    } catch (err: any) {
+      this.logger.error(
+        `search failed for q="${query.q}"`,
+        err instanceof Error ? err.stack : String(err),
+      )
+      const localResults = await this.searchLocal(query).catch(() => [])
       return {
-        items: localResults,
+        items: localResults.slice(0, pageSize) as any,
         total: localResults.length,
-        page: query.page!,
-        pageSize: query.pageSize!,
-        source: 'cache',
+        page: page,
+        pageSize: pageSize,
+        source: 'cache' as const,
         durationMs: Date.now() - start,
       }
     }
   }
 
-  async suggest(q: string): Promise<any[]> {
-    const rows = await db.execute<{
-      isbn: string; title: string; author: string
-    }>(sql`
-      SELECT bc.isbn, bc.title, bc.author
-      FROM book_cache bc
-      LEFT JOIN popular_books pb ON bc.isbn = pb.isbn AND pb.region = '전국'
+  private async cacheRemoteResults(books: any[]) {
+    for (const book of books) {
+      try {
+        await this.cacheBook(book)
+      } catch { /* ignore */ }
+    }
+  }
+
+  async suggest(q: string) {
+    return db.execute(sql`
+      SELECT DISTINCT bc.isbn, bc.title, bc.author, pb.rank
+      FROM nearbook.book_cache bc
+      LEFT JOIN nearbook.popular_books pb
+        ON bc.isbn = pb.isbn AND pb.region = '전국'
       WHERE bc.title ILIKE ${`${q}%`} OR bc.author ILIKE ${`${q}%`}
-      GROUP BY bc.isbn, bc.title, bc.author, pb.rank
       ORDER BY pb.rank ASC NULLS LAST, bc.title
       LIMIT 8
-    `)
-    return rows
+    `) as unknown as any[]
   }
 
   private async searchLocal(query: SearchQueryDto) {
-    const categoryFilter = query.category
-      ? sql`AND category = ${query.category}`
-      : sql``
+    const q = query.q || ''
+    const pattern = `%${q}%`
+    const prefix = `${q}%`
+    const category = query.category || null
 
-    const rows = await db.execute<any>(sql`
-      SELECT isbn, title, author, publisher,
-        cover_url AS "coverUrl",
-        similarity(title, ${query.q}) AS score
-      FROM book_cache
-      WHERE (
-        title ILIKE ${`%${query.q}%`}
-        OR author ILIKE ${`%${query.q}%`}
-        OR similarity(title, ${query.q}) > 0.3
-      )
-      ${categoryFilter}
-      ORDER BY
-        CASE WHEN title ILIKE ${`${query.q}%`} THEN 1 ELSE 2 END,
-        similarity(title, ${query.q}) DESC,
-        title
-      LIMIT 100
-    `)
-    return rows
+    this.logger.debug(`[searchLocal] q="${q}", category=${category}`)
+
+    try {
+      return await db.execute(sql`
+        SELECT
+          isbn,
+          title,
+          author,
+          publisher,
+          cover_url AS "coverUrl",
+          GREATEST(
+            similarity(title, ${q}),
+            similarity(coalesce(author, ''), ${q})
+          ) AS score
+        FROM nearbook.book_cache
+        WHERE
+          (
+            title ILIKE ${pattern}
+            OR coalesce(author, '') ILIKE ${pattern}
+            OR similarity(title, ${q}) > 0.1
+          )
+          AND (${category} IS NULL OR category = ${category})
+        ORDER BY
+          CASE WHEN title ILIKE ${prefix} THEN 1 ELSE 2 END,
+          score DESC NULLS LAST,
+          title ASC
+        LIMIT 100
+      `)
+    } catch (err: any) {
+      this.logger.error(`[searchLocal] Query failed: ${err.message}`)
+      return []
+    }
   }
-
   private async cacheBook(book: any) {
+    if (!book.isbn) return
     await db.insert(bookCache).values({
       isbn: book.isbn,
-      title: book.title,
-      author: book.author,
+      title: book.title || 'Unknown',
+      author: book.author || 'Unknown',
       publisher: book.publisher ?? null,
       coverUrl: book.coverUrl ?? null,
       cachedAt: new Date(),
-      expiresAt: sql`now() + interval '30 days'`,
-    }).onConflictDoNothing()
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    }).onConflictDoUpdate({
+      target: bookCache.isbn,
+      set: {
+        title: book.title || 'Unknown',
+        author: book.author || 'Unknown',
+        publisher: book.publisher ?? null,
+        coverUrl: book.coverUrl ?? null,
+        cachedAt: new Date(),
+      }
+    })
   }
 
   private mergeResults(local: any[], remote: any[]): any[] {
-    const map = new Map(local.map(b => [b.isbn, b]))
-    for (const b of remote) {
-      if (!map.has(b.isbn)) map.set(b.isbn, b)
-    }
+    const map = new Map()
+    local.forEach(b => map.set(b.isbn, b))
+    remote.forEach(b => { if (b.isbn && !map.has(b.isbn)) map.set(b.isbn, b) })
     return Array.from(map.values())
   }
 
   private async enrichWithLibraries(books: any[], lat: number, lng: number) {
     return Promise.all(
       books.map(async (book) => {
+        let libs: Array<{ holdingCount?: number; loanAvailable?: number }> = []
         try {
-          const libs = await this.libraries.findNearWithBook(lat, lng, book.isbn, 5)
-          return {
-            ...book,
-            libraryHoldings: libs.reduce((s: number, l: any) => s + l.holdingCount, 0),
-            loanAvailable: libs.reduce((s: number, l: any) => s + l.loanAvailable, 0),
-          }
-        } catch {
-          return { ...book, libraryHoldings: 0, loanAvailable: 0 }
+          libs = await this.libraries.findNearWithBook(lat, lng, book.isbn, 5)
+        } catch (err) {
+          this.logger.warn(`enrich failed isbn=${book.isbn}: ${(err as Error).message}`)
+        }
+        return {
+          ...book,
+          libraryHoldings: libs.reduce((s, l) => s + (l.holdingCount ?? 0), 0),
+          loanAvailable: libs.reduce((s, l) => s + (l.loanAvailable ?? 0), 0),
         }
       }),
     )
   }
 
   private async logSearch(query: SearchQueryDto, resultCount: number) {
-    try {
-      await db.insert(searchLogs).values({
-        query: query.q,
-        resultCount,
-        region: null,
-      })
-    } catch (err) {
-      this.logger.warn('search log failed', err)
-    }
+    await db.insert(searchLogs).values({ query: query.q, resultCount, region: null }).catch(() => {})
   }
 
   private async findSimilar(q: string): Promise<string[]> {
-    const rows = await db.execute<{ title: string }>(sql`
-      SELECT title FROM book_cache
-      WHERE similarity(title, ${q}) > 0.15
-      ORDER BY similarity(title, ${q}) DESC
-      LIMIT 5
-    `)
-    return rows.map((r: { title: string }) => r.title)
+    try {
+      const rows = await db
+        .select({ title: bookCache.title })
+        .from(bookCache)
+        .where(ilike(bookCache.title, `%${q}%`))
+        .limit(5)
+      return rows.map(r => r.title)
+    } catch {
+      return []
+    }
   }
 }

@@ -1,85 +1,45 @@
 'use client'
 
-import { cn } from '@/lib/utils'
-
-interface Filters {
-  sort: string
+type Props = {
   category: string
+  sort: string
   availableOnly: boolean
+  onChange: (key: string, value: string | null) => void
 }
 
-interface Props {
-  current: Filters
-  onChange: (filters: Record<string, string>) => void
-}
-
-const CATEGORIES = [
-  { value: '', label: '카테고리: 전체' },
-  { value: 'novel', label: '소설' },
-  { value: 'essay', label: '에세이' },
-  { value: 'nonfiction', label: '비문학' },
-  { value: 'children', label: '어린이' },
-]
-
-const SORTS = [
-  { value: 'relevance', label: '관련도순' },
-  { value: 'popular', label: '인기순' },
-  { value: 'recent', label: '최신순' },
-]
-
-export function FilterPanel({ current, onChange }: Props) {
-  const update = (key: string, value: string) => {
-    onChange({ ...current, availableOnly: String(current.availableOnly), [key]: value })
-  }
-
+export function FilterPanel({ category, sort, availableOnly, onChange }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-3 my-4 pb-6 border-b border-border">
-      <div className="relative group">
-        <select
-          value={current.category}
-          onChange={(e) => update('category', e.target.value)}
-          className="appearance-none bg-white border border-border rounded-lg px-3 py-1.5 pr-8
-                     text-xs font-medium text-foreground hover:border-primary/50 transition-colors
-                     shadow-card focus:outline-none focus:ring-2 focus:ring-primary/20"
-        >
-          {CATEGORIES.map(c => (
-            <option key={c.value} value={c.value}>{c.label}</option>
-          ))}
-        </select>
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <select
+        value={category}
+        onChange={(e) => onChange('category', e.target.value)}
+        className="px-3 py-1.5 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        aria-label="카테고리"
+      >
+        <option value="all">전체</option>
+        <option value="novel">소설</option>
+        <option value="essay">에세이</option>
+        <option value="children">어린이</option>
+        <option value="comics">만화</option>
+      </select>
 
-      <div className="relative group">
-        <select
-          value={current.sort}
-          onChange={(e) => update('sort', e.target.value)}
-          className="appearance-none bg-white border border-border rounded-lg px-3 py-1.5 pr-8
-                     text-xs font-medium text-foreground hover:border-primary/50 transition-colors
-                     shadow-card focus:outline-none focus:ring-2 focus:ring-primary/20"
-        >
-          {SORTS.map(s => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
+      <select
+        value={sort}
+        onChange={(e) => onChange('sort', e.target.value)}
+        className="px-3 py-1.5 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        aria-label="정렬"
+      >
+        <option value="relevance">관련도순</option>
+        <option value="popular">인기순</option>
+        <option value="recent">최신순</option>
+      </select>
 
-      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer select-none">
+      <label className="flex items-center gap-2 text-sm text-gray-700 select-none cursor-pointer">
         <input
           type="checkbox"
-          checked={current.availableOnly}
-          onChange={(e) =>
-            onChange({ ...current, availableOnly: String(e.target.checked) })
-          }
-          className="w-4 h-4 rounded border-border text-primary focus:ring-primary/30 transition-colors"
+          checked={availableOnly}
+          onChange={(e) => onChange('availableOnly', e.target.checked ? '1' : null)}
+          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
         />
         대출 가능만
       </label>

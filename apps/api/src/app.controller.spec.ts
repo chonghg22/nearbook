@@ -34,7 +34,8 @@ describe('AppController', () => {
     appController = app.get<AppController>(AppController)
   })
 
-  it('/health → status ok', () => {
-    expect(appController.getHealth().status).toBe('ok')
+  it('/health → status ok', async () => {
+    const health = await appController.getHealth()
+    expect(health.status).toBe('ok')
   })
 })

@@ -54,43 +54,35 @@ export function SearchPageInner() {
   }, [q, router])
 
   return (
-    <main className="min-h-screen bg-canvas">
-      <div className="max-w-3xl mx-auto px-4 py-6 md:py-10">
-        <SearchBar defaultValue={q} onSubmit={handleSearch} size="lg" />
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <SearchBar defaultValue={q} onSubmit={handleSearch} />
 
-        {q ? (
-          <div className="mt-8">
-            <div className="flex flex-col gap-4 mb-6">
-              <LocationBar />
-              
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">&ldquo;{q}&rdquo;</span> 검색결과 {data?.data?.total ?? 0}건
-                  {data?.data?.source === 'jeongbonaru' && (
-                    <span className="ml-2 text-primary text-2xs font-medium uppercase tracking-wider bg-primary/5 px-1.5 py-0.5 rounded">정보나루</span>
-                  )}
-                </p>
-              </div>
-            </div>
+      {q ? (
+        <>
+          <div className="mt-4">
+            <LocationBar />
+          </div>
 
-            <FilterPanel
-              current={{ sort, category, availableOnly }}
-              onChange={handleFilterChange}
-            />
-            
-            <ResultList
-              isLoading={isLoading}
-              items={data?.data?.items}
-              suggestions={data?.data?.suggestions}
-              trending={data?.data?.trending}
-            />
-          </div>
-        ) : (
-          <div className="mt-12">
-            <PopularQueries onSelect={handleSearch} />
-          </div>
-        )}
-      </div>
-    </main>
+          <p className="my-4 text-sm text-gray-500">
+            &ldquo;{q}&rdquo; 검색결과 {data?.data?.total ?? 0}건
+            {data?.data?.source === 'jeongbonaru' && (
+              <span className="ml-2 text-blue-500 text-xs">(정보나루 검색)</span>
+            )}
+          </p>
+          <FilterPanel
+            current={{ sort, category, availableOnly }}
+            onChange={handleFilterChange}
+          />
+          <ResultList
+            isLoading={isLoading}
+            items={data?.data?.items}
+            suggestions={data?.data?.suggestions}
+            trending={data?.data?.trending}
+          />
+        </>
+      ) : (
+        <PopularQueries onSelect={handleSearch} />
+      )}
+    </div>
   )
 }

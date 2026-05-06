@@ -1,87 +1,104 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { Cron, CronExpression } from '@nestjs/schedule'
 import axios, { AxiosInstance } from 'axios'
-import { apiUsage, db } from '@nearbook/db'
+import { db, apiUsage } from '@nearbook/db'
+import { QuotaService, Priority } from '../quota/quota.service'
+import { QuotaBlockedError } from '../quota/quota.errors'
+import { PendingLookupService } from './pending-lookup.service'
+import { LookupType } from './dedupe-key.util'
+
+interface CallOptions {
+  priority?: Priority
+  enqueueOnBlock?: {
+    lookupType: LookupType
+    dedupeKey: string
+    payload: Record<string, unknown>
+  }
+}
 
 @Injectable()
-export class JeongbonaruClient implements OnModuleInit {
+export class JeongbonaruClient {
   private readonly logger = new Logger(JeongbonaruClient.name)
-  private readonly http: AxiosInstance
-  private dailyCallCount = 0
-  private readonly dailyLimit: number
+  private readonly client: AxiosInstance
 
-  constructor(private readonly config: ConfigService) {
-    const configuredLimit = this.config.get<string>('JEONGBONARU_DAILY_LIMIT')
-    this.dailyLimit = configuredLimit ? Number(configuredLimit) : 500
-
-    this.http = axios.create({
+  constructor(
+    private readonly config: ConfigService,
+    private readonly quota: QuotaService,
+    private readonly pendingLookupService: PendingLookupService,
+  ) {
+    this.client = axios.create({
       baseURL: 'https://www.data4library.kr/api',
-      timeout: 5_000,
       params: {
-        authKey: this.config.get<string>('JEONGBONARU_API_KEY'),
+        authKey: this.config.get('JEONGBONARU_API_KEY'),
         format: 'json',
       },
+      timeout: 5000,
     })
   }
 
-  onModuleInit() {
-    if (!this.config.get<string>('JEONGBONARU_API_KEY')) {
-      this.logger.warn('JEONGBONARU_API_KEY가 설정되지 않았습니다.')
-    }
-    this.logger.log(`JeongbonaruClient 초기화 (일 한도: ${this.dailyLimit})`)
-  }
+  async get<T>(
+    endpoint: string,
+    params: Record<string, unknown> = {},
+    options: CallOptions = {},
+  ): Promise<T> {
+    // QuotaService 게이트는 기존 그대로
+    const priority = options.priority ?? 'HIGH'
+    const gate = await this.quota.acquire('jeongbonaru', priority)
+    if (!gate.ok) {
+      this.logger.warn(`Quota blocked: ${gate.reason} (priority=${priority}, endpoint=${endpoint})`)
 
-  async get<T>(endpoint: string, params: Record<string, unknown> = {}): Promise<T> {
-    if (this.dailyCallCount >= this.dailyLimit) {
-      this.logger.warn(`일 한도 초과: ${this.dailyCallCount}/${this.dailyLimit}`)
-      throw new Error('API_LIMIT_EXCEEDED')
+      // HIGH priority 차단 시에만 enqueue 시도
+      if (priority === 'HIGH' && options.enqueueOnBlock) {
+        await this.pendingLookupService.enqueue({
+          ...options.enqueueOnBlock,
+          priority: 'HIGH',
+        })
+      }
+
+      throw new QuotaBlockedError(gate.reason)
     }
 
     const start = Date.now()
-    let statusCode = 200
-
     try {
-      this.dailyCallCount++
-      if (this.dailyCallCount >= this.dailyLimit * 0.9) {
-        this.logger.warn(`API 호출 90% 도달: ${this.dailyCallCount}/${this.dailyLimit}`)
-      }
+      const { data } = await this.client.get<T>(endpoint, { params })
+      const durationMs = Date.now() - start
 
-      const { data } = await this.http.get<T>(endpoint, { params })
+      // 호출 직후 카운트 즉시 +1
+      this.quota.bumpCachedCount('jeongbonaru')
+
+      // 호출 로그 (비차단)
+      await db.insert(apiUsage).values({
+        provider: 'jeongbonaru',
+        endpoint,
+        statusCode: 200,
+        cachedHit: false,
+        durationMs,
+        priority, // ← options.priority ?? null 대신 resolved priority 사용
+      })
+
+      // 임계값 체크 (비차단)
+      void this.quota.checkAndNotifyThresholds('jeongbonaru')
+
       return data
-    } catch (error: unknown) {
-      const axiosError = error as { response?: { status?: number }; message?: string }
-      statusCode = axiosError.response?.status ?? 500
-      this.logger.error(`API 호출 실패: ${endpoint} - ${axiosError.message ?? 'unknown error'}`)
-      throw error
-    } finally {
-      db.insert(apiUsage)
-        .values({
-          provider: 'jeongbonaru',
-          endpoint,
-          statusCode,
-          cachedHit: false,
-          durationMs: Date.now() - start,
-        })
-        .catch((insertError: unknown) => this.logger.error('api_usage insert 실패', insertError))
+    } catch (err: any) {
+      const durationMs = Date.now() - start
+      const status = err?.response?.status ?? 500
+      this.logger.error(`API call failed: ${endpoint} (${status})`, err.message)
+
+      await db.insert(apiUsage).values({
+        provider: 'jeongbonaru',
+        endpoint,
+        statusCode: status,
+        cachedHit: false,
+        durationMs,
+        priority, // ← resolved priority
+      })
+
+      throw err
     }
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-  resetDailyCount() {
-    this.logger.log(`일일 호출량 리셋: ${this.dailyCallCount} -> 0`)
-    this.dailyCallCount = 0
-  }
-
-  getStatus() {
-    const utilizationPct =
-      this.dailyLimit > 0 ? Math.round((this.dailyCallCount / this.dailyLimit) * 100) : 0
-
-    return {
-      called: this.dailyCallCount,
-      limit: this.dailyLimit,
-      remaining: this.dailyLimit - this.dailyCallCount,
-      utilizationPct,
-    }
+  async getStatus() {
+    return this.quota.getStatus('jeongbonaru')
   }
 }

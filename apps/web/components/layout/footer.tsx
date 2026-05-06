@@ -15,6 +15,8 @@ export function Footer() {
               { href: '/privacy', label: '개인정보처리방침' },
               { href: '/about',   label: '서비스 소개' },
               { href: '/contact', label: '문의' },
+              { href: '/notices', label: '공지사항' },
+              { href: '/feedback', label: '오류 신고 · 개선 제안' },
             ].map(({ href, label }) => (
               <a key={href} href={href} className="hover:text-foreground transition-colors">
                 {label}

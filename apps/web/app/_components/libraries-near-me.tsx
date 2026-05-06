@@ -41,7 +41,9 @@ export function LibrariesNearMe({ fallbackLibraries }: Props) {
       const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
       const res = await fetch(`${API_BASE}/libraries/near?lat=${lat}&lng=${lng}&limit=12`)
       const json = await res.json()
-      setCenterLibraries(Array.isArray(json) ? json : (json.data ?? []))
+      // unwrap envelope
+      const items = Array.isArray(json) ? json : (json.data?.items ?? json.data ?? [])
+      setCenterLibraries(items)
     } catch (e) {
       console.error('Center fetch failed', e)
     }

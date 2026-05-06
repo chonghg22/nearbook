@@ -1,10 +1,23 @@
 import { Module } from '@nestjs/common'
-import { CacheService } from '../../common/cache.service'
+import { ScheduleModule } from '@nestjs/schedule'
 import { JeongbonaruClient } from './jeongbonaru.client'
 import { JeongbonaruService } from './jeongbonaru.service'
+import { PendingLookupService } from './pending-lookup.service'
+import { PendingLookupCron } from './pending-lookup.cron'
+import { QuotaModule } from '../quota/quota.module'
+import { NotifyModule } from '../notify/notify.module'
 
 @Module({
-  providers: [JeongbonaruClient, JeongbonaruService, CacheService],
-  exports: [JeongbonaruClient, JeongbonaruService, CacheService],
+  imports: [
+    QuotaModule,
+    NotifyModule,
+  ],
+  providers: [
+    JeongbonaruClient,
+    JeongbonaruService,
+    PendingLookupService,
+    PendingLookupCron,
+  ],
+  exports: [JeongbonaruService, JeongbonaruClient, PendingLookupService, PendingLookupCron],
 })
 export class JeongbonaruModule {}

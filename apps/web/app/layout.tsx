@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import '@fontsource/pretendard/index.css'
 import './globals.css'
-import { Header } from '@/components/layout/header'
-import { Footer } from '@/components/layout/footer'
+import { SiteHeader } from '@/components/layout/site-header'
+import { SiteFooter } from '@/components/layout/site-footer'
+import { LocationProvider } from '@/lib/use-location-context'
 
 export const metadata: Metadata = {
   title: { template: '%s | 우리동네책', default: '우리동네책 — 동네 도서관 책 찾기' },
@@ -13,11 +14,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className="antialiased min-h-screen bg-canvas flex flex-col">
-        <Header />
-        <main className="flex-1">
-          {children}
-        </main>
-        <Footer />
+        <LocationProvider>
+          <SiteHeader />
+          <main className="flex-1">
+            {children}
+          </main>
+          <SiteFooter />
+        </LocationProvider>
       </body>
     </html>
   )

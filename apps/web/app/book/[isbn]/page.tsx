@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { LibraryCard } from '@/components/library/library-card'
-import type { Status } from '@/components/ui/status-badge'
 import { WishlistButton } from '@/components/book/wishlist-button'
+import { LibraryStatus } from './_components/library-status'
 
 const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3001'
 export const revalidate = 2592000 // 30일
@@ -10,6 +9,7 @@ export const dynamicParams = true
 
 async function fetchBook(isbn: string) {
   try {
+    // 서버 사이드 기본값은 유지 (검색 엔진용)
     const res = await fetch(`${API_URL}/books/${isbn}/with-libraries?lat=37.5665&lng=126.978`, {
       next: { revalidate },
     })
@@ -81,108 +81,87 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
       />
 
       <main className="bg-canvas min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
-          {/* 상단 2-컬럼 레이아웃 (데스크톱) */}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_340px] gap-8 md:gap-12 items-start">
+        <div className="max-w-5xl mx-auto px-4 py-8 md:py-12 space-y-12">
+          {/* 상단: 책 기본 정보 및 사이드바 */}
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-8 md:gap-12 items-start">
             
             {/* 왼쪽: 책 상세 정보 */}
-            <div className="space-y-8">
-              <section className="flex flex-col sm:flex-row gap-6 md:gap-8">
-                {book.coverUrl && (
-                  <div className="shrink-0 mx-auto sm:mx-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={book.coverUrl}
-                      alt={book.title}
-                      width={160}
-                      height={240}
-                      className="rounded-lg shadow-card-md object-cover border border-border/50"
-                    />
-                  </div>
-                )}
-                <div className="flex-1 text-center sm:text-left">
-                  <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight text-balance leading-tight">
-                    {book.title}
-                  </h1>
-                  <p className="text-lg text-muted-foreground mt-2">{book.author}</p>
-                  <p className="text-sm text-subtle-foreground mt-2">
-                    {book.publisher} {book.publishedYear && `· ${book.publishedYear}`}
-                  </p>
-                  
-                  <div className="mt-6 flex flex-wrap justify-center sm:justify-start gap-3">
-                    <WishlistButton isbn={book.isbn} />
-                  </div>
+            <section className="flex flex-col sm:flex-row gap-6 md:gap-8">
+              {book.coverUrl && (
+                <div className="shrink-0 mx-auto sm:mx-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={book.coverUrl}
+                    alt={book.title}
+                    width={180}
+                    height={270}
+                    className="rounded-lg shadow-card-md object-cover border border-border/50"
+                  />
                 </div>
-              </section>
-
-              <section>
-                <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                  📚 주변 도서관 보유 현황
-                </h2>
-                {libraries?.length ? (
-                  <div className="grid grid-cols-1 gap-4">
-                    {libraries.map((lib: Record<string, any>) => {
-                      const status: Status = lib.loanAvailable ? 'available' : 'unavailable'
-                      return (
-                        <LibraryCard
-                          key={String(lib.id)}
-                          libraryId={String(lib.id)}
-                          libraryName={String(lib.name ?? '')}
-                          distanceKm={lib.distanceKm}
-                          availableCount={lib.loanAvailable ? 1 : 0} // 데이터 구조에 맞춰 조정 필요할 수 있음
-                          status={status}
-                        />
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="bg-white border border-border border-dashed rounded-lg p-12 text-center">
-                    <p className="text-muted-foreground">반경 5km 내 도서관 정보가 없습니다.</p>
-                  </div>
-                )}
-              </section>
-
-              <section>
-                <h2 className="text-lg font-bold text-foreground mb-4">🛒 구매·대여 옵션</h2>
-                <div className="flex gap-2 flex-wrap">
-                  {affiliates?.map((a: Record<string, any>) => (
-                    <a
-                      key={String(a.provider)}
-                      href={String(a.url)}
-                      target="_blank"
-                      rel="noopener noreferrer sponsored"
-                      className="px-4 py-2 bg-white border border-border rounded-lg text-sm font-medium
-                                 text-muted-foreground hover:border-primary/50 hover:text-primary
-                                 transition-colors shadow-card"
-                    >
-                      {String(a.provider)}
-                    </a>
-                  ))}
+              )}
+              <div className="flex-1 text-center sm:text-left">
+                <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight text-balance leading-tight">
+                  {book.title}
+                </h1>
+                <p className="text-lg text-muted-foreground mt-2">{book.author}</p>
+                <p className="text-sm text-subtle-foreground mt-2">
+                  {book.publisher} {book.publishedYear && `· ${book.publishedYear}`}
+                </p>
+                
+                <div className="mt-6 flex flex-wrap justify-center sm:justify-start gap-3">
+                  <WishlistButton isbn={book.isbn} />
                 </div>
-              </section>
-            </div>
+              </div>
+            </section>
 
             {/* 오른쪽: 사이드바 (데스크톱) */}
-            <aside className="hidden md:block space-y-6">
+            <aside className="hidden md:block">
               <div className="bg-canvas-subtle rounded-xl p-5 border border-border">
-                <h3 className="font-semibold text-foreground mb-2 text-sm">도서 정보</h3>
+                <h3 className="font-semibold text-foreground mb-3 text-sm">도서 정보</h3>
                 <dl className="space-y-3 text-xs">
-                  <div className="flex justify-between">
-                    <dt className="text-muted-foreground">ISBN</dt>
-                    <dd className="font-mono text-foreground">{book.isbn}</dd>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground shrink-0">ISBN</dt>
+                    <dd className="font-mono text-foreground break-all text-right">{book.isbn}</dd>
                   </div>
                   {book.publishedYear && (
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">발행일</dt>
-                      <dd className="text-foreground">{book.publishedYear}</dd>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground shrink-0">발행일</dt>
+                      <dd className="text-foreground text-right">{book.publishedYear}</dd>
+                    </div>
+                  )}
+                  {book.publisher && (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground shrink-0">출판사</dt>
+                      <dd className="text-foreground text-right">{book.publisher}</dd>
                     </div>
                   )}
                 </dl>
               </div>
-              
-              {/* 여기에 광고나 추가 정보를 넣을 수 있음 */}
             </aside>
+          </div>
 
+          {/* 하단: 전체 너비를 사용하는 도서관 목록 섹션 */}
+          <div className="space-y-12">
+            <LibraryStatus isbn={isbn} initialLibraries={libraries || []} />
+
+            <section>
+              <h2 className="text-lg font-bold text-foreground mb-4">🛒 구매·대여 옵션</h2>
+              <div className="flex gap-2 flex-wrap">
+                {affiliates?.map((a: Record<string, any>) => (
+                  <a
+                    key={String(a.provider)}
+                    href={String(a.url)}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className="px-4 py-2 bg-white border border-border rounded-lg text-sm font-medium
+                                text-muted-foreground hover:border-primary/50 hover:text-primary
+                                transition-colors shadow-card"
+                  >
+                    {String(a.provider)}
+                  </a>
+                ))}
+              </div>
+            </section>
           </div>
         </div>
       </main>
