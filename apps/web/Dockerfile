@@ -20,7 +20,8 @@ RUN pnpm install --frozen-lockfile
 COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
 ENV CI=true
-RUN pnpm exec turbo run build --filter=@nearbook/web...
+# Build dependencies first then the app, with verbose streaming logs
+RUN npx turbo build --filter="@nearbook/web..." --log-order=stream
 
 FROM node:20-slim AS runner
 WORKDIR /app

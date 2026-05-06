@@ -16,12 +16,12 @@ COPY --from=builder /app/out/json/ .
 COPY --from=builder /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 RUN pnpm install --frozen-lockfile
 
-# Copy the rest of the source and build
+# Build the project
 COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
-# Build dependencies first, then the app
 ENV CI=true
-RUN pnpm exec turbo run build --filter=@nearbook/api...
+# Build dependencies first then the app, with verbose streaming logs
+RUN npx turbo build --filter="@nearbook/api..." --log-order=stream
 
 FROM node:20-slim AS runner
 WORKDIR /app
