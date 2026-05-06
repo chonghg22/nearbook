@@ -19,8 +19,10 @@ RUN pnpm install --frozen-lockfile
 # Build the project
 COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
+# RE-INSTALL to restore symlinks broken by the full source copy
+RUN pnpm install --frozen-lockfile
 ENV CI=true
-# Build dependencies first then the app, with verbose streaming logs
+# Build dependencies first then the app
 RUN npx turbo build --filter="@nearbook/api..." --log-order=stream
 
 FROM node:20-slim AS runner
