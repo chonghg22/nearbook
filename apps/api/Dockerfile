@@ -19,7 +19,7 @@ RUN pnpm install --frozen-lockfile
 # Build the project
 COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
-RUN pnpm build --filter=@nearbook/api...
+RUN npx turbo run build --filter=@nearbook/api
 
 FROM node:20-alpine AS runner
 WORKDIR /app
@@ -36,4 +36,5 @@ COPY --from=installer /app/apps/api/package.json ./package.json
 EXPOSE 3001
 ENV PORT 3001
 
-CMD ["node", "dist/main"]
+# NestJS build output path in monorepo
+CMD ["node", "dist/apps/api/src/main"]

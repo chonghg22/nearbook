@@ -19,7 +19,7 @@ RUN pnpm install --frozen-lockfile
 # Build the project
 COPY --from=builder /app/out/full/ .
 COPY turbo.json turbo.json
-RUN pnpm build --filter=@nearbook/web...
+RUN npx turbo run build --filter=@nearbook/web
 
 FROM node:20-alpine AS runner
 WORKDIR /app
