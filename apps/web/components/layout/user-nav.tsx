@@ -12,11 +12,14 @@ export function UserNav() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    function applyUser(user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']) {
       if (!user) {
+        setNickname('')
+        setAvatarUrl(undefined)
         setState('logged-out')
         return
       }
+
       const meta = (user.user_metadata ?? {}) as Record<string, unknown>
       setNickname(
         (meta.nickname as string | undefined) ??
@@ -26,7 +29,19 @@ export function UserNav() {
       )
       setAvatarUrl(meta.avatar_url as string | undefined)
       setState('logged-in')
+    }
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      applyUser(user)
     })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      applyUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   if (state === 'loading') {

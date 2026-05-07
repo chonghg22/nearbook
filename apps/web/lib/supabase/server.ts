@@ -1,5 +1,6 @@
 import { createServerClient as _createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
 
 /**
  * Next.js 15 의 cookies() 는 async 이므로 이 헬퍼도 async.
@@ -31,3 +32,24 @@ export async function createClient() {
 
 // 기존 코드 호환성을 위해 alias 로 export
 export const createServerClient = createClient
+
+export async function createRouteHandlerClient(response: NextResponse) {
+  const cookieStore = await cookies()
+
+  return _createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+          })
+        },
+      },
+    },
+  )
+}

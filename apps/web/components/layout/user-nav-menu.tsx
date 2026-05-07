@@ -25,7 +25,12 @@ export function UserNavMenu({ nickname, avatarUrl }: Props) {
 
   async function handleLogout() {
     const supabase = createClient()
-    await supabase.auth.signOut()
+
+    await Promise.allSettled([
+      supabase.auth.signOut(),
+      fetch('/auth-api/logout', { method: 'POST' }),
+    ])
+
     router.push('/')
     router.refresh()
   }
