@@ -4,7 +4,7 @@ import { LibrariesNearMe } from './_components/libraries-near-me'
 import { AboutSection } from './_components/about-section'
 import { AdSenseSlot } from './_components/adsense-slot'
 
-export const revalidate = 86400 // 1일
+export const revalidate = 3600 // 1시간
 
 const API = process.env.INTERNAL_API_URL || 'http://localhost:3001'
 const MONTHLY_KEYWORDS_FALLBACK = [
