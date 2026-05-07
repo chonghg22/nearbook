@@ -18,7 +18,7 @@ export function MobileSearchTrigger() {
       <DialogTrigger asChild>
         <button
           aria-label="검색 열기"
-          className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-gray-100"
+          className="flex h-10 w-10 min-h-0 min-w-0 items-center justify-center rounded-full hover:bg-gray-100"
         >
           <Search className="h-5 w-5" />
         </button>

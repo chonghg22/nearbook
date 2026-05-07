@@ -83,14 +83,16 @@ export function SearchBar({
           <button
             type="button"
             onClick={() => setQ('')}
-            className="absolute right-14 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 transition"
+            aria-label="검색어 지우기"
+            className="absolute right-12 top-1/2 flex h-7 w-7 min-h-0 min-w-0 -translate-y-1/2 items-center justify-center rounded-full hover:bg-gray-200 transition"
           >
             <X className="w-4 h-4 text-gray-400" />
           </button>
         )}
         <button
           type="submit"
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-primary-500 text-white hover:bg-primary-600 transition flex items-center justify-center shadow-sm"
+          aria-label="검색"
+          className="absolute right-1.5 top-1/2 flex h-9 w-9 min-h-0 min-w-0 -translate-y-1/2 items-center justify-center rounded-full bg-primary-500 text-white shadow-sm transition hover:bg-primary-600"
         >
           <Search className="w-5 h-5" />
         </button>

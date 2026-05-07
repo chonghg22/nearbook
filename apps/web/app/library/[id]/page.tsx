@@ -99,28 +99,31 @@ export default async function LibraryPage({
   const initialFavorite = isFavorite.status === 'fulfilled' ? isFavorite.value : false
 
   return (
-    <main className="bg-canvas min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+    <main className="min-h-screen bg-canvas">
+      <div className="mx-auto max-w-6xl px-4 py-8 md:py-12">
         {/* 헤더 */}
-        <section className="mb-10 bg-white rounded-2xl p-6 md:p-8 border border-border shadow-card">
+        <section className="mb-8 overflow-hidden rounded-[2rem] border border-border bg-white p-6 shadow-card md:p-8">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">{library.name}</h1>
-              <p className="text-muted-foreground text-sm flex items-center gap-1.5">
+            <div className="min-w-0">
+              <p className="mb-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                공공도서관 상세
+              </p>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-3">{library.name}</h1>
+              <p className="text-muted-foreground text-sm flex items-start gap-1.5 leading-6">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                 {library.address}
               </p>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
+              <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-x-8">
                 {library.phone && (
-                  <div className="flex justify-between text-xs py-1 border-b border-border/50">
+                  <div className="flex justify-between gap-4 rounded-xl bg-gray-50 px-3 py-2 text-xs">
                     <span className="text-subtle-foreground">전화번호</span>
-                    <span className="text-foreground font-medium">{library.phone}</span>
+                    <span className="text-right font-medium text-foreground">{library.phone}</span>
                   </div>
                 )}
                 {library.operatingHours?.weekday && (
-                  <div className="flex justify-between text-xs py-1 border-b border-border/50">
+                  <div className="flex justify-between gap-4 rounded-xl bg-gray-50 px-3 py-2 text-xs">
                     <span className="text-subtle-foreground">운영시간</span>
-                    <span className="text-foreground font-medium">{library.operatingHours.weekday}</span>
+                    <span className="text-right font-medium text-foreground">{library.operatingHours.weekday}</span>
                   </div>
                 )}
               </div>
@@ -137,7 +140,7 @@ export default async function LibraryPage({
               </a>
             )}
           </div>
-          <div className="mt-4">
+          <div className="mt-5">
             <LibraryFavoriteButton
               libraryId={library.id}
               initialAdded={initialFavorite}
@@ -145,18 +148,18 @@ export default async function LibraryPage({
           </div>
         </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-12">
             {/* 인기 대출 도서 */}
-            <section>
+            <section className="rounded-[1.5rem] border border-border bg-white p-5 shadow-card md:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
                   <span className="text-primary text-xl">🏆</span> 인기도서 TOP 20
                 </h2>
               </div>
               {popular.length === 0 ? (
-                <div className="p-12 text-center bg-white rounded-xl border border-border border-dashed">
-                  <p className="text-muted-foreground text-sm">인기도서 정보를 불러오는 중입니다.</p>
+                <div className="rounded-2xl border border-dashed border-border bg-canvas/70 p-10 text-center">
+                  <p className="text-muted-foreground text-sm">인기도서 정보가 없습니다.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-3">
@@ -178,12 +181,12 @@ export default async function LibraryPage({
             </section>
 
             {/* 신착도서 */}
-            <section>
+            <section className="rounded-[1.5rem] border border-border bg-white p-5 shadow-card md:p-6">
               <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                 <span className="text-primary text-xl">✨</span> 새로 들어온 책
               </h2>
               {newArrivals.length === 0 ? (
-                <div className="p-12 text-center bg-white rounded-xl border border-border border-dashed">
+                <div className="rounded-2xl border border-dashed border-border bg-canvas/70 p-10 text-center">
                   <p className="text-muted-foreground text-sm">신착도서 정보가 없습니다.</p>
                 </div>
               ) : (
@@ -223,19 +226,19 @@ export default async function LibraryPage({
           </div>
 
           {/* 사이드바 */}
-          <aside className="space-y-8">
+          <aside className="flex h-full flex-col gap-6 lg:self-stretch">
             <LibraryTrendCard trends={trends} />
 
             {/* 위치 지도 */}
             {library.lat && library.lng && (
-              <div className="rounded-2xl overflow-hidden border border-border shadow-card">
+              <section className="flex min-h-[430px] flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-border bg-white shadow-card">
                 <div className="px-4 py-3 bg-white border-b border-border">
-                  <h3 className="text-sm font-bold text-foreground">도서관 위치</h3>
+                  <h3 className="text-sm font-bold text-foreground">🗺 도서관 위치</h3>
                 </div>
-                <div className="h-60 grayscale-[0.5]">
+                <div className="min-h-0 flex-1">
                   <LocationMap library={library} />
                 </div>
-              </div>
+              </section>
             )}
           </aside>
         </div>
