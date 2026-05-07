@@ -3,14 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
   "scripts": {
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "build": "tsc",
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -18,9 +24,10 @@
     "postgres": "^3.4.0"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.24.0",
     "@types/node": "^20.0.0",
     "dotenv": "^16.4.0",
+    "drizzle-kit": "^0.24.0",
+    "tsup": "^8.5.1",
     "typescript": "^5.4.0"
   }
 }
