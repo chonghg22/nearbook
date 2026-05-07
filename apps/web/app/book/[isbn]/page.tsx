@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { WishlistButton } from '@/components/book/wishlist-button'
-import { createServerClient } from '@/lib/supabase/server'
 import { LibraryStatus } from './_components/library-status'
 
 const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3001'
@@ -19,29 +18,6 @@ async function fetchBook(isbn: string) {
   } catch (error) {
     console.error('Error fetching book:', error)
     return null
-  }
-}
-
-async function fetchWishlistStatus(isbn: string) {
-  const supabase = await createServerClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session?.access_token) return false
-
-  try {
-    const res = await fetch(`${API_URL}/me/wishlists/${isbn}/status`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      cache: 'no-store',
-    })
-
-    if (!res.ok) return false
-
-    const json = await res.json()
-    return Boolean(json.data?.added)
-  } catch {
-    return false
   }
 }
 
@@ -81,10 +57,7 @@ export async function generateMetadata({ params }: { params: Promise<{ isbn: str
 
 export default async function BookPage({ params }: { params: Promise<{ isbn: string }> }) {
   const { isbn } = await params
-  const [result, isWishlisted] = await Promise.all([
-    fetchBook(isbn),
-    fetchWishlistStatus(isbn),
-  ])
+  const result = await fetchBook(isbn)
   if (!result) notFound()
 
   const { book, libraries, affiliates } = result
@@ -136,7 +109,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
                 </p>
                 
                 <div className="mt-6 flex flex-wrap justify-center sm:justify-start gap-3">
-                  <WishlistButton isbn={book.isbn} initialAdded={isWishlisted} />
+                  <WishlistButton isbn={book.isbn} />
                 </div>
               </div>
             </section>

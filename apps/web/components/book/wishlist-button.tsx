@@ -17,8 +17,17 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
   const router = useRouter()
 
   useEffect(() => {
-    setAdded(initialAdded)
-  }, [initialAdded, isbn])
+    let cancelled = false
+    apiFetch(`/me/wishlists/${isbn}/status`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!cancelled && json?.data?.added != null) {
+          setAdded(Boolean(json.data.added))
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [isbn])
 
   function showToast(msg: string) {
     setToastMsg(msg)
