@@ -113,12 +113,12 @@ PR 생성 → Preview URL 자동 생성
 
 ### Oracle Cloud (API 배포)
 - [x] GitHub Actions CD 워크플로 완성 (SSH 배포 포함)
-- [ ] VM에 Docker 설치
-- [ ] VCN Security List 설정 (포트 22, 80, 443, 3001 인바운드 허용)
-- [ ] GitHub Secrets 등록 (`ORACLE_HOST`, `ORACLE_USER`, `ORACLE_SSH_KEY`, `GHCR_TOKEN`)
-- [ ] VM에 `.env` 파일 생성 (`/home/<user>/nearbook/.env`)
+- [x] VM에 Docker 설치 (이미 설치됨)
+- [x] VCN Security List 설정 (포트 22, 3001 인바운드 허용)
+- [x] GitHub Secrets 등록 (`ORACLE_HOST`, `ORACLE_USER`, `ORACLE_SSH_KEY`, `GHCR_TOKEN`)
+- [x] VM에 `.env` 파일 설정 (`/home/ubuntu/nearbook/apps/api/.env`)
+- [x] 첫 배포 테스트 완료 — API 서버 정상 가동 (`http://140.245.78.138:3001`)
 - [ ] Nginx reverse proxy + SSL (Let's Encrypt) 설정
-- [ ] 첫 배포 테스트
 - [ ] 배포 후 Vercel 환경변수에 `INTERNAL_API_URL` 업데이트
 
 ### 기타
