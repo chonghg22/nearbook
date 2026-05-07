@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 import { LibrariesService } from '../libraries/libraries.service'
 import { AffiliatesService } from '../affiliates/affiliates.service'
@@ -7,6 +7,8 @@ import { BooksRepository } from './books.repository'
 
 @Injectable()
 export class BooksService {
+  private readonly logger = new Logger(BooksService.name)
+
   constructor(
     private readonly jeongbonaru: JeongbonaruService,
     private readonly libraries: LibrariesService,
@@ -57,18 +59,28 @@ export class BooksService {
     const cacheKey = `loan-item:${limit}`
     const hit = this.cache.get<unknown[]>(cacheKey)
     if (hit) return hit
-    const rows = await this.jeongbonaru.getLoanItemBooks(limit)
-    this.cache.set(cacheKey, rows, 60 * 60 * 1000)
-    return rows
+    try {
+      const rows = await this.jeongbonaru.getLoanItemBooks(limit)
+      if (rows.length > 0) this.cache.set(cacheKey, rows, 60 * 60 * 1000)
+      return rows
+    } catch (err) {
+      this.logger.warn(`getLoanItemBooks failed: ${err}`)
+      return []
+    }
   }
 
   async getHotTrendBooks(limit = 10, searchDt?: string) {
     const cacheKey = `hot-trend:${searchDt ?? 'current'}:${limit}`
     const hit = this.cache.get<unknown[]>(cacheKey)
     if (hit) return hit
-    const rows = await this.jeongbonaru.getHotTrendBooks(limit, searchDt)
-    this.cache.set(cacheKey, rows, 60 * 60 * 1000)
-    return rows
+    try {
+      const rows = await this.jeongbonaru.getHotTrendBooks(limit, searchDt)
+      if (rows.length > 0) this.cache.set(cacheKey, rows, 60 * 60 * 1000)
+      return rows
+    } catch (err) {
+      this.logger.warn(`getHotTrendBooks failed: ${err}`)
+      return []
+    }
   }
 
   async getWithLibraries(isbn: string, lat: number, lng: number, radiusKm = 5) {

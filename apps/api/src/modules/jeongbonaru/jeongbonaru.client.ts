@@ -26,7 +26,7 @@ export class JeongbonaruClient implements OnModuleInit {
         authKey,
         format: 'json',
       },
-      timeout: 5_000,
+      timeout: 10_000,
     })
   }
 
