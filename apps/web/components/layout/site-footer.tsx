@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { BookOpen, Mail } from 'lucide-react'
 
-const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'contact@example.com'
-const OPERATOR_NAME = process.env.NEXT_PUBLIC_OPERATOR_NAME ?? '우리동네책'
+const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'chonghg22@gmail.com'
+const OPERATOR_NAME = process.env.NEXT_PUBLIC_OPERATOR_NAME ?? '우리동네책 운영자'
 
 export function SiteFooter() {
   const year = new Date().getFullYear()
@@ -40,7 +40,9 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2 text-sm text-gray-600">
               <li><Link href="/terms" className="hover:text-blue-600">이용약관</Link></li>
               <li><Link href="/privacy" className="hover:text-blue-600">개인정보처리방침</Link></li>
-              <li><Link href="/contact" className="hover:text-blue-600">문의</Link></li>
+              <li><Link href="/notices" className="hover:text-blue-600">공지사항</Link></li>
+              <li><Link href="/qna" className="hover:text-blue-600">묻고답하기</Link></li>
+              <li><Link href="/feedback" className="hover:text-blue-600">오류신고&건의사항</Link></li>
             </ul>
           </div>
 
@@ -55,6 +57,7 @@ export function SiteFooter() {
                 </a>
               </li>
               <li className="text-xs text-gray-500">{OPERATOR_NAME}</li>
+              <li className="text-xs text-gray-500">서비스 문의와 데이터 오류 제보를 받습니다.</li>
             </ul>
           </div>
         </div>

@@ -73,10 +73,11 @@ export default async function LibraryPage({
 }) {
   const { id } = await params
 
-  const [libRes, popularRes, recentRes, isFavorite] = await Promise.allSettled([
+  const [libRes, popularRes, newArrivalRes, trendRes, isFavorite] = await Promise.allSettled([
     fetchWithTimeout(`${API_URL}/libraries/${id}`, 8000, { next: { revalidate } }),
     fetchWithTimeout(`${API_URL}/libraries/${id}/popular?limit=20`, 8000, { next: { revalidate } }),
-    fetchWithTimeout(`${API_URL}/libraries/${id}/recent?limit=20`, 8000, { next: { revalidate } }),
+    fetchWithTimeout(`${API_URL}/libraries/${id}/new-arrivals?limit=20`, 8000, { next: { revalidate } }),
+    fetchWithTimeout(`${API_URL}/libraries/${id}/trends`, 8000, { next: { revalidate } }),
     fetchLibraryFavoriteStatus(id),
   ])
 
@@ -87,9 +88,13 @@ export default async function LibraryPage({
     popularRes.status === 'fulfilled' && popularRes.value.ok
       ? (await popularRes.value.json()).data
       : []
-  const recent =
-    recentRes.status === 'fulfilled' && recentRes.value.ok
-      ? (await recentRes.value.json()).data
+  const newArrivals =
+    newArrivalRes.status === 'fulfilled' && newArrivalRes.value.ok
+      ? (await newArrivalRes.value.json()).data
+      : []
+  const trends =
+    trendRes.status === 'fulfilled' && trendRes.value.ok
+      ? (await trendRes.value.json()).data
       : []
   const initialFavorite = isFavorite.status === 'fulfilled' ? isFavorite.value : false
 
@@ -172,18 +177,18 @@ export default async function LibraryPage({
               )}
             </section>
 
-            {/* 신간 */}
+            {/* 신착도서 */}
             <section>
               <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <span className="text-primary text-xl">✨</span> 최근 30일 신간
+                <span className="text-primary text-xl">✨</span> 새로 들어온 책
               </h2>
-              {recent.length === 0 ? (
+              {newArrivals.length === 0 ? (
                 <div className="p-12 text-center bg-white rounded-xl border border-border border-dashed">
-                  <p className="text-muted-foreground text-sm">신간 정보가 없습니다.</p>
+                  <p className="text-muted-foreground text-sm">신착도서 정보가 없습니다.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {recent.map((book: any, i: number) => (
+                  {newArrivals.map((book: any, i: number) => (
                     <Link
                       key={book.isbn ?? i}
                       href={`/book/${book.isbn}`}
@@ -207,6 +212,9 @@ export default async function LibraryPage({
                         {book.title}
                       </p>
                       <p className="text-[10px] text-muted-foreground truncate">{book.author}</p>
+                      {book.registeredAt && (
+                        <p className="mt-0.5 text-[10px] text-subtle-foreground">{book.registeredAt} 등록</p>
+                      )}
                     </Link>
                   ))}
                 </div>
@@ -216,6 +224,8 @@ export default async function LibraryPage({
 
           {/* 사이드바 */}
           <aside className="space-y-8">
+            <LibraryTrendCard trends={trends} />
+
             {/* 위치 지도 */}
             {library.lat && library.lng && (
               <div className="rounded-2xl overflow-hidden border border-border shadow-card">
@@ -232,4 +242,79 @@ export default async function LibraryPage({
       </div>
     </main>
   )
+}
+
+function LibraryTrendCard({ trends }: { trends: any }) {
+  const dayRows = trends?.dayOfWeek ?? []
+  const hourRows = trends?.hours ?? []
+  if (!dayRows.length && !hourRows.length) return null
+
+  const busiestDay = [...dayRows].sort((a: any, b: any) => Number(b.loan) - Number(a.loan))[0]
+  const busiestHour = [...hourRows].sort((a: any, b: any) => Number(b.loan) - Number(a.loan))[0]
+
+  return (
+    <section className="rounded-2xl border border-border bg-white p-5 shadow-card">
+      <h3 className="text-sm font-bold text-foreground">대출·반납 이용 패턴</h3>
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+        최근 30일 대출·반납량을 상대 비율로 보여드립니다.
+      </p>
+
+      <div className="mt-4 space-y-3">
+        {busiestDay && (
+          <div className="rounded-lg bg-blue-50 px-3 py-2">
+            <p className="text-[11px] text-blue-700">대출이 많은 요일</p>
+            <p className="mt-0.5 text-sm font-semibold text-blue-900">
+              {formatDayOfWeek(busiestDay.dayOfWeek)} · {Math.round(Number(busiestDay.loan))}%
+            </p>
+          </div>
+        )}
+        {busiestHour && (
+          <div className="rounded-lg bg-amber-50 px-3 py-2">
+            <p className="text-[11px] text-amber-700">대출이 많은 시간대</p>
+            <p className="mt-0.5 text-sm font-semibold text-amber-900">
+              {formatHour(busiestHour.hour)} · {Math.round(Number(busiestHour.loan))}%
+            </p>
+          </div>
+        )}
+      </div>
+
+      {dayRows.length > 0 && (
+        <div className="mt-5 space-y-2">
+          <p className="text-xs font-semibold text-foreground">요일별 대출 비율</p>
+          {dayRows.map((row: any) => (
+            <div key={row.dayOfWeek} className="grid grid-cols-[44px_1fr_40px] items-center gap-2 text-[11px]">
+              <span className="text-muted-foreground">{formatDayOfWeek(row.dayOfWeek)}</span>
+              <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className="h-full rounded-full bg-blue-500"
+                  style={{ width: `${Math.max(4, Number(row.loan))}%` }}
+                />
+              </div>
+              <span className="text-right text-foreground">{Math.round(Number(row.loan))}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function formatDayOfWeek(day: string | null) {
+  const map: Record<string, string> = {
+    Sunday: '일',
+    Monday: '월',
+    Tuesday: '화',
+    Wednesday: '수',
+    Thursday: '목',
+    Friday: '금',
+    Saturday: '토',
+  }
+  return day ? map[day] ?? day : '-'
+}
+
+function formatHour(hour: string | null) {
+  if (!hour) return '-'
+  if (hour === '00') return '0~9시'
+  if (hour === '20') return '20~23시'
+  return `${hour}시`
 }

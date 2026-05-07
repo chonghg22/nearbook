@@ -94,4 +94,22 @@ export class LibrariesController {
     const data = await this.service.getRecentBooks(id, limit)
     return { data }
   }
+
+  @Get(':id/new-arrivals')
+  @ApiOperation({ summary: '도서관별 신착도서' })
+  async getLibraryNewArrivals(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('searchDt') searchDt?: string,
+  ) {
+    const data = await this.service.getNewArrivalBooks(id, Math.min(limit, 50), searchDt)
+    return { data }
+  }
+
+  @Get(':id/trends')
+  @ApiOperation({ summary: '도서관별 대출반납 추이' })
+  async getLibraryTrends(@Param('id', ParseIntPipe) id: number) {
+    const data = await this.service.getUsageTrend(id)
+    return { data }
+  }
 }

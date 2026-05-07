@@ -46,6 +46,13 @@ export class BooksController {
     return { data }
   }
 
+  @Get(':isbn/analysis')
+  @ApiOperation({ summary: '도서별 이용 분석' })
+  async getUsageAnalysis(@Param('isbn') isbn: string) {
+    const data = await this.service.getUsageAnalysis(isbn)
+    return { data }
+  }
+
   @Get(':isbn/with-libraries')
   @ApiOperation({ summary: '책 + 주변 도서관 보유 + affiliate' })
   getWithLibraries(

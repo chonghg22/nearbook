@@ -75,6 +75,29 @@ export class BooksService {
     return rows
   }
 
+  async getUsageAnalysis(isbn: string) {
+    const cacheKey = `book:analysis:${isbn}`
+    const hit = this.cache.get<unknown>(cacheKey)
+    if (hit) return hit
+
+    try {
+      const analysis = await this.jeongbonaru.getBookUsageAnalysis(isbn)
+      this.cache.set(cacheKey, analysis, 24 * 60 * 60 * 1000)
+      return analysis
+    } catch (err) {
+      this.logger.warn(`getUsageAnalysis failed: ${isbn} (${String(err)})`)
+      return {
+        book: null,
+        loanHistory: [],
+        loanGroups: [],
+        keywords: [],
+        coLoanBooks: [],
+        maniaRecBooks: [],
+        readerRecBooks: [],
+      }
+    }
+  }
+
   async getWithLibraries(isbn: string, lat: number, lng: number, radiusKm = 5) {
     const [book, libsWithAvail, affiliateLinks] = await Promise.all([
       this.getByIsbn(isbn),

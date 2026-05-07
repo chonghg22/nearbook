@@ -108,6 +108,102 @@ export class JeongbonaruService {
     return result
   }
 
+  async getLibrariesByBook(isbn: string, region: string | number, limit = 100) {
+    const cacheKey = `lib-by-book:${isbn}:${region}:${limit}`
+    const cached = this.cache.get<any[]>(cacheKey)
+    if (cached) return cached
+
+    const response = await this.client.get<any>('/libSrchByBook', {
+      isbn,
+      region,
+      pageNo: 1,
+      pageSize: limit,
+    })
+
+    const rows = (response.response?.libs ?? []).map((entry: any) => {
+      const lib = entry.lib ?? entry
+      return {
+        id: Number(lib.libCode),
+        name: lib.libName ?? '',
+        address: lib.address ?? '',
+        phone: lib.tel ?? null,
+        homepage: lib.homepage ?? null,
+        lat: Number.parseFloat(lib.latitude ?? '0') || null,
+        lng: Number.parseFloat(lib.longitude ?? '0') || null,
+        closed: lib.closed ?? null,
+        operatingHours: lib.operatingTime ?? null,
+      }
+    }).filter((lib: any) => Number.isFinite(lib.id) && lib.name)
+
+    this.cache.set(cacheKey, rows, 60 * 60 * 1000)
+    return rows
+  }
+
+  async getBookUsageAnalysis(isbn: string) {
+    const cacheKey = `usage-analysis:${isbn}`
+    const cached = this.cache.get<any>(cacheKey)
+    if (cached) return cached
+
+    const response = await this.client.get<any>('/usageAnalysisList', { isbn13: isbn })
+    const data = this.mapUsageAnalysis(response.response ?? response)
+    this.cache.set(cacheKey, data, 24 * 60 * 60 * 1000)
+    return data
+  }
+
+  async getLibraryUsageTrend(libCode: string | number) {
+    const cacheKey = `library-trend:${libCode}`
+    const cached = this.cache.get<any>(cacheKey)
+    if (cached) return cached
+
+    const [days, hours] = await Promise.all([
+      this.client.get<any>('/usageTrend', { libCode, type: 'D' }),
+      this.client.get<any>('/usageTrend', { libCode, type: 'H' }),
+    ])
+
+    const data = {
+      dayOfWeek: this.mapTrendResults(days.response?.results),
+      hours: this.mapTrendResults(hours.response?.results),
+    }
+    this.cache.set(cacheKey, data, 24 * 60 * 60 * 1000)
+    return data
+  }
+
+  async getLibraryNewArrivalBooks(libCode: string | number, limit = 20, searchDt?: string) {
+    const cacheKey = `new-arrivals:${libCode}:${searchDt ?? 'current'}:${limit}`
+    const cached = this.cache.get<any[]>(cacheKey)
+    if (cached) return cached
+
+    const candidateMonths = searchDt ? [searchDt] : [this.getCurrentMonthInKst(), ...this.getRecentMonthsInKst(6)]
+
+    for (const month of candidateMonths) {
+      const response = await this.client.get<any>('/newArrivalBook', {
+        libCode,
+        searchDt: month,
+      })
+
+      const rows = (response.response?.docs ?? []).map((entry: any) => {
+        const doc = entry.doc ?? entry
+        return {
+          isbn: doc.isbn13 ?? '',
+          title: doc.bookname?.trim() ?? '',
+          author: doc.authors ?? null,
+          publisher: doc.publisher ?? null,
+          publishedYear: doc.publication_year ? Number.parseInt(doc.publication_year, 10) || null : null,
+          coverUrl: doc.bookImageURL ?? null,
+          category: doc.class_nm ?? null,
+          registeredAt: doc.reg_date ?? null,
+        }
+      }).filter((entry: any) => entry.isbn && entry.title).slice(0, limit)
+
+      if (rows.length > 0) {
+        this.cache.set(cacheKey, rows, 24 * 60 * 60 * 1000)
+        return rows
+      }
+    }
+
+    return []
+  }
+
   /** Alias methods for Cron/Compatibility */
   async getBookByIsbnAsCron(isbn: string) {
     return this.getBookByIsbn(isbn)
@@ -258,6 +354,73 @@ export class JeongbonaruService {
       summary: item.description ?? null,
       category: item.class_nm ?? null,
     }
+  }
+
+  private mapUsageAnalysis(raw: any) {
+    const book = raw.book ?? raw.response?.book ?? null
+    return {
+      book: book ? {
+        isbn: book.isbn13 ?? '',
+        title: book.bookname ?? '',
+        author: book.authors ?? null,
+        publisher: book.publisher ?? null,
+        publishedYear: book.publication_year ? Number.parseInt(book.publication_year, 10) || null : null,
+        coverUrl: book.bookImageURL ?? null,
+        description: book.description ?? null,
+        category: book.class_nm ?? null,
+        loanCount: Number.parseInt(String(book.loanCnt ?? book.loan_count ?? '0'), 10) || 0,
+      } : null,
+      loanHistory: this.unwrapItems(raw.loanHistory, 'loan').map((loan: any) => ({
+        month: loan.month ?? '',
+        loanCount: Number.parseInt(String(loan.loanCnt ?? '0'), 10) || 0,
+        ranking: Number.parseInt(String(loan.ranking ?? '0'), 10) || 0,
+      })).filter((loan: any) => loan.month),
+      loanGroups: this.unwrapItems(raw.loanGrps, 'loanGrp').map((group: any) => ({
+        age: group.age ?? '',
+        gender: group.gender ?? '',
+        loanCount: Number.parseInt(String(group.loanCnt ?? '0'), 10) || 0,
+        ranking: Number.parseInt(String(group.ranking ?? '0'), 10) || 0,
+      })).filter((group: any) => group.age || group.gender),
+      keywords: this.unwrapItems(raw.keywords, 'keyword').map((keyword: any) => ({
+        word: keyword.word ?? '',
+        weight: Number.parseFloat(String(keyword.weight ?? '0')) || 0,
+      })).filter((keyword: any) => keyword.word).slice(0, 20),
+      coLoanBooks: this.mapAnalysisBooks(this.unwrapItems(raw.coLoanBooks, 'book')).slice(0, 10),
+      maniaRecBooks: this.mapAnalysisBooks(this.unwrapItems(raw.maniaRecBooks, 'book')).slice(0, 10),
+      readerRecBooks: this.mapAnalysisBooks(this.unwrapItems(raw.readerRecBooks, 'book')).slice(0, 10),
+    }
+  }
+
+  private mapAnalysisBooks(value: any) {
+    return this.toArray(value).map((book: any) => ({
+      isbn: book.isbn13 ?? '',
+      title: book.bookname?.trim() ?? '',
+      author: book.authors ?? null,
+      publisher: book.publisher ?? null,
+      publishedYear: book.publication_year ? Number.parseInt(book.publication_year, 10) || null : null,
+      coverUrl: book.bookImageURL ?? null,
+    })).filter((book: any) => book.isbn && book.title)
+  }
+
+  private mapTrendResults(value: any) {
+    return this.toArray(value).map((entry: any) => {
+      const row = entry.result ?? entry
+      return {
+        dayOfWeek: row.dayOfWeek ?? null,
+        hour: row.hour ?? null,
+        loan: Number.parseFloat(String(row.loan ?? '0')) || 0,
+        return: Number.parseFloat(String(row.return ?? '0')) || 0,
+      }
+    })
+  }
+
+  private unwrapItems(value: any, key: string) {
+    return this.toArray(value).map((entry: any) => entry?.[key] ?? entry).filter(Boolean)
+  }
+
+  private toArray<T>(value: T | T[] | undefined | null): T[] {
+    if (!value) return []
+    return Array.isArray(value) ? value : [value]
   }
 
   private getCurrentMonthInKst() {
