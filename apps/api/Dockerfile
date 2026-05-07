@@ -31,12 +31,11 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
 USER nestjs
 
-# Copy essential files for execution
+# Copy built output and all node_modules
 COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=base /app/apps/api ./apps/api
 COPY --from=base /app/packages ./packages
-COPY --from=base /app/apps/api/dist ./apps/api/dist
-COPY --from=base /app/apps/api/package.json ./apps/api/package.json
+COPY --from=base /app/package.json ./package.json
 
 EXPOSE 3001
 ENV PORT=3001
