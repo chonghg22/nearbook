@@ -21,6 +21,42 @@ export interface JeongbonaruDocsResponse {
   }
 }
 
+export interface JeongbonaruMonthlyKeyword {
+  word?: string
+  weight?: number | string
+}
+
+export interface JeongbonaruMonthlyKeywordsResponse {
+  response?: {
+    resultNum?: number
+    keywords?: Array<{ keyword: JeongbonaruMonthlyKeyword }>
+  }
+}
+
+export interface JeongbonaruHotTrendDoc {
+  no?: number | string
+  difference?: number | string
+  baseWeekRank?: number | string
+  pastWeekRank?: number | string
+  bookname?: string
+  authors?: string
+  publisher?: string
+  publication_year?: string
+  isbn13?: string
+  bookImageURL?: string
+}
+
+export interface JeongbonaruHotTrendResponse {
+  response?: {
+    results?: Array<{
+      result?: {
+        date?: string
+        docs?: Array<{ doc: JeongbonaruHotTrendDoc }>
+      }
+    }>
+  }
+}
+
 export interface JeongbonaruLibrary {
   libCode?: string
   libName?: string

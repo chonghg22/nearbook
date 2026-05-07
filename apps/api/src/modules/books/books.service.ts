@@ -53,6 +53,24 @@ export class BooksService {
     return rows
   }
 
+  async getLoanItemBooks(limit = 10) {
+    const cacheKey = `loan-item:${limit}`
+    const hit = this.cache.get<unknown[]>(cacheKey)
+    if (hit) return hit
+    const rows = await this.jeongbonaru.getLoanItemBooks(limit)
+    this.cache.set(cacheKey, rows, 60 * 60 * 1000)
+    return rows
+  }
+
+  async getHotTrendBooks(limit = 10, searchDt?: string) {
+    const cacheKey = `hot-trend:${searchDt ?? 'current'}:${limit}`
+    const hit = this.cache.get<unknown[]>(cacheKey)
+    if (hit) return hit
+    const rows = await this.jeongbonaru.getHotTrendBooks(limit, searchDt)
+    this.cache.set(cacheKey, rows, 60 * 60 * 1000)
+    return rows
+  }
+
   async getWithLibraries(isbn: string, lat: number, lng: number, radiusKm = 5) {
     const [book, libsWithAvail, affiliateLinks] = await Promise.all([
       this.getByIsbn(isbn),

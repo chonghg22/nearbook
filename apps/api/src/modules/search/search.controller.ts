@@ -2,11 +2,15 @@ import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { SearchService } from './search.service'
 import { SearchQueryDto } from './dto/search-query.dto'
+import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 
 @ApiTags('search')
 @Controller('search')
 export class SearchController {
-  constructor(private service: SearchService) {}
+  constructor(
+    private service: SearchService,
+    private jeongbonaru: JeongbonaruService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: '책 검색 (pg_trgm + 정보나루 fallback)' })
@@ -27,5 +31,16 @@ export class SearchController {
     @Query('limit', new DefaultValuePipe(8), ParseIntPipe) limit: number,
   ): Promise<string[]> {
     return this.service.getTrending(Math.min(limit, 20))
+  }
+
+  @Get('monthly-keywords')
+  @ApiOperation({ summary: '이달의 키워드' })
+  async monthlyKeywords(
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('month') month?: string,
+  ) {
+    return {
+      data: await this.jeongbonaru.getMonthlyKeywords(Math.min(limit, 10), month),
+    }
   }
 }

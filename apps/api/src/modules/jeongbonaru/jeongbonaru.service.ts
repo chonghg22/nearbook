@@ -6,7 +6,9 @@ import {
   BookCacheRow,
   JeongbonaruBookDoc,
   JeongbonaruDocsResponse,
+  JeongbonaruHotTrendResponse,
   JeongbonaruLibsResponse,
+  JeongbonaruMonthlyKeywordsResponse,
 } from './jeongbonaru.types'
 
 @Injectable()
@@ -149,6 +151,85 @@ export class JeongbonaruService {
     return (response.response?.docs ?? []).map((d) => d.doc)
   }
 
+  async getLoanItemBooks(limit = 10) {
+    const response = await this.client.get<JeongbonaruDocsResponse>(
+      '/loanItemSrch',
+      {
+        pageNo: 1,
+        pageSize: limit,
+      },
+    )
+
+    return (response.response?.docs ?? []).map((entry) => ({
+      isbn: entry.doc.isbn13 ?? '',
+      title: entry.doc.bookname?.trim() ?? '',
+      author: entry.doc.authors ?? null,
+      publisher: entry.doc.publisher ?? null,
+      coverUrl: entry.doc.bookImageURL ?? null,
+      loanCount: Number.parseInt(entry.doc.loan_count ?? '0', 10) || 0,
+    }))
+      .filter((entry) => entry.isbn && entry.title)
+      .slice(0, limit)
+  }
+
+  async getMonthlyKeywords(limit = 10, month?: string) {
+    const targetMonth = month ?? this.getCurrentMonthInKst()
+    const response = await this.client.get<JeongbonaruMonthlyKeywordsResponse>(
+      '/monthlyKeywords',
+      { month: targetMonth },
+    )
+
+    return (response.response?.keywords ?? [])
+      .map((entry) => ({
+        word: entry.keyword.word?.trim() ?? '',
+        weight:
+          typeof entry.keyword.weight === 'number'
+            ? entry.keyword.weight
+            : Number.parseFloat(entry.keyword.weight ?? '0'),
+      }))
+      .filter((entry) => entry.word.length > 0 && Number.isFinite(entry.weight))
+      .sort((a, b) => b.weight - a.weight)
+      .slice(0, limit)
+  }
+
+  async getHotTrendBooks(limit = 10, searchDt?: string) {
+    const candidateDates = searchDt
+      ? [searchDt]
+      : this.getRecentDatesInKst(4)
+
+    for (const targetDate of candidateDates) {
+      try {
+        const response = await this.client.get<JeongbonaruHotTrendResponse>(
+          '/hotTrend',
+          { searchDt: targetDate },
+        )
+
+        const docs = response.response?.results?.[0]?.result?.docs ?? []
+        const items = docs.map((entry) => ({
+          isbn: entry.doc.isbn13 ?? '',
+          title: entry.doc.bookname?.trim() ?? '',
+          author: entry.doc.authors ?? null,
+          publisher: entry.doc.publisher ?? null,
+          coverUrl: entry.doc.bookImageURL ?? null,
+          difference: Number.parseInt(String(entry.doc.difference ?? '0'), 10) || 0,
+          baseWeekRank: Number.parseInt(String(entry.doc.baseWeekRank ?? '0'), 10) || 0,
+          pastWeekRank: Number.parseInt(String(entry.doc.pastWeekRank ?? '0'), 10) || 0,
+        }))
+          .filter((entry) => entry.isbn && entry.title)
+          .sort((a, b) => b.difference - a.difference)
+          .slice(0, limit)
+
+        if (items.length > 0) {
+          return items
+        }
+      } catch {
+        continue
+      }
+    }
+
+    return []
+  }
+
   private mapBookDoc(item: JeongbonaruBookDoc, fallbackIsbn: string): BookCacheRow {
     return {
       isbn: item.isbn13 ?? fallbackIsbn,
@@ -162,5 +243,38 @@ export class JeongbonaruService {
       summary: item.description ?? null,
       category: item.class_nm ?? null,
     }
+  }
+
+  private getCurrentMonthInKst() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+    }).formatToParts(new Date())
+
+    const year = parts.find((part) => part.type === 'year')?.value
+    const month = parts.find((part) => part.type === 'month')?.value
+
+    return `${year}-${month}`
+  }
+
+  private getRecentDatesInKst(days: number) {
+    const dates: string[] = []
+    const base = new Date()
+
+    for (let offset = 0; offset < days; offset += 1) {
+      const date = new Date(base)
+      date.setDate(base.getDate() - offset)
+      dates.push(
+        new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Seoul',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(date),
+      )
+    }
+
+    return dates
   }
 }

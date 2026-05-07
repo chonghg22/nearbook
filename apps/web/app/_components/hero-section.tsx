@@ -1,7 +1,15 @@
 import Link from 'next/link'
-import { POPULAR_QUERIES } from '@/lib/constants'
 
-export function HeroSection() {
+type MonthlyKeyword = {
+  word: string
+  weight: number
+}
+
+interface HeroSectionProps {
+  monthlyKeywords: MonthlyKeyword[]
+}
+
+export function HeroSection({ monthlyKeywords }: HeroSectionProps) {
   return (
     <section className="px-4 py-16 md:py-24 max-w-5xl mx-auto text-center md:text-left">
       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-sm mb-6">
@@ -19,15 +27,15 @@ export function HeroSection() {
       </p>
 
       <div className="mt-10">
-        <p className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">🔥 지금 많이 찾는 검색어</p>
+        <p className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">📚 이달의 키워드</p>
         <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-          {POPULAR_QUERIES.map((q) => (
+          {monthlyKeywords.map(({ word }) => (
             <Link
-              key={q}
-              href={`/search?q=${encodeURIComponent(q)}`}
+              key={word}
+              href={`/search?q=${encodeURIComponent(word)}`}
               className="px-4 py-2 rounded-full bg-white border border-gray-200 text-gray-700 hover:border-primary-500 hover:text-primary-600 hover:shadow-sm transition-all text-sm font-medium"
             >
-              {q}
+              {word}
             </Link>
           ))}
         </div>

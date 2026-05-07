@@ -27,6 +27,25 @@ export class BooksController {
     return { data }
   }
 
+  @Get('loan-item')
+  @ApiOperation({ summary: '정보나루 인기대출도서' })
+  async getLoanItemBooks(
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    const data = await this.service.getLoanItemBooks(Math.min(limit, 20))
+    return { data }
+  }
+
+  @Get('hot-trend')
+  @ApiOperation({ summary: '정보나루 대출 급상승도서' })
+  async getHotTrendBooks(
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('searchDt') searchDt?: string,
+  ) {
+    const data = await this.service.getHotTrendBooks(Math.min(limit, 20), searchDt)
+    return { data }
+  }
+
   @Get(':isbn/with-libraries')
   @ApiOperation({ summary: '책 + 주변 도서관 보유 + affiliate' })
   getWithLibraries(
