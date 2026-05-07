@@ -10,8 +10,8 @@ COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/db/package.json ./packages/db/
 COPY packages/config/package.json ./packages/config/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (shamefully-hoist to flatten all deps into root node_modules)
+RUN pnpm install --frozen-lockfile --shamefully-hoist
 
 # Copy source code
 COPY apps/api/ ./apps/api/
