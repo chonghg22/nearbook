@@ -60,7 +60,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <HeroSection monthlyKeywords={monthlyKeywords.data ?? MONTHLY_KEYWORDS_FALLBACK} />
+      <HeroSection monthlyKeywords={monthlyKeywords.data?.length ? monthlyKeywords.data : MONTHLY_KEYWORDS_FALLBACK} />
       
       <div className="space-y-8 pb-20">
         <LibrariesNearMe fallbackLibraries={libraries.data ?? []} />
