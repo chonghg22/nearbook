@@ -1,12 +1,39 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { UserNavMenu } from './user-nav-menu'
-import { createServerClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 
-export async function UserNav() {
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+export function UserNav() {
+  const [state, setState] = useState<'loading' | 'logged-out' | 'logged-in'>('loading')
+  const [nickname, setNickname] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>()
 
-  if (!user) {
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        setState('logged-out')
+        return
+      }
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+      setNickname(
+        (meta.nickname as string | undefined) ??
+        (meta.name as string | undefined) ??
+        user.email?.split('@')[0] ??
+        '사용자'
+      )
+      setAvatarUrl(meta.avatar_url as string | undefined)
+      setState('logged-in')
+    })
+  }, [])
+
+  if (state === 'loading') {
+    return <div className="w-20 h-9 rounded-full bg-gray-100 animate-pulse" />
+  }
+
+  if (state === 'logged-out') {
     return (
       <Link
         href="/login"
@@ -16,14 +43,6 @@ export async function UserNav() {
       </Link>
     )
   }
-
-  const meta = (user.user_metadata ?? {}) as Record<string, unknown>
-  const nickname =
-    (meta.nickname as string | undefined) ??
-    (meta.name as string | undefined) ??
-    user.email?.split('@')[0] ??
-    '사용자'
-  const avatarUrl = meta.avatar_url as string | undefined
 
   return <UserNavMenu nickname={nickname} avatarUrl={avatarUrl} />
 }
