@@ -1,34 +1,30 @@
-FROM node:20-slim AS builder
-RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-RUN npm install -g pnpm turbo
-WORKDIR /app
-COPY . .
-# Prune the workspace for the API only
-RUN turbo prune --scope=@nearbook/api --docker
-
-FROM node:20-slim AS installer
+FROM node:20-slim AS base
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm
 WORKDIR /app
 
-# Copy the pruned lockfile and package.json files
-COPY --from=builder /app/out/json/ .
-COPY --from=builder /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
-# Install with shamefully-hoist to avoid link issues in Docker
-RUN pnpm install --frozen-lockfile --shamefully-hoist
+# Copy workspace config and all package.json files
+COPY pnpm-workspace.yaml pnpm-lock.yaml turbo.json package.json ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/db/package.json ./packages/db/
+COPY packages/config/package.json ./packages/config/
 
-# Copy the actual source code (pruned)
-COPY --from=builder /app/out/full/ .
-COPY turbo.json turbo.json
+# Install dependencies
+RUN pnpm install --frozen-lockfile
 
-# Build only the API and its dependencies
+# Copy source code
+COPY apps/api/ ./apps/api/
+COPY packages/ ./packages/
+
+# Build the API and its dependencies
 ENV CI=true
-RUN npx turbo build --filter=@nearbook/api...
+RUN pnpm turbo build --filter=@nearbook/api...
 
 FROM node:20-slim AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 ENV CI=true
 
 RUN addgroup --system --gid 1001 nodejs
@@ -36,12 +32,12 @@ RUN adduser --system --uid 1001 nestjs
 USER nestjs
 
 # Copy essential files for execution
-COPY --from=installer /app/node_modules ./node_modules
-COPY --from=installer /app/packages ./packages
-COPY --from=installer /app/apps/api/dist ./apps/api/dist
-COPY --from=installer /app/apps/api/package.json ./apps/api/package.json
+COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/packages ./packages
+COPY --from=base /app/apps/api/dist ./apps/api/dist
+COPY --from=base /app/apps/api/package.json ./apps/api/package.json
 
 EXPOSE 3001
-ENV PORT 3001
+ENV PORT=3001
 
 CMD ["node", "apps/api/dist/apps/api/src/main"]
