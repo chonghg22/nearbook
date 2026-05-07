@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { SiteHeaderLogo } from './site-header-logo'
 import { PrimaryNav } from './primary-nav'
 import { UserNav } from './user-nav'
@@ -23,7 +24,9 @@ export function SiteHeader() {
           <div className="lg:hidden">
             <MobileSearchTrigger />
           </div>
-          <UserNav />
+          <Suspense fallback={<div className="w-20 h-9 rounded-full bg-gray-100 animate-pulse" />}>
+            <UserNav />
+          </Suspense>
         </div>
       </div>
     </header>
