@@ -173,23 +173,38 @@ export class JeongbonaruService {
   }
 
   async getMonthlyKeywords(limit = 10, month?: string) {
-    const targetMonth = month ?? this.getCurrentMonthInKst()
-    const response = await this.client.get<JeongbonaruMonthlyKeywordsResponse>(
-      '/monthlyKeywords',
-      { month: targetMonth },
-    )
+    const candidateMonths = month
+      ? [month]
+      : this.getRecentMonthsInKst(3)
 
-    return (response.response?.keywords ?? [])
-      .map((entry) => ({
-        word: entry.keyword.word?.trim() ?? '',
-        weight:
-          typeof entry.keyword.weight === 'number'
-            ? entry.keyword.weight
-            : Number.parseFloat(entry.keyword.weight ?? '0'),
-      }))
-      .filter((entry) => entry.word.length > 0 && Number.isFinite(entry.weight))
-      .sort((a, b) => b.weight - a.weight)
-      .slice(0, limit)
+    for (const targetMonth of candidateMonths) {
+      try {
+        const response = await this.client.get<JeongbonaruMonthlyKeywordsResponse>(
+          '/monthlyKeywords',
+          { month: targetMonth },
+        )
+
+        const keywords = (response.response?.keywords ?? [])
+          .map((entry) => ({
+            word: entry.keyword.word?.trim() ?? '',
+            weight:
+              typeof entry.keyword.weight === 'number'
+                ? entry.keyword.weight
+                : Number.parseFloat(entry.keyword.weight ?? '0'),
+          }))
+          .filter((entry) => entry.word.length > 0 && Number.isFinite(entry.weight))
+          .sort((a, b) => b.weight - a.weight)
+          .slice(0, limit)
+
+        if (keywords.length > 0) {
+          return keywords
+        }
+      } catch {
+        continue
+      }
+    }
+
+    return []
   }
 
   async getHotTrendBooks(limit = 10, searchDt?: string) {
@@ -258,11 +273,36 @@ export class JeongbonaruService {
     return `${year}-${month}`
   }
 
+  private getRecentMonthsInKst(count: number) {
+    const months: string[] = []
+    const now = new Date()
+
+    for (let offset = 1; offset <= count; offset += 1) {
+      const date = new Date(now)
+      date.setMonth(now.getMonth() - offset)
+      months.push(
+        new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Seoul',
+          year: 'numeric',
+          month: '2-digit',
+        })
+          .formatToParts(date)
+          .reduce((acc, part) => {
+            if (part.type === 'year') return part.value
+            if (part.type === 'month') return `${acc}-${part.value}`
+            return acc
+          }, ''),
+      )
+    }
+
+    return months
+  }
+
   private getRecentDatesInKst(days: number) {
     const dates: string[] = []
     const base = new Date()
 
-    for (let offset = 0; offset < days; offset += 1) {
+    for (let offset = 1; offset <= days; offset += 1) {
       const date = new Date(base)
       date.setDate(base.getDate() - offset)
       dates.push(
