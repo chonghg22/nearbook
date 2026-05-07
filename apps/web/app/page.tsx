@@ -4,7 +4,7 @@ import { LibrariesNearMe } from './_components/libraries-near-me'
 import { AboutSection } from './_components/about-section'
 import { AdSenseSlot } from './_components/adsense-slot'
 
-export const revalidate = 3600 // 1시간
+export const revalidate = 60 // 1분 (데이터 안정화 후 3600으로 복원)
 
 const API = process.env.INTERNAL_API_URL || 'http://localhost:3001'
 const MONTHLY_KEYWORDS_FALLBACK = [
@@ -22,14 +22,16 @@ const MONTHLY_KEYWORDS_FALLBACK = [
 
 async function safeFetch(url: string) {
   try {
-    const res = await fetch(url, { next: { revalidate: 86400 } })
+    const res = await fetch(url, { next: { revalidate: 3600 } })
     if (!res.ok) {
-      console.warn(`Fetch failed for ${url}: ${res.status} ${res.statusText}`)
+      console.warn(`[safeFetch] ${res.status} ${res.statusText} → ${url}`)
       return { data: [] }
     }
-    return res.json()
+    const json = await res.json()
+    console.log(`[safeFetch] OK ${url} → ${json.data?.length ?? 0} items`)
+    return json
   } catch (error) {
-    console.error(`Fetch error for ${url}:`, error)
+    console.error(`[safeFetch] ERROR ${url}:`, error)
     return { data: [] }
   }
 }
