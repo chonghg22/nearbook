@@ -208,7 +208,7 @@ export class SearchService {
             OR coalesce(author, '') ILIKE ${pattern}
             OR similarity(title, ${q}) > 0.1
           )
-          AND (${category} IS NULL OR category = ${category})
+          AND (${category}::text IS NULL OR category = ${category})
         ORDER BY
           CASE WHEN title ILIKE ${prefix} THEN 1 ELSE 2 END,
           score DESC NULLS LAST,
