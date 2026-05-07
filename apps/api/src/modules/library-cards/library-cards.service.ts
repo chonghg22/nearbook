@@ -72,6 +72,30 @@ export class LibraryCardsService {
     return { data: row }
   }
 
+  async getStatus(supabaseUserId: string, libraryId: number) {
+    const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
+    if (!user) return { data: { added: false } }
+
+    const [item] = await db
+      .select({
+        id: libraryCards.id,
+        isDefault: libraryCards.isDefault,
+        nickname: libraryCards.nickname,
+      })
+      .from(libraryCards)
+      .where(and(eq(libraryCards.userId, user.id), eq(libraryCards.libraryId, libraryId)))
+      .limit(1)
+
+    return {
+      data: {
+        added: Boolean(item),
+        id: item?.id ?? null,
+        isDefault: item?.isDefault ?? false,
+        nickname: item?.nickname ?? null,
+      },
+    }
+  }
+
   async update(supabaseUserId: string, cardId: number, dto: UpdateLibraryCardDto) {
     const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
     if (!user) throw new NotFoundException()
@@ -103,6 +127,15 @@ export class LibraryCardsService {
     await db
       .delete(libraryCards)
       .where(and(eq(libraryCards.id, cardId), eq(libraryCards.userId, user.id)))
+  }
+
+  async removeByLibraryId(supabaseUserId: string, libraryId: number) {
+    const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
+    if (!user) return
+
+    await db
+      .delete(libraryCards)
+      .where(and(eq(libraryCards.libraryId, libraryId), eq(libraryCards.userId, user.id)))
   }
 
   private async getOrCreateUser(supabaseUserId: string) {

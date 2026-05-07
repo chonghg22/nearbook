@@ -1,16 +1,20 @@
 'use client'
+
 import { useEffect, useState } from 'react'
-import { Heart } from 'lucide-react'
+import { Star } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 
 interface Props {
-  isbn: string
+  libraryId: number
   initialAdded?: boolean
 }
 
-export function WishlistButton({ isbn, initialAdded = false }: Props) {
+export function LibraryFavoriteButton({
+  libraryId,
+  initialAdded = false,
+}: Props) {
   const [added, setAdded] = useState(initialAdded)
   const [loading, setLoading] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
@@ -18,7 +22,7 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
 
   useEffect(() => {
     setAdded(initialAdded)
-  }, [initialAdded, isbn])
+  }, [initialAdded, libraryId])
 
   function showToast(msg: string) {
     setToastMsg(msg)
@@ -27,33 +31,40 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
 
   async function handleClick() {
     setLoading(true)
+
     try {
       if (added) {
-        const res = await apiFetch(`/wishlists/${isbn}`, { method: 'DELETE' })
-        if (res.ok) {
-          setAdded(false)
-          showToast('위시리스트에서 제거됨')
-        }
-      } else {
-        const res = await apiFetch('/wishlists', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isbn }),
+        const res = await apiFetch(`/library-cards/by-library/${libraryId}`, {
+          method: 'DELETE',
         })
 
-        if (res.status === 401) {
-          showToast('로그인이 필요합니다')
-          setTimeout(() => router.push(`/login?next=/book/${isbn}`), 1500)
-          return
-        }
-        if (res.status === 403) {
-          showToast('위시리스트 10권 초과 — Pro 업그레이드 필요')
-          return
-        }
         if (res.ok) {
-          setAdded(true)
-          showToast('위시리스트에 추가됨 ♥')
+          setAdded(false)
+          showToast('즐겨찾기 도서관에서 제거됨')
         }
+        return
+      }
+
+      const res = await apiFetch('/library-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ libraryId }),
+      })
+
+      if (res.status === 401) {
+        showToast('로그인이 필요합니다')
+        setTimeout(() => router.push(`/login?next=/library/${libraryId}`), 1500)
+        return
+      }
+
+      if (res.status === 403) {
+        showToast('무료 플랜은 도서관 1개만 등록할 수 있습니다')
+        return
+      }
+
+      if (res.ok) {
+        setAdded(true)
+        showToast('즐겨찾기 도서관에 추가됨')
       }
     } finally {
       setLoading(false)
@@ -65,21 +76,21 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
       <button
         onClick={handleClick}
         disabled={loading}
-        aria-label={added ? '위시리스트에서 제거' : '위시리스트에 추가'}
+        aria-label={added ? '즐겨찾기 도서관에서 제거' : '즐겨찾기 도서관에 추가'}
         className={cn(
           'flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all duration-200',
           added
-            ? 'bg-red-50 text-red-500 border-red-200 hover:bg-red-100'
+            ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'
             : 'bg-white text-muted-foreground border-border hover:border-primary/50 hover:text-primary shadow-card',
-          'disabled:opacity-50 disabled:cursor-not-allowed'
+          'disabled:opacity-50 disabled:cursor-not-allowed',
         )}
       >
-        <Heart
+        <Star
           size={16}
           fill={added ? 'currentColor' : 'none'}
           className={cn('shrink-0 transition-transform duration-300', added && 'scale-110')}
         />
-        {added ? '찜됨' : '찜하기'}
+        {added ? '즐겨찾기됨' : '즐겨찾기'}
       </button>
 
       {toastMsg && (

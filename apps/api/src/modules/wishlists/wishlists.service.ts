@@ -28,8 +28,8 @@ export class WishlistsService {
     }
   }
 
-  async add(supabaseUserId: string, dto: AddWishlistDto) {
-    const user = await this.getOrCreateUser(supabaseUserId)
+  async add(supabaseUserId: string, email: string | undefined, dto: AddWishlistDto) {
+    const user = await this.getOrCreateUser(supabaseUserId, email)
 
     const [countResult] = await db
       .select({ value: count() })
@@ -49,6 +49,19 @@ export class WishlistsService {
       .returning()
 
     return { data: row }
+  }
+
+  async getStatus(supabaseUserId: string, isbn: string) {
+    const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
+    if (!user) return { data: { added: false } }
+
+    const [item] = await db
+      .select({ id: wishlists.id })
+      .from(wishlists)
+      .where(and(eq(wishlists.userId, user.id), eq(wishlists.isbn, isbn)))
+      .limit(1)
+
+    return { data: { added: Boolean(item), id: item?.id ?? null } }
   }
 
   async update(supabaseUserId: string, isbn: string, dto: UpdateWishlistDto) {
@@ -73,17 +86,18 @@ export class WishlistsService {
       .where(and(eq(wishlists.userId, user.id), eq(wishlists.isbn, isbn)))
   }
 
-  private async getOrCreateUser(supabaseUserId: string) {
+  private async getOrCreateUser(supabaseUserId: string, email?: string) {
     let user = await db.query.users.findFirst({
       where: eq(users.supabaseUserId, supabaseUserId),
     })
 
     if (!user) {
+      const safeEmail = email?.trim() || `${supabaseUserId}@users.nearbook.local`
       const [created] = await db
         .insert(users)
         .values({
           supabaseUserId,
-          email: null,
+          email: safeEmail,
           nickname: null,
         })
         .returning()

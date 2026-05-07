@@ -28,10 +28,16 @@ export class WishlistsController {
     return this.service.listByUser(req.user.supabaseUserId)
   }
 
+  @Get('me/wishlists/:isbn/status')
+  @ApiOperation({ summary: '특정 책의 위시리스트 등록 여부' })
+  getStatus(@Req() req: any, @Param('isbn') isbn: string) {
+    return this.service.getStatus(req.user.supabaseUserId, isbn)
+  }
+
   @Post('wishlists')
   @ApiOperation({ summary: '위시리스트 추가 (Free: 10개 한도)' })
   add(@Req() req: any, @Body() dto: AddWishlistDto) {
-    return this.service.add(req.user.supabaseUserId, dto)
+    return this.service.add(req.user.supabaseUserId, req.user.email, dto)
   }
 
   @Patch('wishlists/:isbn')

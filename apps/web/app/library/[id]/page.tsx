@@ -3,7 +3,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { LocationMap } from '@/components/library/location-map'
+import { LibraryFavoriteButton } from '@/components/library/library-favorite-button'
 import { BookCard } from '@/components/book/book-card'
+import { createServerClient } from '@/lib/supabase/server'
 
 const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
 export const revalidate = 604800 // 1주
@@ -18,6 +20,29 @@ function fetchWithTimeout(
   return fetch(url, { ...options, signal: controller.signal }).finally(() =>
     clearTimeout(timer),
   )
+}
+
+async function fetchLibraryFavoriteStatus(libraryId: string) {
+  const supabase = await createServerClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session?.access_token) return false
+
+  try {
+    const res = await fetchWithTimeout(`${API_URL}/me/library-cards/${libraryId}/status`, 5000, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: 'no-store',
+    })
+
+    if (!res.ok) return false
+
+    const json = await res.json()
+    return Boolean(json.data?.added)
+  } catch {
+    return false
+  }
 }
 
 export async function generateMetadata({
@@ -48,10 +73,11 @@ export default async function LibraryPage({
 }) {
   const { id } = await params
 
-  const [libRes, popularRes, recentRes] = await Promise.allSettled([
+  const [libRes, popularRes, recentRes, isFavorite] = await Promise.allSettled([
     fetchWithTimeout(`${API_URL}/libraries/${id}`, 8000, { next: { revalidate } }),
     fetchWithTimeout(`${API_URL}/libraries/${id}/popular?limit=20`, 8000, { next: { revalidate } }),
     fetchWithTimeout(`${API_URL}/libraries/${id}/recent?limit=20`, 8000, { next: { revalidate } }),
+    fetchLibraryFavoriteStatus(id),
   ])
 
   if (libRes.status === 'rejected' || !libRes.value.ok) notFound()
@@ -65,6 +91,7 @@ export default async function LibraryPage({
     recentRes.status === 'fulfilled' && recentRes.value.ok
       ? (await recentRes.value.json()).data
       : []
+  const initialFavorite = isFavorite.status === 'fulfilled' ? isFavorite.value : false
 
   return (
     <main className="bg-canvas min-h-screen">
@@ -104,6 +131,12 @@ export default async function LibraryPage({
                 도서관 홈페이지 방문
               </a>
             )}
+          </div>
+          <div className="mt-4">
+            <LibraryFavoriteButton
+              libraryId={library.id}
+              initialAdded={initialFavorite}
+            />
           </div>
         </section>
 

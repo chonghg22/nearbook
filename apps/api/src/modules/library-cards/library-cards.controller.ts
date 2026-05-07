@@ -29,6 +29,12 @@ export class LibraryCardsController {
     return this.service.listByUser(req.user.supabaseUserId)
   }
 
+  @Get('me/library-cards/:libraryId/status')
+  @ApiOperation({ summary: '특정 도서관의 즐겨찾기 등록 여부' })
+  getStatus(@Req() req: any, @Param('libraryId', ParseIntPipe) libraryId: number) {
+    return this.service.getStatus(req.user.supabaseUserId, libraryId)
+  }
+
   @Post('library-cards')
   @ApiOperation({ summary: '도서관 카드 추가 (Free: 1개 한도)' })
   add(@Req() req: any, @Body() dto: AddLibraryCardDto) {
@@ -50,5 +56,15 @@ export class LibraryCardsController {
   @ApiOperation({ summary: '도서관 카드 삭제' })
   async remove(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
     await this.service.remove(req.user.supabaseUserId, id)
+  }
+
+  @Delete('library-cards/by-library/:libraryId')
+  @HttpCode(204)
+  @ApiOperation({ summary: '도서관 ID로 도서관 카드 삭제' })
+  async removeByLibraryId(
+    @Req() req: any,
+    @Param('libraryId', ParseIntPipe) libraryId: number,
+  ) {
+    await this.service.removeByLibraryId(req.user.supabaseUserId, libraryId)
   }
 }
