@@ -38,7 +38,7 @@ export class JeongbonaruService {
       const response = await this.client.get<JeongbonaruDocsResponse>(
         '/srchBooks',
         {
-          keyword: isbn,
+          isbn13: isbn,
           pageNo: 1,
           pageSize: 1,
         },

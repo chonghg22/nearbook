@@ -8,7 +8,7 @@ export class JeongbonaruClient implements OnModuleInit {
   private readonly logger = new Logger(JeongbonaruClient.name)
   private client!: AxiosInstance
   private dailyCallCount = 0
-  private DAILY_LIMIT = 30_000
+  private DAILY_LIMIT = 30000
 
   constructor(private readonly config: ConfigService) {}
 
@@ -18,7 +18,7 @@ export class JeongbonaruClient implements OnModuleInit {
       this.logger.warn('JEONGBONARU_API_KEY 미설정 — API 호출은 모두 실패한다')
     }
     this.DAILY_LIMIT =
-      this.config.get<number>('JEONGBONARU_DAILY_LIMIT') ?? 500
+      this.config.get<number>('JEONGBONARU_DAILY_LIMIT') ?? 30_000
 
     this.client = axios.create({
       baseURL: 'https://www.data4library.kr/api',
