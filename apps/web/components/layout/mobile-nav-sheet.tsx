@@ -9,6 +9,35 @@ export function MobileNavSheet({ onNavigate }: { onNavigate: () => void }) {
       <ul className="flex flex-col">
         {primaryNavItems.map((item) => {
           const Icon = item.icon
+          const childItems = item.children ?? []
+          if (childItems.length > 0) {
+            return (
+              <li key={item.href} className="py-1">
+                <div className="flex items-center gap-3 rounded-md px-3 py-3 text-base font-medium text-gray-900">
+                  {Icon && <Icon className="h-5 w-5" />}
+                  <span>{item.label}</span>
+                </div>
+                <ul className="ml-8 border-l border-gray-100 pl-2">
+                  {childItems.map((child) => {
+                    const ChildIcon = child.icon
+                    return (
+                      <li key={child.href}>
+                        <Link
+                          href={child.href}
+                          onClick={onNavigate}
+                          className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          {ChildIcon && <ChildIcon className="h-4 w-4" />}
+                          <span>{child.label}</span>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </li>
+            )
+          }
+
           if (item.disabled) {
             return (
               <li key={item.href}>

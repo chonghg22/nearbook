@@ -220,3 +220,27 @@ export const pendingLookups = nearbookSchema.table('pending_lookups', {
 }, (t) => ({
   statusIdx: index('pending_lookups_status_idx').on(t.processedAt, t.retryCount),
 }))
+
+// 13. 홈 큐레이션 캐시 (정보나루 홈 섹션)
+export const homeCurations = nearbookSchema.table('home_curations', {
+  id: serial('id').primaryKey(),
+  section: varchar('section', { length: 32 }).notNull(),
+  periodKey: varchar('period_key', { length: 16 }).notNull(),
+  rank: integer('rank').notNull(),
+  isbn: varchar('isbn', { length: 20 }),
+  word: varchar('word', { length: 128 }),
+  title: varchar('title', { length: 512 }),
+  author: varchar('author', { length: 256 }),
+  publisher: varchar('publisher', { length: 128 }),
+  coverUrl: varchar('cover_url', { length: 512 }),
+  loanCount: integer('loan_count'),
+  difference: integer('difference'),
+  baseWeekRank: integer('base_week_rank'),
+  pastWeekRank: integer('past_week_rank'),
+  weight: doublePrecision('weight'),
+  sourceDate: varchar('source_date', { length: 16 }),
+  fetchedAt: timestamp('fetched_at').notNull().defaultNow(),
+}, (t) => ({
+  sectionPeriodIdx: index('home_curations_section_period_idx').on(t.section, t.periodKey),
+  uniqueSectionPeriodRank: uniqueIndex('home_curations_section_period_rank_idx').on(t.section, t.periodKey, t.rank),
+}))

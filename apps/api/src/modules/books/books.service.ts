@@ -4,6 +4,7 @@ import { LibrariesService } from '../libraries/libraries.service'
 import { AffiliatesService } from '../affiliates/affiliates.service'
 import { CacheService } from '../../common/cache.service'
 import { BooksRepository } from './books.repository'
+import { HomeCurationsService } from '../home-curations/home-curations.service'
 
 @Injectable()
 export class BooksService {
@@ -15,6 +16,7 @@ export class BooksService {
     private readonly affiliates: AffiliatesService,
     private readonly cache: CacheService,
     private readonly repo: BooksRepository,
+    private readonly homeCurations: HomeCurationsService,
   ) {}
 
   async getByIsbn(isbn: string) {
@@ -59,28 +61,18 @@ export class BooksService {
     const cacheKey = `loan-item:${limit}`
     const hit = this.cache.get<unknown[]>(cacheKey)
     if (hit) return hit
-    try {
-      const rows = await this.jeongbonaru.getLoanItemBooks(limit)
-      if (rows.length > 0) this.cache.set(cacheKey, rows, 60 * 60 * 1000)
-      return rows
-    } catch (err) {
-      this.logger.warn(`getLoanItemBooks failed: ${err}`)
-      return []
-    }
+    const rows = await this.homeCurations.getLoanItemBooks(limit)
+    if (rows.length > 0) this.cache.set(cacheKey, rows, 60 * 60 * 1000)
+    return rows
   }
 
   async getHotTrendBooks(limit = 10, searchDt?: string) {
     const cacheKey = `hot-trend:${searchDt ?? 'current'}:${limit}`
     const hit = this.cache.get<unknown[]>(cacheKey)
     if (hit) return hit
-    try {
-      const rows = await this.jeongbonaru.getHotTrendBooks(limit, searchDt)
-      if (rows.length > 0) this.cache.set(cacheKey, rows, 60 * 60 * 1000)
-      return rows
-    } catch (err) {
-      this.logger.warn(`getHotTrendBooks failed: ${err}`)
-      return []
-    }
+    const rows = await this.homeCurations.getHotTrendBooks(limit, searchDt)
+    if (rows.length > 0) this.cache.set(cacheKey, rows, 60 * 60 * 1000)
+    return rows
   }
 
   async getWithLibraries(isbn: string, lat: number, lng: number, radiusKm = 5) {

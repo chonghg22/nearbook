@@ -2,14 +2,14 @@ import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { SearchService } from './search.service'
 import { SearchQueryDto } from './dto/search-query.dto'
-import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
+import { HomeCurationsService } from '../home-curations/home-curations.service'
 
 @ApiTags('search')
 @Controller('search')
 export class SearchController {
   constructor(
     private service: SearchService,
-    private jeongbonaru: JeongbonaruService,
+    private homeCurations: HomeCurationsService,
   ) {}
 
   @Get()
@@ -40,7 +40,7 @@ export class SearchController {
     @Query('month') month?: string,
   ) {
     return {
-      data: await this.jeongbonaru.getMonthlyKeywords(Math.min(limit, 10), month),
+      data: await this.homeCurations.getMonthlyKeywords(Math.min(limit, 10), month),
     }
   }
 }

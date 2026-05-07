@@ -5,9 +5,10 @@ import { BooksRepository } from './books.repository'
 import { JeongbonaruModule } from '../jeongbonaru/jeongbonaru.module'
 import { LibrariesModule } from '../libraries/libraries.module'
 import { AffiliatesModule } from '../affiliates/affiliates.module'
+import { HomeCurationsModule } from '../home-curations/home-curations.module'
 
 @Module({
-  imports: [JeongbonaruModule, LibrariesModule, AffiliatesModule],
+  imports: [JeongbonaruModule, LibrariesModule, AffiliatesModule, HomeCurationsModule],
   controllers: [BooksController],
   providers: [BooksService, BooksRepository],
   exports: [BooksService],
