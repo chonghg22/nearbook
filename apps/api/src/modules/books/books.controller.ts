@@ -46,6 +46,25 @@ export class BooksController {
     return { data }
   }
 
+  @Get('categories')
+  @ApiOperation({ summary: '캐시된 도서 카테고리 목록' })
+  async getCategories(
+    @Query('limit', new DefaultValuePipe(30), ParseIntPipe) limit: number,
+  ) {
+    const data = await this.service.getCategories(Math.min(limit, 100))
+    return { data }
+  }
+
+  @Get('by-category')
+  @ApiOperation({ summary: '카테고리별 캐시 도서' })
+  async getByCategory(
+    @Query('category') category: string,
+    @Query('limit', new DefaultValuePipe(40), ParseIntPipe) limit: number,
+  ) {
+    const data = category ? await this.service.getByCategory(category, Math.min(limit, 100)) : []
+    return { data }
+  }
+
   @Get(':isbn/analysis')
   @ApiOperation({ summary: '도서별 이용 분석' })
   async getUsageAnalysis(@Param('isbn') isbn: string) {

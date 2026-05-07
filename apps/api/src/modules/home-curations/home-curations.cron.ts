@@ -25,4 +25,10 @@ export class HomeCurationsCron {
     const result = await this.homeCurations.refreshMonthlyKeywords(10)
     this.logger.log(`monthly_keywords refresh result: ${JSON.stringify(result)}`)
   }
+
+  @Cron('40 3 * * *', { timeZone: 'Asia/Seoul' })
+  async refreshFeaturedLibraryNewArrivals() {
+    const result = await this.homeCurations.refreshFeaturedLibraryNewArrivals(40, 12)
+    this.logger.log(`new_arrivals refresh result: ${JSON.stringify(result)}`)
+  }
 }

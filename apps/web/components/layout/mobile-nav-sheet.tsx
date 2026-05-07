@@ -20,6 +20,20 @@ export function MobileNavSheet({ onNavigate }: { onNavigate: () => void }) {
                 <ul className="ml-8 border-l border-gray-100 pl-2">
                   {childItems.map((child) => {
                     const ChildIcon = child.icon
+                    if (child.disabled) {
+                      return (
+                        <li key={child.href}>
+                          <span
+                            aria-disabled="true"
+                            className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2.5 text-sm text-gray-400"
+                          >
+                            {ChildIcon && <ChildIcon className="h-4 w-4" />}
+                            <span>{child.label}</span>
+                            {child.disabledReason && <span className="ml-auto text-xs">{child.disabledReason}</span>}
+                          </span>
+                        </li>
+                      )
+                    }
                     return (
                       <li key={child.href}>
                         <Link

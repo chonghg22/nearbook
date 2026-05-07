@@ -1,14 +1,31 @@
-import { Bookmark, CircleHelp, MapPin, Megaphone, MessageSquareWarning, TrendingUp } from 'lucide-react'
+import {
+  Bookmark,
+  CircleHelp,
+  Compass,
+  Flame,
+  Library,
+  Megaphone,
+  MessageSquareWarning,
+  Sparkles,
+  Tags,
+  TrendingUp,
+} from 'lucide-react'
 import type { NavItem } from './types'
 
-// TODO Phase 1: 페이지 구현 후 disabled 제거
-// - /popular  → 인기도서 페이지
-// - /region   → 지역별 인기도서 페이지
-// - /category → 카테고리별 페이지
 export const primaryNavItems: NavItem[] = [
-  { label: '인기도서', href: '/popular', icon: TrendingUp, disabled: true, disabledReason: '준비 중' },
-  { label: '지역별', href: '/region', icon: MapPin, disabled: true, disabledReason: '준비 중' },
-  { label: '카테고리', href: '/category', icon: Bookmark, disabled: true, disabledReason: '준비 중' },
+  { label: '지역별 도서관', href: '/libraries', icon: Library },
+  {
+    label: '탐색',
+    href: '/explore',
+    icon: Compass,
+    children: [
+      { label: '인기도서', href: '/popular', icon: TrendingUp },
+      { label: '카테고리', href: '/category', icon: Tags },
+      { label: '이달의 키워드', href: '/keywords', icon: Sparkles },
+      { label: '대출 급상승 도서', href: '/rising', icon: Flame },
+      { label: '새로 들어온 책', href: '/new-books', icon: Bookmark },
+    ],
+  },
   {
     label: '고객센터',
     href: '/notices',

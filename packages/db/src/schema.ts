@@ -244,3 +244,28 @@ export const homeCurations = nearbookSchema.table('home_curations', {
   sectionPeriodIdx: index('home_curations_section_period_idx').on(t.section, t.periodKey),
   uniqueSectionPeriodRank: uniqueIndex('home_curations_section_period_rank_idx').on(t.section, t.periodKey, t.rank),
 }))
+
+// 14. 도서관별 큐레이션 캐시 (신착도서 등 도서관 조건 API)
+export const libraryCurations = nearbookSchema.table('library_curations', {
+  id: serial('id').primaryKey(),
+  libraryId: integer('library_id').notNull().references(() => libraries.id, { onDelete: 'cascade' }),
+  section: varchar('section', { length: 32 }).notNull(),
+  periodKey: varchar('period_key', { length: 16 }).notNull(),
+  rank: integer('rank').notNull(),
+  isbn: varchar('isbn', { length: 20 }),
+  title: varchar('title', { length: 512 }),
+  author: varchar('author', { length: 256 }),
+  publisher: varchar('publisher', { length: 128 }),
+  coverUrl: varchar('cover_url', { length: 512 }),
+  category: varchar('category', { length: 64 }),
+  sourceDate: varchar('source_date', { length: 16 }),
+  fetchedAt: timestamp('fetched_at').notNull().defaultNow(),
+}, (t) => ({
+  librarySectionPeriodIdx: index('library_curations_library_section_period_idx').on(t.libraryId, t.section, t.periodKey),
+  uniqueLibrarySectionPeriodRank: uniqueIndex('library_curations_library_section_period_rank_idx').on(
+    t.libraryId,
+    t.section,
+    t.periodKey,
+    t.rank,
+  ),
+}))

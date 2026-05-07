@@ -40,6 +40,21 @@ export function PrimaryNav() {
                   <DropdownMenuContent align="start" className="w-52 bg-white">
                     {childItems.map((child) => {
                       const ChildIcon = child.icon
+                      if (child.disabled) {
+                        return (
+                          <DropdownMenuItem
+                            key={child.href}
+                            disabled
+                            className="flex cursor-not-allowed items-center gap-2 text-gray-400"
+                          >
+                            {ChildIcon && <ChildIcon className="h-4 w-4" />}
+                            <span>{child.label}</span>
+                            {child.disabledReason && (
+                              <span className="ml-auto text-xs text-gray-400">{child.disabledReason}</span>
+                            )}
+                          </DropdownMenuItem>
+                        )
+                      }
                       return (
                         <DropdownMenuItem key={child.href} asChild className="cursor-pointer focus:bg-gray-100">
                           <Link href={child.href} className="flex items-center gap-2">

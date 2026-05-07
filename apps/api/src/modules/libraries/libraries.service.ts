@@ -3,6 +3,7 @@ import { db, libraries, sql, eq, and, gte, lte, ilike, asc } from '@nearbook/db'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 import { JeongbonaruClient } from '../jeongbonaru/jeongbonaru.client'
 import { CacheService } from '../../common/cache.service'
+import { HomeCurationsService } from '../home-curations/home-curations.service'
 
 @Injectable()
 export class LibrariesService {
@@ -10,6 +11,7 @@ export class LibrariesService {
     private readonly jeongbonaru: JeongbonaruService,
     private readonly jeongbonaruClient: JeongbonaruClient,
     private readonly cache: CacheService,
+    private readonly homeCurations: HomeCurationsService,
   ) {}
 
   async findNear(lat: number, lng: number, radiusKm = 5, limit = 20) {
@@ -211,11 +213,7 @@ export class LibrariesService {
   }
 
   async getNewArrivalBooks(libraryId: number, limit = 20, searchDt?: string) {
-    try {
-      return await this.jeongbonaru.getLibraryNewArrivalBooks(libraryId, limit, searchDt)
-    } catch {
-      return []
-    }
+    return this.homeCurations.getLibraryNewArrivals(libraryId, limit, searchDt)
   }
 
   async getUsageTrend(libraryId: number) {

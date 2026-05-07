@@ -28,9 +28,10 @@ export function SiteFooter() {
             <h3 className="text-sm font-semibold text-gray-900">서비스</h3>
             <ul className="mt-4 space-y-2 text-sm text-gray-600">
               <li><Link href="/" className="hover:text-blue-600">홈</Link></li>
-              <li><Link href="/search" className="hover:text-blue-600">책 검색</Link></li>
-              <li><span className="cursor-not-allowed text-gray-400">인기도서 (준비 중)</span></li>
-              <li><span className="cursor-not-allowed text-gray-400">지역별 도서관 (준비 중)</span></li>
+              <li><Link href="/libraries" className="hover:text-blue-600">지역별 도서관</Link></li>
+              <li><Link href="/explore" className="hover:text-blue-600">탐색</Link></li>
+              <li><Link href="/popular" className="hover:text-blue-600">인기도서</Link></li>
+              <li><Link href="/category" className="hover:text-blue-600">카테고리</Link></li>
             </ul>
           </div>
 

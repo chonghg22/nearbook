@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common'
 import { LibrariesController } from './libraries.controller'
 import { LibrariesService } from './libraries.service'
 import { JeongbonaruModule } from '../jeongbonaru/jeongbonaru.module'
+import { HomeCurationsModule } from '../home-curations/home-curations.module'
 
 @Module({
-  imports: [JeongbonaruModule],
+  imports: [JeongbonaruModule, HomeCurationsModule],
   controllers: [LibrariesController],
   providers: [LibrariesService],
   exports: [LibrariesService],

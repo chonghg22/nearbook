@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { and, asc, db, desc, eq, homeCurations } from '@nearbook/db'
+import { and, asc, db, desc, eq, homeCurations, libraries, libraryCurations } from '@nearbook/db'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 
 type HomeCurationSection = 'monthly_keywords' | 'loan_item_books' | 'hot_trend_books'
+type LibraryCurationSection = 'new_arrivals'
 
 type MonthlyKeywordItem = {
   word: string
@@ -15,10 +16,15 @@ type BookItem = {
   author: string | null
   publisher: string | null
   coverUrl: string | null
+  category?: string | null
   loanCount?: number
   difference?: number
   baseWeekRank?: number
   pastWeekRank?: number
+}
+
+type NewArrivalBookItem = BookItem & {
+  category?: string | null
 }
 
 @Injectable()
@@ -77,6 +83,19 @@ export class HomeCurationsService {
       loanItemBooks: loanItems.status === 'fulfilled' ? loanItems.value : { refreshed: false, count: 0 },
       hotTrendBooks: hotTrend.status === 'fulfilled' ? hotTrend.value : { refreshed: false, count: 0 },
     }
+  }
+
+  async getLibraryNewArrivals(libraryId: number, limit = 20, periodKey?: string): Promise<BookItem[]> {
+    const rows = await this.findLibraryRows(libraryId, 'new_arrivals', limit, periodKey)
+    return rows
+      .filter((row) => row.isbn && row.title)
+      .map((row) => ({
+        isbn: row.isbn!,
+        title: row.title!,
+        author: row.author,
+        publisher: row.publisher,
+        coverUrl: row.coverUrl,
+      }))
   }
 
   async refreshMonthlyKeywords(limit = 10, month = this.getPreviousMonthInKst()) {
@@ -173,6 +192,59 @@ export class HomeCurationsService {
     }
   }
 
+  async refreshFeaturedLibraryNewArrivals(bookLimit = 40, libraryLimit = 12, periodKey = this.getCurrentMonthInKst()) {
+    const featuredLibraries = await db
+      .select({ id: libraries.id })
+      .from(libraries)
+      .orderBy(asc(libraries.id))
+      .limit(libraryLimit)
+
+    const results = []
+    for (const library of featuredLibraries) {
+      results.push(await this.refreshLibraryNewArrivals(library.id, bookLimit, periodKey))
+    }
+
+    return {
+      refreshed: results.filter((result) => result.refreshed).length,
+      skipped: results.filter((result) => !result.refreshed).length,
+      periodKey,
+    }
+  }
+
+  async refreshLibraryNewArrivals(libraryId: number, limit = 40, periodKey = this.getCurrentMonthInKst()) {
+    try {
+      const books: NewArrivalBookItem[] = await this.jeongbonaru.getLibraryNewArrivalBooks(libraryId, limit, periodKey)
+      if (books.length === 0) {
+        this.logger.warn(`new_arrivals refresh skipped: empty response (${libraryId}, ${periodKey})`)
+        return { refreshed: false, count: 0, libraryId, periodKey }
+      }
+
+      await this.replaceLibrarySection(
+        libraryId,
+        'new_arrivals',
+        periodKey,
+        books.map((book, index) => ({
+          libraryId,
+          section: 'new_arrivals',
+          periodKey,
+          rank: index + 1,
+          isbn: book.isbn,
+          title: book.title,
+          author: book.author,
+          publisher: book.publisher,
+          coverUrl: book.coverUrl,
+          category: book.category,
+          sourceDate: periodKey,
+        })),
+      )
+
+      return { refreshed: true, count: books.length, libraryId, periodKey }
+    } catch (err) {
+      this.logger.warn(`new_arrivals refresh failed: ${libraryId} (${String(err)})`)
+      return { refreshed: false, count: 0, libraryId, periodKey }
+    }
+  }
+
   private async findRows(section: HomeCurationSection, limit: number, periodKey?: string) {
     const targetPeriodKey = periodKey ?? await this.findLatestPeriodKey(section)
     if (!targetPeriodKey) return []
@@ -185,12 +257,46 @@ export class HomeCurationsService {
       .limit(limit)
   }
 
+  private async findLibraryRows(
+    libraryId: number,
+    section: LibraryCurationSection,
+    limit: number,
+    periodKey?: string,
+  ) {
+    const targetPeriodKey = periodKey ?? await this.findLatestLibraryPeriodKey(libraryId, section)
+    if (!targetPeriodKey) return []
+
+    return db
+      .select()
+      .from(libraryCurations)
+      .where(
+        and(
+          eq(libraryCurations.libraryId, libraryId),
+          eq(libraryCurations.section, section),
+          eq(libraryCurations.periodKey, targetPeriodKey),
+        ),
+      )
+      .orderBy(asc(libraryCurations.rank))
+      .limit(limit)
+  }
+
   private async findLatestPeriodKey(section: HomeCurationSection) {
     const [row] = await db
       .select({ periodKey: homeCurations.periodKey })
       .from(homeCurations)
       .where(eq(homeCurations.section, section))
       .orderBy(desc(homeCurations.periodKey))
+      .limit(1)
+
+    return row?.periodKey
+  }
+
+  private async findLatestLibraryPeriodKey(libraryId: number, section: LibraryCurationSection) {
+    const [row] = await db
+      .select({ periodKey: libraryCurations.periodKey })
+      .from(libraryCurations)
+      .where(and(eq(libraryCurations.libraryId, libraryId), eq(libraryCurations.section, section)))
+      .orderBy(desc(libraryCurations.periodKey))
       .limit(1)
 
     return row?.periodKey
@@ -207,6 +313,27 @@ export class HomeCurationsService {
         .where(and(eq(homeCurations.section, section), eq(homeCurations.periodKey, periodKey)))
 
       await tx.insert(homeCurations).values(rows)
+    })
+  }
+
+  private async replaceLibrarySection(
+    libraryId: number,
+    section: LibraryCurationSection,
+    periodKey: string,
+    rows: Array<typeof libraryCurations.$inferInsert>,
+  ) {
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(libraryCurations)
+        .where(
+          and(
+            eq(libraryCurations.libraryId, libraryId),
+            eq(libraryCurations.section, section),
+            eq(libraryCurations.periodKey, periodKey),
+          ),
+        )
+
+      await tx.insert(libraryCurations).values(rows)
     })
   }
 
@@ -228,6 +355,14 @@ export class HomeCurationsService {
       year: 'numeric',
       month: '2-digit',
     }).format(date)
+  }
+
+  private getCurrentMonthInKst() {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric',
+      month: '2-digit',
+    }).format(new Date())
   }
 
   private formatDateInKst(date: Date) {

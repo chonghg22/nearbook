@@ -82,7 +82,7 @@ export default async function HomePage() {
         <BookListSection 
           title="📈 대출 급상승도서" 
           items={hotTrend.data ?? []} 
-          viewAllHref="/popular"
+          viewAllHref="/rising"
         />
       </div>
 

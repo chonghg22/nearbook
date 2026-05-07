@@ -75,6 +75,24 @@ export class BooksService {
     return rows
   }
 
+  async getCategories(limit = 30) {
+    const cacheKey = `categories:${limit}`
+    const hit = this.cache.get<unknown[]>(cacheKey)
+    if (hit) return hit
+    const rows = await this.repo.getCategories(limit)
+    this.cache.set(cacheKey, rows, 6 * 60 * 60 * 1000)
+    return rows
+  }
+
+  async getByCategory(category: string, limit = 40) {
+    const cacheKey = `category:${category}:${limit}`
+    const hit = this.cache.get<unknown[]>(cacheKey)
+    if (hit) return hit
+    const rows = await this.repo.getByCategory(category, limit)
+    this.cache.set(cacheKey, rows, 6 * 60 * 60 * 1000)
+    return rows
+  }
+
   async getUsageAnalysis(isbn: string) {
     const cacheKey = `book:analysis:${isbn}`
     const hit = this.cache.get<unknown>(cacheKey)

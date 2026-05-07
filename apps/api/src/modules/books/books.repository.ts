@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { db, bookCache, popularBooks, eq, desc } from '@nearbook/db'
+import { db, bookCache, popularBooks, eq, desc, asc, sql } from '@nearbook/db'
 
 @Injectable()
 export class BooksRepository {
@@ -31,5 +31,37 @@ export class BooksRepository {
       orderBy: [desc(bookCache.cachedAt)],
       limit,
     })
+  }
+
+  async getCategories(limit = 30) {
+    const rows = await db
+      .select({
+        category: bookCache.category,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(bookCache)
+      .where(sql`${bookCache.category} IS NOT NULL AND ${bookCache.category} <> ''`)
+      .groupBy(bookCache.category)
+      .orderBy(desc(sql`count(*)`), asc(bookCache.category))
+      .limit(limit)
+
+    return rows.filter((row): row is { category: string; count: number } => Boolean(row.category))
+  }
+
+  async getByCategory(category: string, limit = 40) {
+    return db
+      .select({
+        isbn: bookCache.isbn,
+        title: bookCache.title,
+        author: bookCache.author,
+        publisher: bookCache.publisher,
+        coverUrl: bookCache.coverUrl,
+        category: bookCache.category,
+        cachedAt: bookCache.cachedAt,
+      })
+      .from(bookCache)
+      .where(eq(bookCache.category, category))
+      .orderBy(desc(bookCache.cachedAt))
+      .limit(limit)
   }
 }
