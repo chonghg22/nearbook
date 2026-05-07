@@ -8,7 +8,7 @@ export class JeongbonaruClient implements OnModuleInit {
   private readonly logger = new Logger(JeongbonaruClient.name)
   private client!: AxiosInstance
   private dailyCallCount = 0
-  private DAILY_LIMIT = 500
+  private DAILY_LIMIT = 30_000
 
   constructor(private readonly config: ConfigService) {}
 

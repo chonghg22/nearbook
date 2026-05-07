@@ -40,7 +40,7 @@ export class QuotaService {
   ) {}
 
   private get limit(): number {
-    return Number(this.config.get<number>('JEONGBONARU_DAILY_LIMIT') ?? 500)
+    return Number(this.config.get<number>('JEONGBONARU_DAILY_LIMIT') ?? 30_000)
   }
 
   private get warnRatio(): number {
