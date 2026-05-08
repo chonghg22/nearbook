@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://near-book.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
+const SITE_HOST = new URL(SITE_URL).host
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -24,6 +25,6 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
-    host: SITE_URL,
+    host: SITE_HOST,
   }
 }

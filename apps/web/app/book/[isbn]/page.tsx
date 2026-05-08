@@ -7,6 +7,7 @@ import { AdSenseSlot } from '@/components/ads/adsense-slot'
 import { LibraryStatus } from './_components/library-status'
 
 const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3001'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
 export const revalidate = 2592000 // 30일
 export const dynamicParams = true
 
@@ -68,7 +69,7 @@ export async function generateMetadata({ params }: { params: Promise<{ isbn: str
       description: `${book.author} · ${book.publisher ?? ''}`,
       images: book.coverUrl ? [{ url: book.coverUrl }] : [],
     },
-    alternates: { canonical: `https://우리동네책.kr/book/${isbn}` },
+    alternates: { canonical: `${SITE_URL}/book/${isbn}` },
   }
 }
 

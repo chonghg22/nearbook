@@ -7,6 +7,7 @@ import { AdSenseSlot } from './_components/adsense-slot'
 export const revalidate = 60 // 1분 (데이터 안정화 후 3600으로 복원)
 
 const API = process.env.INTERNAL_API_URL || 'http://localhost:3001'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
 const MONTHLY_KEYWORDS_FALLBACK = [
   { word: '한강', weight: 0 },
   { word: '김애란', weight: 0 },
@@ -48,10 +49,10 @@ export default async function HomePage() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "url": process.env.NEXT_PUBLIC_SITE_URL ?? "https://우리동네책.kr",
+    "url": SITE_URL,
     "potentialAction": {
       "@type": "SearchAction",
-      "target": `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://우리동네책.kr"}/search?q={search_term_string}`,
+      "target": `${SITE_URL}/search?q={search_term_string}`,
       "query-input": "required name=search_term_string"
     }
   }
@@ -98,6 +99,9 @@ export default async function HomePage() {
 export const metadata = {
   title: '우리동네책 | 한국 공공도서관 통합 책 검색',
   description: '전국 1,400+ 공공도서관에서 책을 빠르게 찾고 빌리세요. 위치 기반 도서관 매칭, 보유 여부 확인.',
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     title: '우리동네책',
     description: '우리 동네 도서관에서 책 빌리기',
