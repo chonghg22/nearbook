@@ -37,11 +37,11 @@ export function UserNavMenu({ nickname, avatarUrl }: Props) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-2 rounded-full border border-gray-200 px-2.5 py-1.5 text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-100">
+    <DropdownMenuTrigger className="flex items-center gap-2 rounded-full border border-gray-200 px-2.5 py-1.5 text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-100">
         {avatarUrl ? (
           <Image src={avatarUrl} alt="" width={24} height={24} className="h-6 w-6 rounded-full" />
         ) : (
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">
             {nickname.charAt(0)}
           </div>
         )}

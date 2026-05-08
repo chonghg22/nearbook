@@ -38,7 +38,7 @@ export function MapSection() {
             setRegionFilter(undefined)
             // LibraryMap에서 idle 이벤트로 자동 재검색됨
           }}
-          className="ml-auto text-sm text-blue-600 hover:underline"
+          className="ml-auto text-sm text-primary hover:underline"
         >
           📍 현재 위치로
         </button>

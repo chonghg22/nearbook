@@ -12,12 +12,15 @@ export const metadata: Metadata = {
 }
 
 type CategoryItem = {
-  category: string
+  code: string
+  name: string
+  description: string
   count: number
+  periodKey?: string
 }
 
 type Props = {
-  searchParams?: Promise<{ category?: string }>
+  searchParams?: Promise<{ category?: string; code?: string }>
 }
 
 async function fetchCategories(): Promise<CategoryItem[]> {
@@ -29,7 +32,7 @@ async function fetchCategories(): Promise<CategoryItem[]> {
 
 async function fetchBooks(category?: string): Promise<ExploreBook[]> {
   if (!category) return []
-  const res = await fetch(`${API_URL}/books/by-category?category=${encodeURIComponent(category)}&limit=40`, {
+  const res = await fetch(`${API_URL}/books/by-category?categoryCode=${encodeURIComponent(category)}&limit=40`, {
     next: { revalidate: 21600 },
   })
   if (!res.ok) return []
@@ -39,8 +42,12 @@ async function fetchBooks(category?: string): Promise<ExploreBook[]> {
 
 export default async function CategoryPage({ searchParams }: Props) {
   const params = await searchParams
-  const selectedCategory = params?.category
-  const [categories, books] = await Promise.all([fetchCategories(), fetchBooks(selectedCategory)])
+  const [categories, initialBooks] = await Promise.all([fetchCategories(), fetchBooks(params?.code ?? params?.category)])
+  const selectedCategoryCode = params?.code ?? params?.category ?? categories.find((item) => item.count > 0)?.code
+  const books = selectedCategoryCode === (params?.code ?? params?.category)
+    ? initialBooks
+    : await fetchBooks(selectedCategoryCode)
+  const selectedCategory = categories.find((item) => item.code === selectedCategoryCode)
 
   return (
     <ExploreShell
@@ -49,28 +56,35 @@ export default async function CategoryPage({ searchParams }: Props) {
     >
       <div className="mb-8 flex flex-wrap gap-2">
         {categories.map((item) => {
-          const selected = item.category === selectedCategory
+          const selected = item.code === selectedCategoryCode
           return (
             <Link
-              key={item.category}
-              href={`/category?category=${encodeURIComponent(item.category)}`}
+              key={item.code}
+              href={`/category?code=${encodeURIComponent(item.code)}`}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                 selected
-                  ? 'bg-blue-700 text-white shadow-sm'
-                  : 'border border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:text-blue-700'
+                  ? 'bg-primary-700 text-white shadow-sm'
+                  : 'border border-gray-200 bg-white text-gray-700 hover:border-primary-300 hover:text-primary-700'
               }`}
+              title={item.description}
             >
-              {item.category}
-              <span className={selected ? 'ml-2 text-blue-100' : 'ml-2 text-gray-400'}>{item.count}</span>
+              {item.name}
+              <span className={selected ? 'ml-2 text-primary-100' : 'ml-2 text-gray-400'}>{item.count}</span>
             </Link>
           )
         })}
       </div>
+      {selectedCategory && (
+        <div className="mb-6 rounded-2xl bg-white px-5 py-4 text-sm text-gray-600 shadow-sm ring-1 ring-gray-100">
+          <strong className="text-gray-900">{selectedCategory.name}</strong>
+          <span className="ml-2">{selectedCategory.description}</span>
+        </div>
+      )}
       <BookGrid
         books={books}
-        emptyMessage={selectedCategory ? '이 카테고리에 저장된 도서가 없습니다.' : '카테고리를 선택해주세요.'}
+        emptyMessage={selectedCategoryCode ? '이 카테고리에 저장된 큐레이션 도서가 없습니다.' : '카테고리를 선택해주세요.'}
       />
-      <SourceNote>갱신 방식: 검색/API 결과가 쌓인 `book_cache`를 읽습니다. 별도 외부 API를 호출하지 않습니다.</SourceNote>
+      <SourceNote>갱신 방식: KDC 대분류별 인기대출도서를 월 1회 DB에 저장하고, 화면에서는 저장된 큐레이션만 읽습니다.</SourceNote>
     </ExploreShell>
   )
 }

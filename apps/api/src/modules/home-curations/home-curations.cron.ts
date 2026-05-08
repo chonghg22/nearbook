@@ -26,6 +26,12 @@ export class HomeCurationsCron {
     this.logger.log(`monthly_keywords refresh result: ${JSON.stringify(result)}`)
   }
 
+  @Cron('35 3 * * *', { timeZone: 'Asia/Seoul' })
+  async refreshCategoryCurations() {
+    const result = await this.homeCurations.refreshCategoryCurations(40)
+    this.logger.log(`category_curations refresh result: ${JSON.stringify(result)}`)
+  }
+
   @Cron('40 3 * * *', { timeZone: 'Asia/Seoul' })
   async refreshFeaturedLibraryNewArrivals() {
     const result = await this.homeCurations.refreshFeaturedLibraryNewArrivals(40, 12)

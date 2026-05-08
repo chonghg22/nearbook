@@ -269,3 +269,27 @@ export const libraryCurations = nearbookSchema.table('library_curations', {
     t.rank,
   ),
 }))
+
+// 15. 카테고리별 큐레이션 캐시 (KDC 대분류 기반)
+export const categoryCurations = nearbookSchema.table('category_curations', {
+  id: serial('id').primaryKey(),
+  categoryCode: varchar('category_code', { length: 8 }).notNull(),
+  categoryName: varchar('category_name', { length: 64 }).notNull(),
+  periodKey: varchar('period_key', { length: 16 }).notNull(),
+  rank: integer('rank').notNull(),
+  isbn: varchar('isbn', { length: 20 }).notNull(),
+  title: varchar('title', { length: 512 }).notNull(),
+  author: varchar('author', { length: 256 }),
+  publisher: varchar('publisher', { length: 128 }),
+  coverUrl: varchar('cover_url', { length: 512 }),
+  loanCount: integer('loan_count'),
+  sourceDate: varchar('source_date', { length: 16 }),
+  fetchedAt: timestamp('fetched_at').notNull().defaultNow(),
+}, (t) => ({
+  categoryPeriodIdx: index('category_curations_category_period_idx').on(t.categoryCode, t.periodKey),
+  uniqueCategoryPeriodRank: uniqueIndex('category_curations_category_period_rank_idx').on(
+    t.categoryCode,
+    t.periodKey,
+    t.rank,
+  ),
+}))

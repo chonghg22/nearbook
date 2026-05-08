@@ -23,8 +23,8 @@ export function ExploreShell({
 }) {
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
-      <header className="mb-8 rounded-[2rem] bg-gradient-to-br from-slate-950 via-blue-950 to-slate-800 px-6 py-8 text-white shadow-sm md:px-10">
-        <p className="mb-3 text-sm font-semibold text-blue-200">탐색</p>
+      <header className="mb-8 rounded-[2rem] bg-gradient-to-br from-primary-900 via-primary-700 to-primary px-6 py-8 text-white shadow-sm md:px-10">
+        <p className="mb-3 text-sm font-semibold text-primary-100">탐색</p>
         <h1 className="text-3xl font-black tracking-tight md:text-4xl">{title}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 md:text-base">{description}</p>
       </header>
@@ -63,7 +63,7 @@ export function BookGrid({ books, emptyMessage }: { books: ExploreBook[]; emptyM
               )}
             </div>
             <div className="mt-3">
-              <p className="line-clamp-2 text-sm font-bold leading-snug text-gray-900 group-hover:text-blue-700">
+              <p className="line-clamp-2 text-sm font-bold leading-snug text-gray-900 group-hover:text-primary-700">
                 {book.title}
               </p>
               <p className="mt-1 truncate text-xs text-gray-500">{book.author || '저자 정보 없음'}</p>
@@ -78,7 +78,7 @@ export function BookGrid({ books, emptyMessage }: { books: ExploreBook[]; emptyM
 
 function BookMeta({ book }: { book: ExploreBook }) {
   if (typeof book.loanCount === 'number') {
-    return <p className="mt-2 text-xs font-semibold text-blue-700">대출 {book.loanCount.toLocaleString()}회</p>
+    return <p className="mt-2 text-xs font-semibold text-primary-700">대출 {book.loanCount.toLocaleString()}회</p>
   }
   if (typeof book.difference === 'number') {
     return <p className="mt-2 text-xs font-semibold text-red-600">상승 {book.difference.toLocaleString()}</p>
@@ -91,7 +91,7 @@ function BookMeta({ book }: { book: ExploreBook }) {
 
 export function SourceNote({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-6 rounded-2xl bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
+    <p className="mt-6 rounded-2xl bg-primary-50 px-4 py-3 text-sm leading-6 text-primary-900">
       {children}
     </p>
   )

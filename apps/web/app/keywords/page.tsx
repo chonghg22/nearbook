@@ -41,9 +41,9 @@ export default async function KeywordsPage() {
             <Link
               key={keyword.word}
               href={`/search?q=${encodeURIComponent(keyword.word)}`}
-              className="rounded-full border border-blue-100 bg-white px-5 py-3 text-sm font-bold text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:text-blue-700 hover:shadow-md"
+              className="rounded-full border border-primary-100 bg-white px-5 py-3 text-sm font-bold text-slate-900 shadow-sm transition hover:-translate-y-0.5 hover:border-primary-300 hover:text-primary-700 hover:shadow-md"
             >
-              <span className="mr-2 text-blue-600">#{index + 1}</span>
+              <span className="mr-2 text-primary-600">#{index + 1}</span>
               {keyword.word}
             </Link>
           ))}

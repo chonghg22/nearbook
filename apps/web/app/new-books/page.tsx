@@ -69,8 +69,8 @@ export default async function NewBooksPage({ searchParams }: Props) {
                 href={`/new-books?libraryId=${library.id}`}
                 className={`rounded-2xl border p-4 transition ${
                   selected
-                    ? 'border-blue-500 bg-blue-50 text-blue-900'
-                    : 'border-gray-100 bg-gray-50 text-gray-800 hover:border-blue-200 hover:bg-white'
+                    ? 'border-primary-500 bg-primary-50 text-primary-900'
+                    : 'border-gray-100 bg-gray-50 text-gray-800 hover:border-primary-200 hover:bg-white'
                 }`}
               >
                 <p className="font-bold">{library.name}</p>

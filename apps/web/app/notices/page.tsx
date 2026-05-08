@@ -27,7 +27,7 @@ const CATEGORY_LABEL: Record<NoticeItem['category'], string> = {
 
 const CATEGORY_COLOR: Record<NoticeItem['category'], string> = {
   general: 'bg-gray-100 text-gray-700',
-  update: 'bg-blue-100 text-blue-700',
+  update: 'bg-primary-100 text-primary-700',
   maintenance: 'bg-amber-100 text-amber-700',
 }
 

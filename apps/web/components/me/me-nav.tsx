@@ -20,7 +20,7 @@ export function MeNav() {
           href={href}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             pathname === href
-              ? 'bg-blue-600 text-white'
+              ? 'bg-primary text-white'
               : 'text-gray-600 hover:bg-gray-100'
           }`}
         >

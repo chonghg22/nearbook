@@ -30,7 +30,7 @@ const PIN_NORMAL = `
 
 const PIN_SELECTED = `
 <svg xmlns="http://www.w3.org/2000/svg" width="34" height="44" viewBox="0 0 28 36">
-  <path d="M14 0C6.268 0 0 6.268 0 14c0 9.333 14 22 14 22S28 23.333 28 14C28 6.268 21.732 0 14 0z" fill="#2563eb"/>
+  <path d="M14 0C6.268 0 0 6.268 0 14c0 9.333 14 22 14 22S28 23.333 28 14C28 6.268 21.732 0 14 0z" fill="#2f704f"/>
   <circle cx="14" cy="14" r="6" fill="white"/>
 </svg>
 `
@@ -104,7 +104,7 @@ function MapInner({
               <p style="font-size:13px;font-weight:600;color:#111;margin:0 0 6px">${lib.name}</p>
               <a
                 href="/library/${lib.id}"
-                style="font-size:12px;color:#2563eb;text-decoration:none;"
+                style="font-size:12px;color:#2f704f;text-decoration:none;"
               >상세보기 →</a>
             </div>
           `)

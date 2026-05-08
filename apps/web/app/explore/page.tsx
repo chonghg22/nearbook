@@ -29,9 +29,9 @@ export default function ExplorePage() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-md"
+              className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-primary-200 hover:shadow-md"
             >
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700">
                 <Icon className="h-6 w-6" />
               </div>
               <h2 className="text-xl font-black text-gray-900">{item.title}</h2>

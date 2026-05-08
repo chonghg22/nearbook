@@ -56,7 +56,7 @@ export default async function NoticeDetailPage({
 
   return (
     <article className="max-w-3xl mx-auto px-4 py-8">
-      <Link href="/notices" className="text-sm text-blue-600 hover:underline">
+      <Link href="/notices" className="text-sm text-primary hover:underline">
         ← 공지사항 목록
       </Link>
 

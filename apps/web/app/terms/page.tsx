@@ -85,7 +85,7 @@ export default function TermsPage() {
             서비스 이용 문의, 오류 신고, 권리 침해 신고는 이메일 또는 오류신고&건의사항 페이지로 접수할 수 있습니다.
           </p>
           <p className="mt-2">
-            이메일: <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-600 hover:underline">{CONTACT_EMAIL}</a>
+            이메일: <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">{CONTACT_EMAIL}</a>
           </p>
         </section>
       </div>

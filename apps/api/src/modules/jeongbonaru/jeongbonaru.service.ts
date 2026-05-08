@@ -247,10 +247,11 @@ export class JeongbonaruService {
     return (response.response?.docs ?? []).map((d) => d.doc)
   }
 
-  async getLoanItemBooks(limit = 10) {
+  async getLoanItemBooks(limit = 10, options: { kdc?: string } = {}) {
     const response = await this.client.get<JeongbonaruDocsResponse>(
       '/loanItemSrch',
       {
+        ...(options.kdc ? { kdc: options.kdc } : {}),
         pageNo: 1,
         pageSize: limit,
       },

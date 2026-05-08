@@ -210,7 +210,7 @@ export function LibrariesNearMe({ fallbackLibraries }: Props) {
                     <p className="mt-1 text-xs text-gray-500 truncate">{lib.address}</p>
                   </div>
                   {/* 거리 정보 (위치 기반 데이터일 때만 표시) */}
-                  <div className="ml-3 shrink-0 px-2 py-0.5 rounded-full bg-blue-50 text-[11px] font-bold text-blue-600">
+                  <div className="ml-3 shrink-0 px-2 py-0.5 rounded-full bg-primary-50 text-[11px] font-bold text-primary">
                     {(lib as any).distanceKm ? `${(lib as any).distanceKm.toFixed(1)}km` : (lib as any).distance_m ? `${((lib as any).distance_m / 1000).toFixed(1)}km` : '0.5km'}
                   </div>
                 </div>

@@ -114,7 +114,7 @@ export function LibrariesMapView() {
           <select
             value={sido}
             onChange={(e) => handleSidoChange(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[130px]"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[130px]"
           >
             <option value="">전체 시도</option>
             {SIDO_LIST.map((s) => (
@@ -127,7 +127,7 @@ export function LibrariesMapView() {
             value={sigungu}
             onChange={(e) => handleSigunguChange(e.target.value)}
             disabled={!sido || sigunguList.length === 0}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[130px] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[130px] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <option value="">전체 시군구</option>
             {sigunguList.map((s) => (
@@ -140,19 +140,19 @@ export function LibrariesMapView() {
         <div className="ml-auto flex gap-1">
           <button
             onClick={() => setViewMode('list')}
-            className={`px-3 py-1 rounded text-sm ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+            className={`px-3 py-1 rounded text-sm ${viewMode === 'list' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             목록
           </button>
           <button
             onClick={() => setViewMode('map')}
-            className={`px-3 py-1 rounded text-sm ${viewMode === 'map' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+            className={`px-3 py-1 rounded text-sm ${viewMode === 'map' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             지도
           </button>
           <button
             onClick={() => setViewMode('split')}
-            className={`px-3 py-1 rounded text-sm hidden md:block ${viewMode === 'split' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}
+            className={`px-3 py-1 rounded text-sm hidden md:block ${viewMode === 'split' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             분할
           </button>
@@ -181,8 +181,8 @@ export function LibrariesMapView() {
                 <a
                   key={lib.id}
                   href={`/library/${lib.id}`}
-                  className={`block p-3 border-b hover:bg-blue-50 transition-colors ${
-                    hoveredLibraryId === lib.id ? 'bg-blue-50' : ''
+                  className={`block p-3 border-b hover:bg-primary-50 transition-colors ${
+                    hoveredLibraryId === lib.id ? 'bg-primary-50' : ''
                   }`}
                   onMouseEnter={() => setHoveredLibraryId(lib.id)}
                   onMouseLeave={() => setHoveredLibraryId(null)}

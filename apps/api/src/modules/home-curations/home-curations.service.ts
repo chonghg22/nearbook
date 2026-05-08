@@ -1,5 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { and, asc, db, desc, eq, homeCurations, libraries, libraryCurations } from '@nearbook/db'
+import {
+  and,
+  asc,
+  categoryCurations,
+  db,
+  desc,
+  eq,
+  homeCurations,
+  libraries,
+  libraryCurations,
+  sql,
+} from '@nearbook/db'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 
 type HomeCurationSection = 'monthly_keywords' | 'loan_item_books' | 'hot_trend_books'
@@ -26,6 +37,21 @@ type BookItem = {
 type NewArrivalBookItem = BookItem & {
   category?: string | null
 }
+
+export const BOOK_CATEGORY_GROUPS = [
+  { code: '8', name: '문학', description: '소설, 시, 에세이 등 문학 분야 인기 도서' },
+  { code: '3', name: '사회과학', description: '경제, 경영, 정치, 사회 이슈 도서' },
+  { code: '9', name: '역사', description: '역사, 지리, 여행 분야 도서' },
+  { code: '1', name: '철학', description: '철학, 심리학, 윤리 분야 도서' },
+  { code: '4', name: '자연과학', description: '수학, 과학, 생명과학 분야 도서' },
+  { code: '5', name: '기술과학', description: '의학, 공학, 생활과학 분야 도서' },
+  { code: '6', name: '예술', description: '미술, 음악, 스포츠, 취미 분야 도서' },
+  { code: '7', name: '언어', description: '한국어, 외국어, 학습 언어 도서' },
+  { code: '2', name: '종교', description: '종교와 신앙 분야 도서' },
+  { code: '0', name: '총류', description: '컴퓨터, 독서, 백과, 정보 분야 도서' },
+] as const
+
+export type BookCategoryCode = typeof BOOK_CATEGORY_GROUPS[number]['code']
 
 @Injectable()
 export class HomeCurationsService {
@@ -98,6 +124,54 @@ export class HomeCurationsService {
       }))
   }
 
+  async getCategories() {
+    const latestPeriodKey = await this.findLatestCategoryPeriodKey()
+    if (!latestPeriodKey) {
+      return BOOK_CATEGORY_GROUPS.map((category) => ({
+        ...category,
+        count: 0,
+      }))
+    }
+
+    const counts = await db
+      .select({
+        categoryCode: categoryCurations.categoryCode,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(categoryCurations)
+      .where(eq(categoryCurations.periodKey, latestPeriodKey))
+      .groupBy(categoryCurations.categoryCode)
+
+    const countMap = new Map(counts.map((row) => [row.categoryCode, Number(row.count)]))
+    return BOOK_CATEGORY_GROUPS.map((category) => ({
+      ...category,
+      count: countMap.get(category.code) ?? 0,
+      periodKey: latestPeriodKey,
+    }))
+  }
+
+  async getCategoryBooks(categoryCode: string, limit = 40, periodKey?: string): Promise<BookItem[]> {
+    const targetPeriodKey = periodKey ?? await this.findLatestCategoryPeriodKey(categoryCode)
+    if (!targetPeriodKey) return []
+
+    const rows = await db
+      .select()
+      .from(categoryCurations)
+      .where(and(eq(categoryCurations.categoryCode, categoryCode), eq(categoryCurations.periodKey, targetPeriodKey)))
+      .orderBy(asc(categoryCurations.rank))
+      .limit(limit)
+
+    return rows.map((row) => ({
+      isbn: row.isbn,
+      title: row.title,
+      author: row.author,
+      publisher: row.publisher,
+      coverUrl: row.coverUrl,
+      category: row.categoryName,
+      loanCount: row.loanCount ?? 0,
+    }))
+  }
+
   async refreshMonthlyKeywords(limit = 10, month = this.getPreviousMonthInKst()) {
     try {
       const keywords = await this.jeongbonaru.getMonthlyKeywords(limit, month)
@@ -123,6 +197,55 @@ export class HomeCurationsService {
     } catch (err) {
       this.logger.warn(`monthly_keywords refresh failed: ${String(err)}`)
       return { refreshed: false, count: 0, periodKey: month }
+    }
+  }
+
+  async refreshCategoryCurations(limit = 40, periodKey = this.getCurrentMonthInKst()) {
+    const results = []
+    for (const category of BOOK_CATEGORY_GROUPS) {
+      results.push(await this.refreshCategoryCuration(category.code, limit, periodKey))
+    }
+
+    return {
+      refreshed: results.filter((result) => result.refreshed).length,
+      skipped: results.filter((result) => !result.refreshed).length,
+      periodKey,
+    }
+  }
+
+  async refreshCategoryCuration(categoryCode: BookCategoryCode, limit = 40, periodKey = this.getCurrentMonthInKst()) {
+    const category = BOOK_CATEGORY_GROUPS.find((item) => item.code === categoryCode)
+    if (!category) return { refreshed: false, count: 0, categoryCode, periodKey }
+
+    try {
+      const books = await this.jeongbonaru.getLoanItemBooks(limit, { kdc: categoryCode })
+      if (books.length === 0) {
+        this.logger.warn(`category_curations refresh skipped: empty response (${category.name}, ${periodKey})`)
+        return { refreshed: false, count: 0, categoryCode, periodKey }
+      }
+
+      await this.replaceCategorySection(
+        categoryCode,
+        periodKey,
+        books.map((book, index) => ({
+          categoryCode,
+          categoryName: category.name,
+          periodKey,
+          rank: index + 1,
+          isbn: book.isbn,
+          title: book.title,
+          author: book.author,
+          publisher: book.publisher,
+          coverUrl: book.coverUrl,
+          loanCount: book.loanCount,
+          sourceDate: periodKey,
+        })),
+      )
+
+      return { refreshed: true, count: books.length, categoryCode, periodKey }
+    } catch (err) {
+      this.logger.warn(`category_curations refresh failed: ${category.name} (${String(err)})`)
+      return { refreshed: false, count: 0, categoryCode, periodKey }
     }
   }
 
@@ -302,6 +425,23 @@ export class HomeCurationsService {
     return row?.periodKey
   }
 
+  private async findLatestCategoryPeriodKey(categoryCode?: string) {
+    const [row] = categoryCode
+      ? await db
+        .select({ periodKey: categoryCurations.periodKey })
+        .from(categoryCurations)
+        .where(eq(categoryCurations.categoryCode, categoryCode))
+        .orderBy(desc(categoryCurations.periodKey))
+        .limit(1)
+      : await db
+        .select({ periodKey: categoryCurations.periodKey })
+        .from(categoryCurations)
+        .orderBy(desc(categoryCurations.periodKey))
+        .limit(1)
+
+    return row?.periodKey
+  }
+
   private async replaceSection(
     section: HomeCurationSection,
     periodKey: string,
@@ -334,6 +474,20 @@ export class HomeCurationsService {
         )
 
       await tx.insert(libraryCurations).values(rows)
+    })
+  }
+
+  private async replaceCategorySection(
+    categoryCode: string,
+    periodKey: string,
+    rows: Array<typeof categoryCurations.$inferInsert>,
+  ) {
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(categoryCurations)
+        .where(and(eq(categoryCurations.categoryCode, categoryCode), eq(categoryCurations.periodKey, periodKey)))
+
+      await tx.insert(categoryCurations).values(rows)
     })
   }
 

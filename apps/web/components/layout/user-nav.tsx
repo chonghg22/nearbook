@@ -52,7 +52,7 @@ export function UserNav() {
     return (
       <Link
         href="/login"
-        className="rounded-full border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-50"
+        className="rounded-full border border-primary px-4 py-2 text-sm font-medium text-primary transition hover:bg-primary-50"
       >
         로그인
       </Link>

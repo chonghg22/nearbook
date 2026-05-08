@@ -30,8 +30,8 @@ export function PrimaryNav() {
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-100',
-                      isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100',
+                      'inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-primary-100',
+                      isActive ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-100',
                     )}
                   >
                     {item.label}
@@ -89,7 +89,7 @@ export function PrimaryNav() {
                 href={item.href}
                 className={cn(
                   'rounded-md px-3 py-2 text-sm font-medium transition',
-                  isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100',
+                  isActive ? 'bg-primary-50 text-primary-700' : 'text-gray-700 hover:bg-gray-100',
                 )}
               >
                 {item.label}

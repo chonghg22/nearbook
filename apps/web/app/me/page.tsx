@@ -17,12 +17,12 @@ export default async function MePage() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">
-        안녕하세요, <span className="text-blue-600">{nickname}</span>님 👋
+        안녕하세요, <span className="text-primary">{nickname}</span>님 👋
       </h1>
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
           href="/me/wishlist"
-          className="p-6 rounded-2xl border hover:border-blue-400 transition-colors"
+          className="p-6 rounded-2xl border hover:border-primary-400 transition-colors"
         >
           <div className="text-3xl mb-2">📚</div>
           <p className="font-semibold">내 위시리스트</p>
@@ -30,7 +30,7 @@ export default async function MePage() {
         </Link>
         <Link
           href="/me/libraries"
-          className="p-6 rounded-2xl border hover:border-blue-400 transition-colors"
+          className="p-6 rounded-2xl border hover:border-primary-400 transition-colors"
         >
           <div className="text-3xl mb-2">🏛</div>
           <p className="font-semibold">내 도서관</p>

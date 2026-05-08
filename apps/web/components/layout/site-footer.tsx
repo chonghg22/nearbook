@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { BookOpen, Mail } from 'lucide-react'
+import { Mail } from 'lucide-react'
+import { BrandMark } from './brand-mark'
 
 const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'chonghg22@gmail.com'
 const OPERATOR_NAME = process.env.NEXT_PUBLIC_OPERATOR_NAME ?? '우리동네책 운영자'
@@ -13,9 +14,7 @@ export function SiteFooter() {
           {/* 브랜드 */}
           <div className="md:col-span-1">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
-                <BookOpen className="h-4 w-4" />
-              </div>
+              <BrandMark className="h-8 w-8" />
               <span className="text-base font-bold text-gray-900">우리동네책</span>
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-gray-600">
@@ -27,11 +26,11 @@ export function SiteFooter() {
           <div>
             <h3 className="text-sm font-semibold text-gray-900">서비스</h3>
             <ul className="mt-4 space-y-2 text-sm text-gray-600">
-              <li><Link href="/" className="hover:text-blue-600">홈</Link></li>
-              <li><Link href="/libraries" className="hover:text-blue-600">지역별 도서관</Link></li>
-              <li><Link href="/explore" className="hover:text-blue-600">탐색</Link></li>
-              <li><Link href="/popular" className="hover:text-blue-600">인기도서</Link></li>
-              <li><Link href="/category" className="hover:text-blue-600">카테고리</Link></li>
+              <li><Link href="/" className="hover:text-primary">홈</Link></li>
+              <li><Link href="/libraries" className="hover:text-primary">지역별 도서관</Link></li>
+              <li><Link href="/explore" className="hover:text-primary">탐색</Link></li>
+              <li><Link href="/popular" className="hover:text-primary">인기도서</Link></li>
+              <li><Link href="/category" className="hover:text-primary">카테고리</Link></li>
             </ul>
           </div>
 
@@ -39,11 +38,11 @@ export function SiteFooter() {
           <div>
             <h3 className="text-sm font-semibold text-gray-900">정책</h3>
             <ul className="mt-4 space-y-2 text-sm text-gray-600">
-              <li><Link href="/terms" className="hover:text-blue-600">이용약관</Link></li>
-              <li><Link href="/privacy" className="hover:text-blue-600">개인정보처리방침</Link></li>
-              <li><Link href="/notices" className="hover:text-blue-600">공지사항</Link></li>
-              <li><Link href="/qna" className="hover:text-blue-600">묻고답하기</Link></li>
-              <li><Link href="/feedback" className="hover:text-blue-600">오류신고&건의사항</Link></li>
+              <li><Link href="/terms" className="hover:text-primary">이용약관</Link></li>
+              <li><Link href="/privacy" className="hover:text-primary">개인정보처리방침</Link></li>
+              <li><Link href="/notices" className="hover:text-primary">공지사항</Link></li>
+              <li><Link href="/qna" className="hover:text-primary">묻고답하기</Link></li>
+              <li><Link href="/feedback" className="hover:text-primary">오류신고&건의사항</Link></li>
             </ul>
           </div>
 
@@ -53,7 +52,7 @@ export function SiteFooter() {
             <ul className="mt-4 space-y-2 text-sm text-gray-600">
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 shrink-0" />
-                <a href={`mailto:${CONTACT_EMAIL}`} className="break-all hover:text-blue-600">
+                <a href={`mailto:${CONTACT_EMAIL}`} className="break-all hover:text-primary">
                   {CONTACT_EMAIL}
                 </a>
               </li>

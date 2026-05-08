@@ -58,10 +58,10 @@ export class BooksController {
   @Get('by-category')
   @ApiOperation({ summary: '카테고리별 캐시 도서' })
   async getByCategory(
-    @Query('category') category: string,
+    @Query('categoryCode') categoryCode: string,
     @Query('limit', new DefaultValuePipe(40), ParseIntPipe) limit: number,
   ) {
-    const data = category ? await this.service.getByCategory(category, Math.min(limit, 100)) : []
+    const data = categoryCode ? await this.service.getByCategory(categoryCode, Math.min(limit, 100)) : []
     return { data }
   }
 

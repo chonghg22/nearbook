@@ -67,7 +67,7 @@ export function RegionSelector({ onChange }: RegionSelectorProps) {
         value={selectedCity}
         onChange={(e) => handleCityChange(e.target.value)}
         className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
                    min-w-[140px] cursor-pointer"
       >
         <option value="">-- 시/도 선택 --</option>
@@ -84,7 +84,7 @@ export function RegionSelector({ onChange }: RegionSelectorProps) {
         onChange={(e) => handleDistrictChange(e.target.value)}
         disabled={!selectedCity || districts.length === 0}
         className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                   focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
                    min-w-[140px] cursor-pointer
                    disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
       >

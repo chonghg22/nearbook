@@ -69,7 +69,7 @@ export function ResultList({ isLoading, items = [], error, query }: Props) {
                 {item.author}
                 {item.publisher && ` · ${item.publisher}`}
               </p>
-              <p className="text-sm text-blue-600 mt-2">
+              <p className="text-sm text-primary mt-2">
                 📚 {item.libraryHoldings ?? 0}권 보유
                 {item.loanAvailable !== undefined && item.loanAvailable > 0 && (
                   <span className="ml-2 text-green-600">

@@ -104,11 +104,11 @@ export function WishlistView({ items: initial, plan, total }: Props) {
       </ul>
 
       {plan === 'free' && (
-        <div className="mt-6 p-4 border border-dashed border-blue-200 rounded-lg text-center">
+        <div className="mt-6 p-4 border border-dashed border-primary-200 rounded-lg text-center">
           <p className="text-sm text-gray-600">
             Pro로 업그레이드하면 위시리스트 무제한
           </p>
-          <button className="mt-2 text-sm text-blue-600 font-medium hover:underline">
+          <button className="mt-2 text-sm text-primary font-medium hover:underline">
             Pro 알아보기 →
           </button>
         </div>

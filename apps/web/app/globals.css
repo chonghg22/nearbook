@@ -16,7 +16,7 @@
     --popover:       0 0% 100%;
     --popover-foreground: 20 9% 11%;
 
-    --primary:       214 60% 53%;
+    --primary:       148 41% 31%;
     --primary-foreground: 0 0% 100%;
 
     --secondary:     34 15% 92%;
@@ -33,7 +33,7 @@
 
     --border:        34 14% 88%;
     --input:         34 14% 94%;
-    --ring:          214 60% 53%;
+    --ring:          148 41% 31%;
 
     --radius: 0.625rem;
   }
@@ -65,8 +65,8 @@
 
   /* 텍스트 선택 색 */
   ::selection {
-    background-color: #BFDBFE;
-    color: #1E3A5F;
+    background-color: #BFE8CC;
+    color: #193B2D;
   }
 
   /* 스크롤바 (웹킷) */

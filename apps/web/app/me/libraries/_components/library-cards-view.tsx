@@ -87,7 +87,7 @@ export function LibraryCardsView({ cards: initial, plan }: Props) {
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-blue-600 hover:underline flex items-center gap-0.5"
+                className="text-xs text-primary hover:underline flex items-center gap-0.5"
               >
                 길찾기 <ExternalLink size={11} />
               </a>
@@ -107,11 +107,11 @@ export function LibraryCardsView({ cards: initial, plan }: Props) {
       </ul>
 
       {plan === 'free' && cards.length >= 1 && (
-        <div className="mt-6 p-4 border border-dashed border-blue-200 rounded-lg text-center">
+        <div className="mt-6 p-4 border border-dashed border-primary-200 rounded-lg text-center">
           <p className="text-sm text-gray-600">
             Pro로 업그레이드하면 도서관 무제한 등록
           </p>
-          <button className="mt-2 text-sm text-blue-600 font-medium hover:underline">
+          <button className="mt-2 text-sm text-primary font-medium hover:underline">
             Pro 알아보기 →
           </button>
         </div>

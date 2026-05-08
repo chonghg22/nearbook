@@ -223,7 +223,7 @@ function BookAnalysisSection({ analysis }: { analysis: any }) {
             {analysis.keywords.slice(0, 12).map((keyword: any) => (
               <span
                 key={keyword.word}
-                className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                className="rounded-full border border-primary-100 bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700"
               >
                 {keyword.word}
               </span>
@@ -242,7 +242,7 @@ function BookAnalysisSection({ analysis }: { analysis: any }) {
                   <span className="text-muted-foreground">{item.month}</span>
                   <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                     <div
-                      className="h-full rounded-full bg-blue-500"
+                      className="h-full rounded-full bg-primary-500"
                       style={{ width: `${Math.max(6, (Number(item.loanCount) / maxLoanCount) * 100)}%` }}
                     />
                   </div>

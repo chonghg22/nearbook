@@ -105,7 +105,7 @@ export default async function LibraryPage({
         <section className="mb-8 overflow-hidden rounded-[2rem] border border-border bg-white p-6 shadow-card md:p-8">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
             <div className="min-w-0">
-              <p className="mb-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+              <p className="mb-3 inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
                 공공도서관 상세
               </p>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-3">{library.name}</h1>
@@ -264,9 +264,9 @@ function LibraryTrendCard({ trends }: { trends: any }) {
 
       <div className="mt-4 space-y-3">
         {busiestDay && (
-          <div className="rounded-lg bg-blue-50 px-3 py-2">
-            <p className="text-[11px] text-blue-700">대출이 많은 요일</p>
-            <p className="mt-0.5 text-sm font-semibold text-blue-900">
+          <div className="rounded-lg bg-primary-50 px-3 py-2">
+            <p className="text-[11px] text-primary-700">대출이 많은 요일</p>
+            <p className="mt-0.5 text-sm font-semibold text-primary-900">
               {formatDayOfWeek(busiestDay.dayOfWeek)} · {Math.round(Number(busiestDay.loan))}%
             </p>
           </div>
@@ -289,7 +289,7 @@ function LibraryTrendCard({ trends }: { trends: any }) {
               <span className="text-muted-foreground">{formatDayOfWeek(row.dayOfWeek)}</span>
               <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
                 <div
-                  className="h-full rounded-full bg-blue-500"
+                  className="h-full rounded-full bg-primary-500"
                   style={{ width: `${Math.max(4, Number(row.loan))}%` }}
                 />
               </div>

@@ -29,13 +29,13 @@ export function SearchBar({ defaultValue, onSubmit }: Props) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="책 제목, 저자 검색"
-        className="flex-1 px-4 h-14 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="flex-1 px-4 h-14 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         aria-label="검색어"
       />
       <button
         type="submit"
         aria-label="검색"
-        className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center transition-colors"
+        className="w-14 h-14 bg-primary hover:bg-primary-700 text-white rounded-lg flex items-center justify-center transition-colors"
       >
         <Search className="w-5 h-5" strokeWidth={2.5} />
       </button>

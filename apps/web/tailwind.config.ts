@@ -18,16 +18,18 @@ const config: Config = {
           muted: '#EDEBE6',     // 비활성 영역
         },
 
-        // 브랜드 — 따뜻한 파랑 (기존 파랑보다 살짝 따뜻하게)
+        // 브랜드 — 앱 아이콘의 딥그린/민트 톤
         primary: {
-          50:  '#EFF6FF',
-          100: '#DBEAFE',
-          200: '#BFDBFE',
-          500: '#3B7DD8',   // 메인 (약간 따뜻한 파랑)
-          600: '#2563C8',
-          700: '#1D4EAE',
-          900: '#1E3A5F',
-          DEFAULT: '#3B7DD8',
+          50:  '#F0FDF5',
+          100: '#DCFCE7',
+          200: '#BFE8CC',
+          300: '#93D7AE',
+          400: '#69C38F',
+          500: '#56B783',
+          600: '#2F704F',
+          700: '#285F45',
+          900: '#193B2D',
+          DEFAULT: '#2F704F',
           foreground: '#FFFFFF',
         },
 
@@ -51,7 +53,7 @@ const config: Config = {
         // 중립
         border: '#E5E2DC',
         input:  '#F0EDE8',
-        ring:   '#3B7DD8',
+        ring:   '#2F704F',
 
         // 텍스트 계층
         foreground:       '#1C1917',  // 주 텍스트 (warm black)

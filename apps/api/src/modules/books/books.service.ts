@@ -79,16 +79,16 @@ export class BooksService {
     const cacheKey = `categories:${limit}`
     const hit = this.cache.get<unknown[]>(cacheKey)
     if (hit) return hit
-    const rows = await this.repo.getCategories(limit)
+    const rows = await this.homeCurations.getCategories()
     this.cache.set(cacheKey, rows, 6 * 60 * 60 * 1000)
     return rows
   }
 
-  async getByCategory(category: string, limit = 40) {
-    const cacheKey = `category:${category}:${limit}`
+  async getByCategory(categoryCode: string, limit = 40) {
+    const cacheKey = `category:${categoryCode}:${limit}`
     const hit = this.cache.get<unknown[]>(cacheKey)
     if (hit) return hit
-    const rows = await this.repo.getByCategory(category, limit)
+    const rows = await this.homeCurations.getCategoryBooks(categoryCode, limit)
     this.cache.set(cacheKey, rows, 6 * 60 * 60 * 1000)
     return rows
   }

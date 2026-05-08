@@ -66,7 +66,7 @@ export default function FeedbackPage() {
             setBody('')
             setContactEmail('')
           }}
-          className="mt-6 inline-block rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          className="mt-6 inline-block rounded-md bg-primary px-4 py-2 text-white hover:bg-primary-700"
         >
           하나 더 보내기
         </button>
@@ -91,7 +91,7 @@ export default function FeedbackPage() {
               <label
                 key={opt.value}
                 className={`cursor-pointer rounded-lg border p-3 text-sm ${
-                  category === opt.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200'
+                  category === opt.value ? 'border-primary bg-primary-50' : 'border-gray-200'
                 }`}
               >
                 <input
@@ -121,7 +121,7 @@ export default function FeedbackPage() {
             maxLength={256}
             required
             placeholder="간단한 한 줄 설명"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-600 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -141,7 +141,7 @@ export default function FeedbackPage() {
                 ? '어떤 페이지에서, 어떤 동작을 했을 때, 무엇이 잘못되었는지 알려주세요.'
                 : '어떤 기능이 어떻게 개선되면 좋을지 자유롭게 적어주세요.'
             }
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-600 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary focus:outline-none"
           />
           <p className="mt-1 text-xs text-gray-500">{body.length} / 4000</p>
         </div>
@@ -157,7 +157,7 @@ export default function FeedbackPage() {
             onChange={(e) => setContactEmail(e.target.value)}
             maxLength={256}
             placeholder="reply@example.com"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-600 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-primary focus:outline-none"
           />
           <p className="mt-1 text-xs text-gray-500">필요한 경우에만 답변에 사용하고 마케팅에는 쓰지 않습니다.</p>
         </div>
@@ -169,7 +169,7 @@ export default function FeedbackPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-md bg-blue-600 py-2.5 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded-md bg-primary py-2.5 text-white font-medium hover:bg-primary-700 disabled:opacity-50"
         >
           {submitting ? '제출 중…' : '의견 보내기'}
         </button>

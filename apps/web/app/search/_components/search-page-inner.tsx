@@ -76,7 +76,7 @@ export function SearchPageInner() {
           <p className="my-4 text-sm text-gray-500">
             &ldquo;{q}&rdquo; 검색결과 {data?.data?.total ?? 0}건
             {data?.data?.source === 'jeongbonaru' && (
-              <span className="ml-2 text-blue-500 text-xs">(정보나루 검색)</span>
+              <span className="ml-2 text-primary-500 text-xs">(정보나루 검색)</span>
             )}
           </p>
           <FilterPanel

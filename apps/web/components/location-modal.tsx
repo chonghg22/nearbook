@@ -114,7 +114,7 @@ export function LocationModal({
               onClick={() => setActiveTab(tab.key)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors
                 ${activeTab === tab.key
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-primary border-b-2 border-primary'
                   : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
@@ -130,8 +130,8 @@ export function LocationModal({
           {/* Tab 1: GPS */}
           {activeTab === 'gps' && (
             <div className="flex flex-col items-center gap-4 py-6">
-              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center">
-                <Locate className="w-8 h-8 text-blue-500" />
+              <div className="w-16 h-16 bg-primary-50 rounded-full flex items-center justify-center">
+                <Locate className="w-8 h-8 text-primary-500" />
               </div>
               <div className="text-center">
                 <p className="font-medium text-gray-900">현재 위치 사용</p>
@@ -143,7 +143,7 @@ export function LocationModal({
               <button
                 onClick={handleGpsClick}
                 disabled={gpsLoading}
-                className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg font-medium hover:bg-primary-700 disabled:opacity-60 transition-colors"
               >
                 {gpsLoading
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> 위치 확인 중...</>
@@ -165,8 +165,8 @@ export function LocationModal({
                       onClick={() => setSelectedSido(sido.label === selectedSido ? null : sido.label)}
                       className={`px-3 py-1.5 rounded-full text-sm border transition-colors
                         ${selectedSido === sido.label
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-primary-300'
                         }`}
                     >
                       {sido.label}
@@ -189,7 +189,7 @@ export function LocationModal({
                           <button
                             key={slug}
                             onClick={() => handleRegionSelect(slug)}
-                            className="px-3 py-1.5 rounded-full text-sm border bg-white text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                            className="px-3 py-1.5 rounded-full text-sm border bg-white text-gray-700 border-gray-200 hover:bg-primary-50 hover:border-primary-300 transition-colors"
                           >
                             {coord.label}
                           </button>
@@ -217,7 +217,7 @@ export function LocationModal({
                   placeholder="도서관 이름으로 검색 (예: 강남, 마포)"
                   value={libraryQuery}
                   onChange={e => setLibraryQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
 
@@ -237,7 +237,7 @@ export function LocationModal({
                     <li key={lib.id}>
                       <button
                         onClick={() => handleLibrarySelect(lib)}
-                        className="w-full text-left px-2 py-3 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="w-full text-left px-2 py-3 hover:bg-primary-50 rounded-lg transition-colors"
                       >
                         <p className="font-medium text-gray-900 text-sm">{lib.name}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{lib.address}</p>

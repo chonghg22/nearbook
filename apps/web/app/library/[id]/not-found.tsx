@@ -7,7 +7,7 @@ export default function NotFound() {
       <p className="text-gray-500 text-sm mb-6">
         도서관 ID가 잘못되었거나 삭제된 도서관입니다.
       </p>
-      <Link href="/libraries" className="text-blue-600 hover:underline text-sm">
+      <Link href="/libraries" className="text-primary hover:underline text-sm">
         도서관 목록으로
       </Link>
     </div>
