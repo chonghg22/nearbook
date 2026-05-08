@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { WishlistButton } from '@/components/book/wishlist-button'
 import { BookCard } from '@/components/book/book-card'
-import { AdSenseSlot } from '@/app/_components/adsense-slot'
+import { WishlistButton } from '@/components/book/wishlist-button'
+import { AffiliateOptions } from '@/components/book/affiliate-options'
+import { AdSenseSlot } from '@/components/ads/adsense-slot'
 import { LibraryStatus } from './_components/library-status'
 
 const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3001'
@@ -79,7 +80,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
   ])
   if (!result) notFound()
 
-  const { book, libraries, affiliates } = result
+  const { book, libraries } = result
   const hasAnalysis =
     analysis &&
     (
@@ -185,21 +186,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
 
             <section>
               <h2 className="text-lg font-bold text-foreground mb-4">🛒 구매·대여 옵션</h2>
-              <div className="flex gap-2 flex-wrap">
-                {affiliates?.map((a: Record<string, any>) => (
-                  <a
-                    key={String(a.provider)}
-                    href={String(a.url)}
-                    target="_blank"
-                    rel="noopener noreferrer sponsored"
-                    className="px-4 py-2 bg-white border border-border rounded-lg text-sm font-medium
-                                text-muted-foreground hover:border-primary/50 hover:text-primary
-                                transition-colors shadow-card"
-                  >
-                    {String(a.provider)}
-                  </a>
-                ))}
-              </div>
+              <AffiliateOptions isbn={isbn} />
             </section>
           </div>
         </div>

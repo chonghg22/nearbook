@@ -120,7 +120,7 @@ export class BooksService {
     const [book, libsWithAvail, affiliateLinks] = await Promise.all([
       this.getByIsbn(isbn),
       this.libraries.findNearWithBook(lat, lng, isbn, radiusKm),
-      Promise.resolve(this.affiliates.buildLinks(isbn)),
+      this.affiliates.getAffiliateOptions(isbn),
     ])
 
     return {

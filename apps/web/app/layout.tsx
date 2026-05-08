@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="ko">
-      <body className="antialiased min-h-screen bg-canvas flex flex-col">
+      <head>
         {adsenseClient && (
           <Script
             id="google-adsense"
@@ -31,6 +31,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
           />
         )}
+      </head>
+      <body className="antialiased min-h-screen bg-canvas flex flex-col">
         <LocationProvider>
           <SiteHeader />
           <main className="flex-1">

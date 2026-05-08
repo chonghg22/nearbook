@@ -65,9 +65,9 @@ export function SiteFooter() {
         {/* Disclosure (한국 표시광고법 의무) */}
         <div className="mt-10 border-t border-gray-200 pt-6">
           <p className="text-xs leading-relaxed text-gray-500">
-            우리동네책은 알라딘·예스24·교보문고·밀리의서재·리디·윌라 등 제휴 마케팅 프로그램의 일환으로 활동하며,
+            우리동네책은 알라딘·예스24·교보문고·밀리의서재·리디·윌라 등 제휴 마케팅 프로그램에 참여하며,
             사용자가 외부 링크를 클릭해 결제·가입 시 일정 수수료를 받을 수 있습니다.
-            사용자 결제 가격에는 영향이 없습니다.
+            <strong className="font-semibold text-gray-600"> 사용자 결제 가격에는 영향이 없습니다.</strong>
             본 사이트는 Google AdSense 광고를 제공하며, 쿠키를 통해 광고가 개인 맞춤될 수 있습니다.
           </p>
           <p className="mt-4 text-xs text-gray-500">

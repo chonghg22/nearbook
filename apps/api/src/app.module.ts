@@ -15,6 +15,7 @@ import { LibraryCardsModule } from './modules/library-cards/library-cards.module
 import { NoticesModule } from './modules/notices/notices.module'
 import { FeedbackModule } from './modules/feedback/feedback.module'
 import { NotifyModule } from './modules/notify/notify.module'
+import { AffiliatesModule } from './modules/affiliates/affiliates.module'
 import { CommonModule } from './common/common.module'
 import { CacheModule } from './common/cache/cache.module'
 
@@ -29,6 +30,7 @@ import { CacheModule } from './common/cache/cache.module'
     CacheModule,
     CommonModule,
     NotifyModule,
+    AffiliatesModule,
     JeongbonaruModule,
     LibrariesModule,
     BooksModule,
