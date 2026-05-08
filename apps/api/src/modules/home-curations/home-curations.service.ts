@@ -316,15 +316,30 @@ export class HomeCurationsService {
   }
 
   async refreshFeaturedLibraryNewArrivals(bookLimit = 40, libraryLimit = 12, periodKey = this.getCurrentMonthInKst()) {
-    const featuredLibraries = await db
-      .select({ id: libraries.id })
-      .from(libraries)
-      .orderBy(asc(libraries.id))
-      .limit(libraryLimit)
-
     const results = []
-    for (const library of featuredLibraries) {
-      results.push(await this.refreshLibraryNewArrivals(library.id, bookLimit, periodKey))
+    const pageSize = 100
+    const maxPages = 5
+
+    for (let pageNo = 1; pageNo <= maxPages && results.filter((result) => result.refreshed).length < libraryLimit; pageNo++) {
+      const librariesFromApi = await this.jeongbonaru.listLibraries(pageNo, pageSize)
+      if (librariesFromApi.length === 0) break
+
+      for (const library of librariesFromApi) {
+        if (results.filter((result) => result.refreshed).length >= libraryLimit) break
+
+        const libraryId = Number.parseInt(library.libCode ?? '0', 10)
+        if (!libraryId) continue
+
+        const exists = await db.query.libraries.findFirst({
+          where: eq(libraries.id, libraryId),
+          columns: { id: true },
+        })
+        if (!exists) continue
+
+        results.push(await this.refreshLibraryNewArrivals(libraryId, bookLimit, periodKey))
+      }
+
+      if (librariesFromApi.length < pageSize) break
     }
 
     return {

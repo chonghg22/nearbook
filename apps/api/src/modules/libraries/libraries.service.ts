@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { db, libraries, sql, eq, and, gte, lte, ilike, asc } from '@nearbook/db'
+import { db, libraries, libraryCurations, sql, eq, and, gte, lte, ilike, asc, desc } from '@nearbook/db'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 import { JeongbonaruClient } from '../jeongbonaru/jeongbonaru.client'
 import { CacheService } from '../../common/cache.service'
@@ -137,6 +137,43 @@ export class LibrariesService {
       .from(libraries)
       .orderBy(asc(libraries.id))
       .limit(limit)
+    return { data }
+  }
+
+  async getFeaturedNewArrivalLibraries(limit = 12) {
+    const latestByLibrary = db
+      .select({
+        libraryId: libraryCurations.libraryId,
+        periodKey: sql<string>`max(${libraryCurations.periodKey})`,
+      })
+      .from(libraryCurations)
+      .where(eq(libraryCurations.section, 'new_arrivals'))
+      .groupBy(libraryCurations.libraryId)
+      .as('latest_by_library')
+
+    const data = await db
+      .select({
+        id: libraries.id,
+        name: libraries.name,
+        address: libraries.address,
+        region: libraries.region,
+        periodKey: latestByLibrary.periodKey,
+        bookCount: sql<number>`count(*)::int`,
+      })
+      .from(libraryCurations)
+      .innerJoin(
+        latestByLibrary,
+        and(
+          eq(libraryCurations.libraryId, latestByLibrary.libraryId),
+          eq(libraryCurations.periodKey, latestByLibrary.periodKey),
+        ),
+      )
+      .innerJoin(libraries, eq(libraryCurations.libraryId, libraries.id))
+      .where(eq(libraryCurations.section, 'new_arrivals'))
+      .groupBy(libraries.id, libraries.name, libraries.address, libraries.region, latestByLibrary.periodKey)
+      .orderBy(desc(sql<number>`count(*)::int`), asc(libraries.id))
+      .limit(limit)
+
     return { data }
   }
 

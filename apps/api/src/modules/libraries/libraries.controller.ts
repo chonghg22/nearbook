@@ -68,6 +68,14 @@ export class LibrariesController {
     return this.service.getPopular(limit)
   }
 
+  @Get('featured-new-arrivals')
+  @ApiOperation({ summary: '신착도서 데이터가 있는 대표 도서관 목록' })
+  listFeaturedNewArrivals(
+    @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
+  ) {
+    return this.service.getFeaturedNewArrivalLibraries(limit)
+  }
+
   @Get(':id')
   @ApiOperation({ summary: '도서관 상세' })
   async getById(@Param('id', ParseIntPipe) id: number) {

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import '@fontsource/pretendard/index.css'
 import './globals.css'
 import { SiteHeader } from '@/components/layout/site-header'
@@ -16,9 +17,20 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+
   return (
     <html lang="ko">
       <body className="antialiased min-h-screen bg-canvas flex flex-col">
+        {adsenseClient && (
+          <Script
+            id="google-adsense"
+            async
+            strategy="afterInteractive"
+            crossOrigin="anonymous"
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
+          />
+        )}
         <LocationProvider>
           <SiteHeader />
           <main className="flex-1">

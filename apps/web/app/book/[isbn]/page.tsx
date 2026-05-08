@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { WishlistButton } from '@/components/book/wishlist-button'
 import { BookCard } from '@/components/book/book-card'
+import { AdSenseSlot } from '@/app/_components/adsense-slot'
 import { LibraryStatus } from './_components/library-status'
 
 const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3001'
@@ -175,6 +176,12 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
             {hasAnalysis && (
               <BookAnalysisSection analysis={analysis} />
             )}
+
+            <AdSenseSlot
+              slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_BOOK_INLINE}
+              label="도서 상세 중간 광고"
+              className="px-0"
+            />
 
             <section>
               <h2 className="text-lg font-bold text-foreground mb-4">🛒 구매·대여 옵션</h2>

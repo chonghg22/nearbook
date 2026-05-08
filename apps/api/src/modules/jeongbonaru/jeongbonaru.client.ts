@@ -9,6 +9,7 @@ export class JeongbonaruClient implements OnModuleInit {
   private client!: AxiosInstance
   private dailyCallCount = 0
   private DAILY_LIMIT = 30000
+  private TIMEOUT_MS = 30000
 
   constructor(private readonly config: ConfigService) {}
 
@@ -19,6 +20,8 @@ export class JeongbonaruClient implements OnModuleInit {
     }
     this.DAILY_LIMIT =
       this.config.get<number>('JEONGBONARU_DAILY_LIMIT') ?? 30_000
+    this.TIMEOUT_MS =
+      this.config.get<number>('JEONGBONARU_TIMEOUT_MS') ?? 30_000
 
     this.client = axios.create({
       baseURL: 'https://www.data4library.kr/api',
@@ -26,7 +29,7 @@ export class JeongbonaruClient implements OnModuleInit {
         authKey,
         format: 'json',
       },
-      timeout: 10_000,
+      timeout: this.TIMEOUT_MS,
     })
   }
 
@@ -60,6 +63,14 @@ export class JeongbonaruClient implements OnModuleInit {
 
     try {
       const { data } = await this.client.get<T>(endpoint, { params })
+      const apiError = this.extractApiError(data)
+
+      if (apiError) {
+        this.logger.error(`API app error: ${endpoint} ${apiError}`)
+        this.logUsage(endpoint, 429, Date.now() - start)
+        throw new Error(`JEONGBONARU_APP_ERROR: ${apiError}`)
+      }
+
       // fire-and-forget 로깅 (실패해도 메인 흐름 끊지 않음)
       this.logUsage(endpoint, 200, Date.now() - start)
       return data
@@ -100,5 +111,15 @@ export class JeongbonaruClient implements OnModuleInit {
       .catch((e) => {
         this.logger.error(`api_usage insert failed: ${String(e)}`)
       })
+  }
+
+  private extractApiError(data: unknown) {
+    if (!data || typeof data !== 'object') return null
+
+    const response = (data as { response?: unknown }).response
+    if (!response || typeof response !== 'object') return null
+
+    const error = (response as { error?: unknown }).error
+    return typeof error === 'string' && error.trim().length > 0 ? error.trim() : null
   }
 }

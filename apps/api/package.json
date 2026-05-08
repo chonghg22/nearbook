@@ -6,6 +6,8 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start:prod": "node dist/main.js",
+    "refresh:curations": "ts-node --transpile-only src/scripts/refresh-curations.ts",
+    "refresh:curations:remote-safe": "JEONGBONARU_TIMEOUT_MS=30000 ts-node --transpile-only src/scripts/refresh-curations.ts --scope=categories,libraries",
     "lint": "eslint \"src/**/*.ts\" --fix",
     "type-check": "tsc --noEmit",
     "test": "jest",

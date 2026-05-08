@@ -87,7 +87,10 @@ export default async function HomePage() {
       </div>
 
       <AboutSection />
-      <AdSenseSlot slot="home-footer" />
+      <AdSenseSlot
+        slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME_FOOTER}
+        label="홈 하단 광고"
+      />
     </main>
   )
 }
