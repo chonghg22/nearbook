@@ -18,6 +18,7 @@ import { NotifyModule } from './modules/notify/notify.module'
 import { AffiliatesModule } from './modules/affiliates/affiliates.module'
 import { NotificationsModule } from './modules/notifications/notifications.module'
 import { WebhooksModule } from './modules/webhooks/webhooks.module'
+import { HealthModule } from './modules/health/health.module'
 import { CommonModule } from './common/common.module'
 import { CacheModule } from './common/cache/cache.module'
 
@@ -44,6 +45,7 @@ import { CacheModule } from './common/cache/cache.module'
     FeedbackModule,
     NotificationsModule,
     WebhooksModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

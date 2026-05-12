@@ -78,6 +78,9 @@ export function SearchPageInner() {
             {data?.data?.source === 'jeongbonaru' && (
               <span className="ml-2 text-primary-500 text-xs">(정보나루 검색)</span>
             )}
+            {data?.data?.source?.includes('aladdin') && (
+              <span className="ml-2 text-xs text-gray-500">새 책은 다음 검색부터 더 빨라져요.</span>
+            )}
           </p>
           <FilterPanel
             sort={sort}

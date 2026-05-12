@@ -13,7 +13,7 @@ export class SearchController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: '책 검색 (pg_trgm + 정보나루 fallback)' })
+  @ApiOperation({ summary: '책 검색 (Orama + 알라딘 TTB fallback)' })
   async search(@Query() query: SearchQueryDto) {
     return { data: await this.service.search(query) }
   }

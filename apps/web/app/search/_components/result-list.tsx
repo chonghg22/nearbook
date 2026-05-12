@@ -111,9 +111,9 @@ function EmptyState({ query }: { query: string }) {
       <p className="text-2xl mb-2">😔</p>
       <p className="font-medium mb-4">검색 결과가 없어요.</p>
       <ul className="text-sm space-y-1">
-        <li>&ldquo;{query}&rdquo;의 철자를 확인해 보세요</li>
-        <li>더 짧은 단어로 검색해 보세요</li>
-        <li>저자명만 검색해 보세요</li>
+        <li>책 제목 일부만 입력해 보세요</li>
+        <li>저자 이름만 검색해 보세요</li>
+        <li>띄어쓰기를 다르게 해 보세요</li>
       </ul>
       <Link
         href="/scan"

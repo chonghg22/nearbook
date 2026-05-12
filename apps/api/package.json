@@ -25,6 +25,8 @@
     "@nestjs/schedule": "^4.0.0",
     "@nestjs/swagger": "^7.0.0",
     "@nestjs/throttler": "^5.0.0",
+    "@orama/orama": "^3.1.18",
+    "@orama/plugin-data-persistence": "^3.1.18",
     "axios": "^1.6.0",
     "class-transformer": "^0.5.0",
     "class-validator": "^0.14.0",

@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { db, bookCache, searchLogs, sql, or, ilike, and, eq } from '@nearbook/db'
-import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
+import { db, bookCache, searchLogs, sql, ilike } from '@nearbook/db'
 import { LibrariesService } from '../libraries/libraries.service'
+import { OramaIndexService } from './orama-index.service'
+import { AladdinFallbackService } from './aladdin-fallback.service'
 import { SearchQueryDto } from './dto/search-query.dto'
 import { SearchResultDto } from './dto/search-result.dto'
 import { isProfane } from '../../common/profanity/ko-profanity'
@@ -18,8 +19,9 @@ export class SearchService {
   private trendingCache: { items: string[]; at: number } | null = null
 
   constructor(
-    private jeongbonaru: JeongbonaruService,
-    private libraries: LibrariesService,
+    private readonly orama: OramaIndexService,
+    private readonly aladdin: AladdinFallbackService,
+    private readonly libraries: LibrariesService,
   ) {}
 
   async getTrending(limit: number): Promise<string[]> {
@@ -30,7 +32,7 @@ export class SearchService {
 
     try {
       const rows = await db.execute<{ query: string; count: number }>(sql`
-        SELECT query, COUNT(*)::int as count 
+        SELECT query, COUNT(*)::int as count
         FROM ${searchLogs}
         WHERE created_at > now() - interval '7 days'
         GROUP BY query
@@ -63,8 +65,7 @@ export class SearchService {
 
   async search(query: SearchQueryDto): Promise<SearchResultDto> {
     const start = Date.now()
-    
-    // NaN 방어 코드
+
     const lat = typeof query.lat === 'number' && !isNaN(query.lat) ? query.lat : undefined
     const lng = typeof query.lng === 'number' && !isNaN(query.lng) ? query.lng : undefined
     const page = typeof query.page === 'number' && !isNaN(query.page) ? query.page : 1
@@ -77,59 +78,51 @@ export class SearchService {
     try {
       this.logger.log(`[Search] Query: "${query.q}" (lat=${lat}, lng=${lng})`)
 
-      // 1. Local Search
-      const localResults = await this.searchLocal(query) as any[]
-      
-      // 2. Remote Search
-      let merged: any[] = localResults
-      let source: 'cache' | 'jeongbonaru' | 'mixed' = 'cache'
+      // 1차: Orama
+      const r = await this.orama.query({
+        q: query.q,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        category: query.category,
+        sort: query.sort,
+      })
+      let hits = r.hits as any[]
+      let source: SearchResultDto['source'] = 'orama'
 
-      if (localResults.length < 10) {
-        try {
-          const remote = await this.jeongbonaru.searchBooks(query.q)
-          // 필드명 정규화 (표준 규격으로 변환)
-          const remoteResults = ((remote.items || []) as any[]).map(item => ({
-            ...item,
-            isbn: item.isbn13 || item.isbn,
-            title: item.bookname || item.title,
-            author: item.authors || item.author,
-            publisher: item.publisher,
-            coverUrl: item.bookImageURL || item.coverUrl
-          }))
-
-          if (remoteResults.length > 0) {
-            merged = this.mergeResults(localResults, remoteResults)
-            source = remote.source === 'cache_fallback' ? 'cache' : (localResults.length > 0 ? 'mixed' : 'jeongbonaru')
-            // Async caching
-            this.cacheRemoteResults(remoteResults).catch(e => this.logger.warn(`[Cache] Fail: ${e.message}`))
-          }
-        } catch (err: any) {
-          this.logger.error(`[Remote] Fail: ${err.message}`)
+      // 2차: 결과 부족 → 알라딘 TTB fallback (page=1만)
+      const threshold = Number(process.env.SEARCH_FALLBACK_THRESHOLD ?? 5)
+      if (hits.length < threshold && page === 1 && query.q.length >= 2) {
+        const aladdinHits = await this.aladdin.searchAndCache(query.q)
+        if (aladdinHits.length > 0) {
+          await this.orama.upsertMany(aladdinHits)
+          hits = mergeUnique(hits, aladdinHits, 'isbn').slice(0, pageSize)
+          source = 'orama+aladdin'
         }
       }
 
       // 3. Library Enrichment
-      let finalResults: any[] = merged
+      let finalResults: any[] = hits
 
       if (query.availableOnly && lat && lng) {
-        finalResults = await this.enrichWithLibraries(merged, lat, lng)
+        finalResults = await this.enrichWithLibraries(hits, lat, lng)
         finalResults = finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
+      } else if (lat && lng && hits.length > 0) {
+        finalResults = await this.enrichWithLibraries(hits, lat, lng)
+      } else {
+        finalResults = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0 }))
       }
 
-      const total = finalResults.length
-      const itemsToDisplay = finalResults.slice((page - 1) * pageSize, page * pageSize)
+      const total = query.availableOnly ? finalResults.length : r.total
 
-      let items: any[] = itemsToDisplay
-      if (!query.availableOnly && lat && lng && itemsToDisplay.length > 0) {
-        items = await this.enrichWithLibraries(itemsToDisplay, lat, lng)
-      } else if (!lat || !lng) {
-        items = itemsToDisplay.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0 }))
+      // zero result 로그
+      if (finalResults.length === 0) {
+        await db.insert(searchLogs).values({ query: query.q, resultCount: 0, region: null }).catch(() => {})
+      } else {
+        await this.logSearch(query, total).catch(() => {})
       }
-
-      await this.logSearch(query, total).catch(() => {})
 
       const result: SearchResultDto = {
-        items: items as any,
+        items: finalResults as any,
         total,
         page,
         pageSize,
@@ -137,7 +130,7 @@ export class SearchService {
         durationMs: Date.now() - start,
       }
 
-      if (total === 0) {
+      if (finalResults.length === 0) {
         result.suggestions = await this.findSimilar(query.q).catch(() => [])
         result.trending = await this.getTrending(5).catch(() => [])
       }
@@ -149,104 +142,21 @@ export class SearchService {
         `search failed for q="${query.q}"`,
         err instanceof Error ? err.stack : String(err),
       )
-      const localResults = await this.searchLocal(query).catch(() => [])
       return {
-        items: localResults.slice(0, pageSize) as any,
-        total: localResults.length,
-        page: page,
-        pageSize: pageSize,
-        source: 'cache' as const,
+        items: [],
+        total: 0,
+        page,
+        pageSize,
+        source: 'orama',
         durationMs: Date.now() - start,
       }
     }
   }
 
-  private async cacheRemoteResults(books: any[]) {
-    for (const book of books) {
-      try {
-        await this.cacheBook(book)
-      } catch { /* ignore */ }
-    }
-  }
-
   async suggest(q: string) {
-    return db.execute(sql`
-      SELECT DISTINCT bc.isbn, bc.title, bc.author, pb.rank
-      FROM nearbook.book_cache bc
-      LEFT JOIN nearbook.popular_books pb
-        ON bc.isbn = pb.isbn AND pb.region = '전국'
-      WHERE bc.title ILIKE ${`${q}%`} OR bc.author ILIKE ${`${q}%`}
-      ORDER BY pb.rank ASC NULLS LAST, bc.title
-      LIMIT 8
-    `) as unknown as any[]
-  }
-
-  private async searchLocal(query: SearchQueryDto) {
-    const q = query.q || ''
-    const pattern = `%${q}%`
-    const prefix = `${q}%`
-    const category = query.category || null
-
-    this.logger.debug(`[searchLocal] q="${q}", category=${category}`)
-
-    try {
-      return await db.execute(sql`
-        SELECT
-          isbn,
-          title,
-          author,
-          publisher,
-          cover_url AS "coverUrl",
-          GREATEST(
-            similarity(title, ${q}),
-            similarity(coalesce(author, ''), ${q})
-          ) AS score
-        FROM nearbook.book_cache
-        WHERE
-          (
-            title ILIKE ${pattern}
-            OR coalesce(author, '') ILIKE ${pattern}
-            OR similarity(title, ${q}) > 0.1
-          )
-          AND (${category}::text IS NULL OR category = ${category})
-        ORDER BY
-          CASE WHEN title ILIKE ${prefix} THEN 1 ELSE 2 END,
-          score DESC NULLS LAST,
-          title ASC
-        LIMIT 100
-      `)
-    } catch (err: any) {
-      this.logger.error(`[searchLocal] Query failed: ${err.message}`)
-      return []
-    }
-  }
-  private async cacheBook(book: any) {
-    if (!book.isbn) return
-    await db.insert(bookCache).values({
-      isbn: book.isbn,
-      title: book.title || 'Unknown',
-      author: book.author || 'Unknown',
-      publisher: book.publisher ?? null,
-      coverUrl: book.coverUrl ?? null,
-      cachedAt: new Date(),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    }).onConflictDoUpdate({
-      target: bookCache.isbn,
-      set: {
-        title: book.title || 'Unknown',
-        author: book.author || 'Unknown',
-        publisher: book.publisher ?? null,
-        coverUrl: book.coverUrl ?? null,
-        cachedAt: new Date(),
-      }
-    })
-  }
-
-  private mergeResults(local: any[], remote: any[]): any[] {
-    const map = new Map()
-    local.forEach(b => map.set(b.isbn, b))
-    remote.forEach(b => { if (b.isbn && !map.has(b.isbn)) map.set(b.isbn, b) })
-    return Array.from(map.values())
+    if (q.length < 2) return []
+    const r = await this.orama.query({ q, limit: 8, offset: 0 })
+    return r.hits
   }
 
   private async enrichWithLibraries(books: any[], lat: number, lng: number) {
@@ -283,4 +193,9 @@ export class SearchService {
       return []
     }
   }
+}
+
+function mergeUnique<T extends Record<string, any>>(a: T[], b: T[], key: string): T[] {
+  const seen = new Set(a.map(x => x[key]))
+  return [...a, ...b.filter(x => !seen.has(x[key]))]
 }

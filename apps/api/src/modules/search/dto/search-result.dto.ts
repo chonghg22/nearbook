@@ -16,7 +16,7 @@ export class SearchResultDto {
   @ApiProperty() total: number
   @ApiProperty() page: number
   @ApiProperty() pageSize: number
-  @ApiProperty() source: 'cache' | 'jeongbonaru' | 'mixed'
+  @ApiProperty() source: 'cache' | 'jeongbonaru' | 'mixed' | 'orama' | 'orama+aladdin'
   @ApiProperty() durationMs: number
   @ApiProperty({ nullable: true }) suggestions?: string[]
   @ApiProperty({ nullable: true }) trending?: string[]

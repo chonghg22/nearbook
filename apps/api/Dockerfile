@@ -29,6 +29,7 @@ ENV CI=true
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
+RUN mkdir -p /data && chown nestjs:nodejs /data
 USER nestjs
 
 # Copy built output and all node_modules
