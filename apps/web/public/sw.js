@@ -84,7 +84,9 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  event.respondWith(caches.match(request).then((cached) => cached || fetch(request)))
+  event.respondWith(
+    caches.match(request).then((cached) => cached || fetch(request).catch(() => cached)),
+  )
 })
 
 self.addEventListener('push', (event) => {

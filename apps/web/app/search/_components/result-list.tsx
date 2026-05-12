@@ -69,14 +69,20 @@ export function ResultList({ isLoading, items = [], error, query }: Props) {
                 {item.author}
                 {item.publisher && ` · ${item.publisher}`}
               </p>
-              <p className="text-sm text-primary mt-2">
-                📚 {item.libraryHoldings ?? 0}권 보유
-                {item.loanAvailable !== undefined && item.loanAvailable > 0 && (
-                  <span className="ml-2 text-green-600">
-                    ({item.loanAvailable}권 대출 가능)
-                  </span>
-                )}
-              </p>
+              {(item.libraryHoldings ?? 0) > 0 ? (
+                <p className="text-sm text-primary mt-2">
+                  📚 {item.libraryHoldings}권 보유
+                  {item.loanAvailable !== undefined && item.loanAvailable > 0 && (
+                    <span className="ml-2 text-green-600">
+                      ({item.loanAvailable}권 대출 가능)
+                    </span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-2">
+                  소장 정보는 상세 페이지에서 확인
+                </p>
+              )}
             </div>
           </Link>
         </li>

@@ -100,14 +100,12 @@ export class SearchService {
         }
       }
 
-      // 3. Library Enrichment
+      // 3. Library Enrichment — 대출가능 필터일 때만 (외부 API 호출이 느림)
       let finalResults: any[] = hits
 
       if (query.availableOnly && lat && lng) {
         finalResults = await this.enrichWithLibraries(hits, lat, lng)
         finalResults = finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
-      } else if (lat && lng && hits.length > 0) {
-        finalResults = await this.enrichWithLibraries(hits, lat, lng)
       } else {
         finalResults = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0 }))
       }
