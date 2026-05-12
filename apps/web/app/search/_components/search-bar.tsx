@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
+import Link from 'next/link'
+import { Camera, Search } from 'lucide-react'
 
 type Props = {
   defaultValue: string
@@ -32,6 +33,13 @@ export function SearchBar({ defaultValue, onSubmit }: Props) {
         className="flex-1 px-4 h-14 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         aria-label="검색어"
       />
+      <Link
+        href="/scan"
+        aria-label="바코드 스캔"
+        className="flex h-14 w-14 items-center justify-center rounded-lg border border-gray-300 text-gray-600 transition-colors hover:border-primary-500 hover:text-primary-600 md:hidden"
+      >
+        <Camera className="w-5 h-5" strokeWidth={2.5} />
+      </Link>
       <button
         type="submit"
         aria-label="검색"

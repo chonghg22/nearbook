@@ -115,6 +115,12 @@ function EmptyState({ query }: { query: string }) {
         <li>더 짧은 단어로 검색해 보세요</li>
         <li>저자명만 검색해 보세요</li>
       </ul>
+      <Link
+        href="/scan"
+        className="mt-5 inline-flex items-center rounded-full border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 transition hover:bg-primary-100 md:hidden"
+      >
+        📷 바코드 스캔으로 빠르게 찾기
+      </Link>
     </div>
   )
 }

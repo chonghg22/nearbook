@@ -1,53 +1,60 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import '@fontsource/pretendard/index.css'
 import './globals.css'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
-import { EmailStatusBanner } from '@/components/banner/email-status-banner'
+import { EmailStatusBannerGate } from '@/components/banner/email-status-banner-gate'
 import { LocationProvider } from '@/lib/use-location-context'
-import { createServerClient } from '@/lib/supabase/server'
+import { RegisterSW } from '@/components/pwa/register-sw'
+import { InstallPrompt } from '@/components/pwa/install-prompt'
+import { PwaRouteTracker } from '@/components/pwa/pwa-route-tracker'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
-const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { template: '%s | 우리동네책', default: '우리동네책 — 동네 도서관 책 찾기' },
   description: '전국 1,400+ 공공도서관에서 책을 빠르게 찾아 빌리세요.',
+  applicationName: '우리동네책',
   icons: {
-    icon: '/icon.svg',
-    apple: '/icon.svg',
+    icon: [
+      { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
-  themeColor: '#2F704F',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: '우리동네책',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  themeColor: '#0f172a',
   alternates: {
     canonical: '/',
   },
 }
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export const viewport: Viewport = {
+  themeColor: '#0f172a',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
-  const supabase = await createServerClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  let emailStatus: string | null = null
-
-  if (session) {
-    const res = await fetch(`${API_URL}/me/notification-preferences`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      cache: 'no-store',
-    }).catch(() => null)
-
-    if (res?.ok) {
-      const json = await res.json()
-      emailStatus = json.data?.emailStatus ?? null
-    }
-  }
 
   return (
     <html lang="ko">
       <head>
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         {adsenseClient && (
           <script
             key="google-adsense"
@@ -58,12 +65,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
       </head>
       <body className="antialiased min-h-screen bg-canvas flex flex-col">
+        <RegisterSW />
+        <PwaRouteTracker />
         <LocationProvider>
           <SiteHeader />
-          {emailStatus && <EmailStatusBanner status={emailStatus} />}
+          <EmailStatusBannerGate />
           <main className="flex-1">
             {children}
           </main>
+          <InstallPrompt />
           <SiteFooter />
         </LocationProvider>
       </body>

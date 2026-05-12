@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDebounce } from 'use-debounce'
 import useSWR from 'swr'
-import { Search, X } from 'lucide-react'
+import { Camera, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -76,7 +76,7 @@ export function SearchBar({
           autoFocus={autoFocus}
           placeholder={placeholder}
           aria-label="책 제목·저자·ISBN 검색"
-          className="w-full h-12 pl-12 pr-14 rounded-full border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all shadow-sm"
+          className="w-full h-12 pl-12 pr-24 md:pr-14 rounded-full border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 transition-all shadow-sm"
         />
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-primary-500 transition-colors" />
         {q && (
@@ -84,11 +84,18 @@ export function SearchBar({
             type="button"
             onClick={() => setQ('')}
             aria-label="검색어 지우기"
-            className="absolute right-12 top-1/2 flex h-7 w-7 min-h-0 min-w-0 -translate-y-1/2 items-center justify-center rounded-full hover:bg-gray-200 transition"
+            className="absolute right-20 md:right-12 top-1/2 flex h-7 w-7 min-h-0 min-w-0 -translate-y-1/2 items-center justify-center rounded-full hover:bg-gray-200 transition"
           >
             <X className="w-4 h-4 text-gray-400" />
           </button>
         )}
+        <Link
+          href="/scan"
+          className="absolute right-11 top-1/2 flex h-9 w-9 min-h-0 min-w-0 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm transition hover:border-primary-300 hover:text-primary-600 md:hidden"
+          aria-label="바코드 스캔"
+        >
+          <Camera className="h-4 w-4" />
+        </Link>
         <button
           type="submit"
           aria-label="검색"

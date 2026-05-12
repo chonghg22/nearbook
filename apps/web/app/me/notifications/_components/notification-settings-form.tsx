@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { apiFetch } from '@/lib/api-client'
+import { urlBase64ToUint8Array } from '@/lib/push'
 
 interface Props {
   emailOnAvailable: boolean
@@ -32,6 +33,28 @@ export function NotificationSettingsForm({
   const [softBounceCount, setSoftBounceCount] = useState(initialSoftBounceCount)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [pushSupported, setPushSupported] = useState(false)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushSaving, setPushSaving] = useState(false)
+
+  useEffect(() => {
+    const supported = (
+      typeof window !== 'undefined' &&
+      process.env.NODE_ENV === 'production' &&
+      window.isSecureContext &&
+      'Notification' in window &&
+      'serviceWorker' in navigator &&
+      'PushManager' in window
+    )
+
+    setPushSupported(supported)
+    if (!supported) return
+
+    apiFetch('/me/push-subscriptions/status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => setPushEnabled(Boolean(json?.data?.enabled)))
+      .catch(() => {})
+  }, [])
 
   async function updatePref(patch: { emailOnAvailable?: boolean; digestFrequency?: 'daily' | 'weekly' }) {
     setSaving(true)
@@ -77,6 +100,77 @@ export function NotificationSettingsForm({
     }
 
     setSaving(false)
+  }
+
+  async function togglePush() {
+    if (!pushSupported || pushSaving) return
+
+    setPushSaving(true)
+    setMessage(null)
+
+    try {
+      if (pushEnabled) {
+        const registration = await navigator.serviceWorker.ready
+        const subscription = await registration.pushManager.getSubscription()
+
+        if (subscription) {
+          await apiFetch('/me/push-subscriptions/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: subscription.endpoint }),
+          })
+          await subscription.unsubscribe().catch(() => {})
+        } else {
+          await apiFetch('/me/push-subscriptions/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          })
+        }
+
+        setPushEnabled(false)
+        setMessage('푸시 알림을 껐습니다.')
+        return
+      }
+
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        setMessage('브라우저에서 알림 권한을 허용해야 푸시를 받을 수 있어요.')
+        return
+      }
+
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!vapidKey) {
+        setMessage('VAPID 공개 키가 설정되지 않아 푸시를 켤 수 없습니다.')
+        return
+      }
+
+      const registration = await navigator.serviceWorker.ready
+      let subscription = await registration.pushManager.getSubscription()
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        })
+      }
+
+      const res = await apiFetch('/me/push-subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription.toJSON()),
+      })
+
+      if (!res.ok) {
+        setMessage('푸시 알림을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+        return
+      }
+
+      setPushEnabled(true)
+      setMessage('푸시 알림을 켰습니다. 새벽 digest를 더 빠르게 받아볼 수 있어요.')
+    } finally {
+      setPushSaving(false)
+    }
   }
 
   return (
@@ -127,6 +221,33 @@ export function NotificationSettingsForm({
         <p>대상: 위시리스트에 담긴 책</p>
         <p>기준 도서관: 기본 도서관 우선, 없으면 등록 도서관 또는 같은 지역 도서관 fallback</p>
         <p>중복 방지: 같은 책·도서관 조합은 7일 내 재발송하지 않습니다.</p>
+      </div>
+
+      <div className="mt-6 rounded-xl border p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">푸시 알림 받기</p>
+            <p className="mt-1 text-sm text-gray-600">즉시 알림, 이메일보다 빠름. 홈 화면 설치 후 쓰면 앱처럼 동작합니다.</p>
+            {!pushSupported && (
+              <p className="mt-2 text-xs text-amber-700">
+                현재 환경에서는 사용할 수 없어요. HTTPS 배포 환경의 iOS 16.4+/Android Chrome에서 지원됩니다.
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            disabled={!pushSupported || pushSaving}
+            onClick={togglePush}
+            className={`inline-flex min-w-28 items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition ${
+              pushEnabled
+                ? 'bg-slate-900 text-white hover:bg-slate-800'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            {pushSaving ? '처리 중...' : pushEnabled ? '푸시 켜짐' : '푸시 꺼짐'}
+          </button>
+        </div>
       </div>
 
       {enabled && (
