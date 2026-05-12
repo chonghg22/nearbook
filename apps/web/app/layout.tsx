@@ -3,9 +3,12 @@ import '@fontsource/pretendard/index.css'
 import './globals.css'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
+import { EmailStatusBanner } from '@/components/banner/email-status-banner'
 import { LocationProvider } from '@/lib/use-location-context'
+import { createServerClient } from '@/lib/supabase/server'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
+const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -21,8 +24,26 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+  const supabase = await createServerClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  let emailStatus: string | null = null
+
+  if (session) {
+    const res = await fetch(`${API_URL}/me/notification-preferences`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: 'no-store',
+    }).catch(() => null)
+
+    if (res?.ok) {
+      const json = await res.json()
+      emailStatus = json.data?.emailStatus ?? null
+    }
+  }
 
   return (
     <html lang="ko">
@@ -39,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="antialiased min-h-screen bg-canvas flex flex-col">
         <LocationProvider>
           <SiteHeader />
+          {emailStatus && <EmailStatusBanner status={emailStatus} />}
           <main className="flex-1">
             {children}
           </main>

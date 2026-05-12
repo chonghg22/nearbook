@@ -96,3 +96,22 @@ CREATE POLICY "Users view own profile"
 CREATE POLICY "Users update own profile"
   ON users FOR UPDATE
   USING (auth.uid()::text = supabase_user_id);
+
+-- 5. RLS — notification_preferences
+ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users select own notification_preferences"
+  ON notification_preferences FOR SELECT
+  USING (
+    auth.uid()::text = (
+      SELECT supabase_user_id FROM users WHERE id = notification_preferences.user_id
+    )
+  );
+
+CREATE POLICY "Users update own notification_preferences"
+  ON notification_preferences FOR UPDATE
+  USING (
+    auth.uid()::text = (
+      SELECT supabase_user_id FROM users WHERE id = notification_preferences.user_id
+    )
+  );

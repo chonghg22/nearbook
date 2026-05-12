@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Heart } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
@@ -14,6 +15,7 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
   const [added, setAdded] = useState(initialAdded)
   const [loading, setLoading] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [showNotificationNudge, setShowNotificationNudge] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -31,6 +33,7 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
 
   function showToast(msg: string) {
     setToastMsg(msg)
+    setShowNotificationNudge(false)
     setTimeout(() => setToastMsg(null), 2500)
   }
 
@@ -61,7 +64,12 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
         }
         if (res.ok) {
           setAdded(true)
-          showToast('위시리스트에 추가됨 ♥')
+          setToastMsg('위시리스트에 추가됨')
+          setShowNotificationNudge(true)
+          setTimeout(() => {
+            setToastMsg(null)
+            setShowNotificationNudge(false)
+          }, 3500)
         }
       }
     } finally {
@@ -93,7 +101,14 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
 
       {toastMsg && (
         <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-foreground text-canvas text-2xs px-3 py-1.5 rounded-md shadow-card-md whitespace-nowrap z-50 animate-in fade-in zoom-in duration-200">
-          {toastMsg}
+          <div className="flex items-center gap-2">
+            <span>{toastMsg}</span>
+            {showNotificationNudge && (
+              <Link href="/me/notifications" className="underline underline-offset-2">
+                매일 아침 알림 변경하기
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -16,6 +16,8 @@ import { NoticesModule } from './modules/notices/notices.module'
 import { FeedbackModule } from './modules/feedback/feedback.module'
 import { NotifyModule } from './modules/notify/notify.module'
 import { AffiliatesModule } from './modules/affiliates/affiliates.module'
+import { NotificationsModule } from './modules/notifications/notifications.module'
+import { WebhooksModule } from './modules/webhooks/webhooks.module'
 import { CommonModule } from './common/common.module'
 import { CacheModule } from './common/cache/cache.module'
 
@@ -40,6 +42,8 @@ import { CacheModule } from './common/cache/cache.module'
     LibraryCardsModule,
     NoticesModule,
     FeedbackModule,
+    NotificationsModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [

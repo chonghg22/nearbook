@@ -293,3 +293,46 @@ export const categoryCurations = nearbookSchema.table('category_curations', {
     t.rank,
   ),
 }))
+
+// 16. 사용자 알림 설정
+export const notificationPreferences = nearbookSchema.table('notification_preferences', {
+  userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  emailOnAvailable: boolean('email_on_available').notNull().default(true),
+  unsubscribeToken: varchar('unsubscribe_token', { length: 64 }).notNull().unique(),
+  emailStatus: varchar('email_status', { length: 16 }).notNull().default('active'),
+  softBounceCount: integer('soft_bounce_count').notNull().default(0),
+  digestFrequency: varchar('digest_frequency', { length: 16 }).notNull().default('daily'),
+  weeklyDigestDayOfWeek: integer('weekly_digest_dow').notNull().default(1),
+  lastDigestSentAt: timestamp('last_digest_sent_at'),
+  lastBounceAt: timestamp('last_bounce_at'),
+  lastBounceReason: varchar('last_bounce_reason', { length: 256 }),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  unsubscribeTokenIdx: uniqueIndex('notification_preferences_unsubscribe_token_idx').on(t.unsubscribeToken),
+}))
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+  user: one(users, { fields: [notificationPreferences.userId], references: [users.id] }),
+}))
+
+// 17. 발송 로그
+export const notificationLogs = nearbookSchema.table('notification_logs', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  type: varchar('type', { length: 32 }).notNull(),
+  isbn: varchar('isbn', { length: 20 }).notNull(),
+  libraryId: integer('library_id').notNull().references(() => libraries.id),
+  resendMessageId: varchar('resend_message_id', { length: 64 }),
+  status: varchar('status', { length: 16 }).notNull(),
+  deliveryStatus: varchar('delivery_status', { length: 16 }).default('queued'),
+  deliveryUpdatedAt: timestamp('delivery_updated_at'),
+  sentAt: timestamp('sent_at').notNull().defaultNow(),
+}, (t) => ({
+  userIsbnLibIdx: index('notif_user_isbn_lib_idx').on(t.userId, t.isbn, t.libraryId),
+  sentAtIdx: index('notif_sent_at_idx').on(t.sentAt),
+}))
+
+export const notificationLogsRelations = relations(notificationLogs, ({ one }) => ({
+  user: one(users, { fields: [notificationLogs.userId], references: [users.id] }),
+  library: one(libraries, { fields: [notificationLogs.libraryId], references: [libraries.id] }),
+}))
