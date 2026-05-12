@@ -7,12 +7,12 @@ import { SearchBar } from './search-bar'
 import { FilterPanel } from './filter-panel'
 import { ResultList } from './result-list'
 import { PopularQueries } from './popular-queries'
+import { PersonalizeToggle } from './personalize-toggle'
 import { LocationBar } from '@/components/location-bar'
 import { useLocationContext } from '@/lib/use-location-context'
+import { apiFetch } from '@/lib/api-client'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL!
-
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+const fetcher = (path: string) => apiFetch(path).then(r => r.json())
 
 export function SearchPageInner() {
   const params = useSearchParams()
@@ -25,6 +25,8 @@ export function SearchPageInner() {
 
   const { toSearchParams, isLoaded } = useLocationContext()
 
+  const personalizeOff = params.get('personalize') === '0'
+
   const buildSearchUrl = (): string | null => {
     if (!q || !isLoaded) return null
     const locationParams = toSearchParams()
@@ -33,9 +35,10 @@ export function SearchPageInner() {
       ...(sort !== 'relevance' && { sort }),
       ...(category && { category }),
       ...(availableOnly && { availableOnly: 'true' }),
+      ...(personalizeOff && { personalize: '0' }),
       ...locationParams,
     })
-    return `${API_BASE}/search?${qs.toString()}`
+    return `/search?${qs.toString()}`
   }
 
   const { data, isLoading } = useSWR(
@@ -73,15 +76,21 @@ export function SearchPageInner() {
             <LocationBar />
           </div>
 
-          <p className="my-4 text-sm text-gray-500">
-            &ldquo;{q}&rdquo; 검색결과 {data?.data?.total ?? 0}건
-            {data?.data?.source === 'jeongbonaru' && (
-              <span className="ml-2 text-primary-500 text-xs">(정보나루 검색)</span>
+          <div className="flex items-center gap-3 my-4">
+            <p className="text-sm text-gray-500">
+              &ldquo;{q}&rdquo; 검색결과 {data?.data?.total ?? 0}건
+              {data?.data?.source === 'jeongbonaru' && (
+                <span className="ml-2 text-primary-500 text-xs">(정보나루 검색)</span>
+              )}
+              {data?.data?.source?.includes('aladdin') && (
+                <span className="ml-2 text-xs text-gray-500">새 책은 다음 검색부터 더 빨라져요.</span>
+              )}
+            </p>
+            <PersonalizeToggle sort={sort} />
+            {data?.data?.personalized && (
+              <span className="text-xs text-blue-600">내 도서관 우선 정렬 적용됨</span>
             )}
-            {data?.data?.source?.includes('aladdin') && (
-              <span className="ml-2 text-xs text-gray-500">새 책은 다음 검색부터 더 빨라져요.</span>
-            )}
-          </p>
+          </div>
           <FilterPanel
             sort={sort}
             category={category}

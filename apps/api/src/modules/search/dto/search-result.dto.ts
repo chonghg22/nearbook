@@ -20,4 +20,9 @@ export class SearchResultDto {
   @ApiProperty() durationMs: number
   @ApiProperty({ nullable: true }) suggestions?: string[]
   @ApiProperty({ nullable: true }) trending?: string[]
+  @ApiProperty({ description: 'personalize boost 실제 적용 여부' }) personalized: boolean
+  @ApiProperty({
+    description: 'personalize 미적용 시 사유',
+    enum: ['disabled', 'anonymous', 'sort_override', 'no_library_cards', 'no_match', 'applied'],
+  }) personalizeReason: string
 }

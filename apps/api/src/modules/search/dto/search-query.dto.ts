@@ -2,7 +2,7 @@ import {
   IsString, IsOptional, IsInt, IsBoolean,
   Min, Max, IsIn,
 } from 'class-validator'
-import { Type } from 'class-transformer'
+import { Type, Transform } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class SearchQueryDto {
@@ -61,4 +61,10 @@ export class SearchQueryDto {
   @IsOptional()
   @Type(() => Number)
   lng?: number
+
+  @ApiPropertyOptional({ description: '내 도서관 우선 정렬 (default: true)' })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true || value === '1')
+  @IsBoolean()
+  personalize?: boolean = true
 }

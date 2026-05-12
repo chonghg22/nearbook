@@ -3,6 +3,7 @@ import { db, bookCache, searchLogs, sql, ilike } from '@nearbook/db'
 import { LibrariesService } from '../libraries/libraries.service'
 import { OramaIndexService } from './orama-index.service'
 import { AladdinFallbackService } from './aladdin-fallback.service'
+import { SearchPersonalizeService, AuthenticatedUser } from './search-personalize.service'
 import { SearchQueryDto } from './dto/search-query.dto'
 import { SearchResultDto } from './dto/search-result.dto'
 import { isProfane } from '../../common/profanity/ko-profanity'
@@ -22,6 +23,7 @@ export class SearchService {
     private readonly orama: OramaIndexService,
     private readonly aladdin: AladdinFallbackService,
     private readonly libraries: LibrariesService,
+    private readonly personalize: SearchPersonalizeService,
   ) {}
 
   async getTrending(limit: number): Promise<string[]> {
@@ -63,7 +65,7 @@ export class SearchService {
     }
   }
 
-  async search(query: SearchQueryDto): Promise<SearchResultDto> {
+  async search(query: SearchQueryDto, user: AuthenticatedUser | null = null): Promise<SearchResultDto> {
     const start = Date.now()
 
     const lat = typeof query.lat === 'number' && !isNaN(query.lat) ? query.lat : undefined
@@ -71,7 +73,7 @@ export class SearchService {
     const page = typeof query.page === 'number' && !isNaN(query.page) ? query.page : 1
     const pageSize = typeof query.pageSize === 'number' && !isNaN(query.pageSize) ? query.pageSize : 20
 
-    const cacheKey = JSON.stringify({ ...query, lat, lng, page, pageSize })
+    const cacheKey = JSON.stringify({ ...query, lat, lng, page, pageSize, userId: user?.supabaseUserId ?? null })
     const cached = this.cache.get(cacheKey)
     if (cached && cached.expiresAt > Date.now()) return cached.data
 
@@ -100,35 +102,57 @@ export class SearchService {
         }
       }
 
-      // 3. Library Enrichment — 대출가능 필터일 때만 (외부 API 호출이 느림)
+      // Personalize context 로딩
+      const personalizeCtx = await this.personalize.loadContext(user, query.sort, query.personalize)
+
+      // 3. Library Enrichment
       let finalResults: any[] = hits
 
       if (query.availableOnly && lat && lng) {
         finalResults = await this.enrichWithLibraries(hits, lat, lng)
         finalResults = finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
+      } else if (personalizeCtx.applied) {
+        // personalize 적용 시: 즐겨찾기 도서관 좌표를 anchor로 enrich
+        const anchorLat = lat
+        const anchorLng = lng
+        if (anchorLat && anchorLng) {
+          finalResults = await this.enrichWithLibraries(hits, anchorLat, anchorLng)
+        } else {
+          const anchor = await this.libraries.getById(personalizeCtx.myLibraryIds[0]).catch(() => null)
+          if (anchor) {
+            finalResults = await this.enrichWithLibraries(hits, anchor.lat, anchor.lng)
+          } else {
+            finalResults = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
+          }
+        }
       } else {
-        finalResults = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0 }))
+        finalResults = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
       }
 
-      const total = query.availableOnly ? finalResults.length : r.total
+      // Personalize 재정렬
+      const { items: rankedItems, context: finalContext } = this.personalize.rerank(finalResults, personalizeCtx)
+
+      const total = query.availableOnly ? rankedItems.length : r.total
 
       // zero result 로그
-      if (finalResults.length === 0) {
+      if (rankedItems.length === 0) {
         await db.insert(searchLogs).values({ query: query.q, resultCount: 0, region: null }).catch(() => {})
       } else {
         await this.logSearch(query, total).catch(() => {})
       }
 
       const result: SearchResultDto = {
-        items: finalResults as any,
+        items: rankedItems as any,
         total,
         page,
         pageSize,
         source,
         durationMs: Date.now() - start,
+        personalized: finalContext.applied,
+        personalizeReason: finalContext.reason,
       }
 
-      if (finalResults.length === 0) {
+      if (rankedItems.length === 0) {
         result.suggestions = await this.findSimilar(query.q).catch(() => [])
         result.trending = await this.getTrending(5).catch(() => [])
       }
@@ -147,6 +171,8 @@ export class SearchService {
         pageSize,
         source: 'orama',
         durationMs: Date.now() - start,
+        personalized: false,
+        personalizeReason: 'disabled',
       }
     }
   }
@@ -161,12 +187,12 @@ export class SearchService {
     // findNear를 한 번만 호출하고 결과를 재사용
     const nearLibs = await this.libraries.findNear(lat, lng, 5, 30)
     if (nearLibs.length === 0) {
-      return books.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0 }))
+      return books.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
     }
 
     return Promise.all(
       books.map(async (book) => {
-        let libs: Array<{ holdingCount?: number; loanAvailable?: number }> = []
+        let libs: Array<{ id?: number; holdingCount?: number; loanAvailable?: number }> = []
         try {
           libs = await this.libraries.findNearWithBookUsingLibs(nearLibs, book.isbn)
         } catch (err) {
@@ -176,6 +202,10 @@ export class SearchService {
           ...book,
           libraryHoldings: libs.reduce((s, l) => s + (l.holdingCount ?? 0), 0),
           loanAvailable: libs.reduce((s, l) => s + (l.loanAvailable ?? 0), 0),
+          matchedLibraryIds: libs
+            .filter((l) => (l.holdingCount ?? 0) > 0)
+            .map((l) => l.id)
+            .filter(Boolean),
         }
       }),
     )
