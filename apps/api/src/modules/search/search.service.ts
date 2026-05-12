@@ -112,19 +112,8 @@ export class SearchService {
         finalResults = await this.enrichWithLibraries(hits, lat, lng)
         finalResults = finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
       } else if (personalizeCtx.applied) {
-        // personalize 적용 시: 즐겨찾기 도서관 좌표를 anchor로 enrich
-        const anchorLat = lat
-        const anchorLng = lng
-        if (anchorLat && anchorLng) {
-          finalResults = await this.enrichWithLibraries(hits, anchorLat, anchorLng)
-        } else {
-          const anchor = await this.libraries.getById(personalizeCtx.myLibraryIds[0]).catch(() => null)
-          if (anchor) {
-            finalResults = await this.enrichWithLibraries(hits, anchor.lat, anchor.lng)
-          } else {
-            finalResults = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
-          }
-        }
+        // personalize: 즐겨찾기 도서관만 경량 조회 (전체 enrich 대신)
+        finalResults = await this.checkFavoriteHoldings(hits, personalizeCtx.myLibraryIds)
       } else {
         finalResults = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
       }
@@ -181,6 +170,43 @@ export class SearchService {
     if (q.length < 2) return []
     const r = await this.orama.query({ q, limit: 8, offset: 0 })
     return r.hits
+  }
+
+  /**
+   * personalize용 경량 소장 확인: 즐겨찾기 도서관 ID만 대상으로 조회.
+   * enrichWithLibraries(주변 30개 도서관 전체 조회)와 달리 API 호출이 최소화됨.
+   */
+  private async checkFavoriteHoldings(books: any[], libraryIds: number[]) {
+    if (libraryIds.length === 0) {
+      return books.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
+    }
+
+    return Promise.all(
+      books.map(async (book) => {
+        const matched: number[] = []
+        try {
+          const checks = await Promise.allSettled(
+            libraryIds.map(async (libId) => {
+              const res = await this.libraries.checkOwnership(book.isbn, libId)
+              return { libId, hasBook: res }
+            }),
+          )
+          for (const c of checks) {
+            if (c.status === 'fulfilled' && c.value.hasBook) {
+              matched.push(c.value.libId)
+            }
+          }
+        } catch (err) {
+          this.logger.warn(`favorite holding check failed isbn=${book.isbn}: ${(err as Error).message}`)
+        }
+        return {
+          ...book,
+          libraryHoldings: matched.length,
+          loanAvailable: 0,
+          matchedLibraryIds: matched,
+        }
+      }),
+    )
   }
 
   private async enrichWithLibraries(books: any[], lat: number, lng: number) {

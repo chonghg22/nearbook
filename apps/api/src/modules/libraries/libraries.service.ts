@@ -130,6 +130,15 @@ export class LibrariesService {
     return { data }
   }
 
+  async checkOwnership(isbn: string, libraryId: number): Promise<boolean> {
+    try {
+      const res = await this.jeongbonaru.getBookOwnership(isbn, String(libraryId))
+      return res?.response?.result?.hasBook === 'Y'
+    } catch {
+      return false
+    }
+  }
+
   async getById(id: number) {
     const lib = await db.query.libraries.findFirst({ where: eq(libraries.id, id) })
     if (!lib) throw new NotFoundException(`Library ${id} not found`)
