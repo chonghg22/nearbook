@@ -30,6 +30,38 @@ export class LibrariesService {
     }))
   }
 
+  async findNearWithBookUsingLibs(nearLibs: any[], isbn: string) {
+    if (!nearLibs.length) return []
+
+    const optimized = await this.findNearWithBookFromHoldingIndex(nearLibs, isbn)
+    if (optimized.length > 0) return optimized.slice(0, 10)
+
+    const results = await Promise.allSettled(
+      nearLibs.slice(0, 10).map(async (lib: Record<string, unknown>) => {
+        const cacheKey = `exist:${isbn}:${lib['id']}`
+        const cached = this.cache.get<Record<string, unknown>>(cacheKey)
+        if (cached) return { ...lib, ...cached }
+
+        try {
+          const res = await this.jeongbonaru.getBookOwnership(isbn, String(lib['id']))
+          const exist = res?.response?.result
+          const availability = {
+            holdingCount: exist?.hasBook === 'Y' ? 1 : 0,
+            loanAvailable: exist?.loanAvailable === 'Y' ? 1 : 0,
+          }
+          this.cache.set(cacheKey, availability, 5 * 60 * 1000)
+          return { ...lib, ...availability }
+        } catch {
+          return { ...lib, holdingCount: 0, loanAvailable: 0 }
+        }
+      }),
+    )
+
+    return results
+      .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+      .map((r) => r.value)
+  }
+
   async findNearWithBook(lat: number, lng: number, isbn: string, radiusKm = 5) {
     const nearLibs = await this.findNear(lat, lng, radiusKm, 30)
     if (!nearLibs.length) return []

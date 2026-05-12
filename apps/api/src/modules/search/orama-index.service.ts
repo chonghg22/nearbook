@@ -14,6 +14,7 @@ const SCHEMA = {
   author: 'string',
   publisher: 'string',
   category: 'string',
+  coverUrl: 'string',
   publishedYear: 'number',
   popularityScore: 'number',
 } as const
@@ -118,14 +119,17 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
     const where: Record<string, any> = {}
     if (args.category) where.category = args.category
 
+    // 짧은 한글 쿼리(2글자 이하)는 fuzzy 매칭 비활성화 — "부모" → "부의" 방지
+    const tolerance = args.q.length <= 2 ? 0 : 1
+
     const result = await search(this.index, {
       term: args.q,
       limit: args.limit,
       offset: args.offset,
       ...(Object.keys(where).length > 0 && { where }),
       ...(sortBy && { sortBy }),
-      tolerance: 1,
-      properties: ['title', 'author', 'publisher', 'category'],
+      tolerance,
+      properties: ['title', 'author', 'publisher'],
       boost: { title: 2.0, author: 1.5 },
     })
 
@@ -154,6 +158,7 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
       author: row.author ?? '',
       publisher: row.publisher ?? '',
       category: row.category ?? '',
+      coverUrl: row.coverUrl ?? '',
       publishedYear: row.publishedYear ?? 0,
       popularityScore: row.popularityScore ?? 0,
     }

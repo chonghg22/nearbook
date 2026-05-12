@@ -160,11 +160,17 @@ export class SearchService {
   }
 
   private async enrichWithLibraries(books: any[], lat: number, lng: number) {
+    // findNear를 한 번만 호출하고 결과를 재사용
+    const nearLibs = await this.libraries.findNear(lat, lng, 5, 30)
+    if (nearLibs.length === 0) {
+      return books.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0 }))
+    }
+
     return Promise.all(
       books.map(async (book) => {
         let libs: Array<{ holdingCount?: number; loanAvailable?: number }> = []
         try {
-          libs = await this.libraries.findNearWithBook(lat, lng, book.isbn, 5)
+          libs = await this.libraries.findNearWithBookUsingLibs(nearLibs, book.isbn)
         } catch (err) {
           this.logger.warn(`enrich failed isbn=${book.isbn}: ${(err as Error).message}`)
         }
