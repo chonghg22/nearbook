@@ -57,7 +57,7 @@ export class JeongbonaruService {
         .values({
           ...book,
           cachedAt: new Date(),
-          expiresAt: sql`now() + interval '30 days'`,
+          expiresAt: sql`now() + interval '365 days'`,
         })
         .onConflictDoUpdate({
           target: bookCache.isbn,
@@ -70,7 +70,7 @@ export class JeongbonaruService {
             summary: book.summary,
             category: book.category,
             cachedAt: new Date(),
-            expiresAt: sql`now() + interval '30 days'`,
+            expiresAt: sql`now() + interval '365 days'`,
           },
         })
 
