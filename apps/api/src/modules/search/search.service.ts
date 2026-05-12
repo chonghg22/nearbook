@@ -80,26 +80,30 @@ export class SearchService {
     try {
       this.logger.log(`[Search] Query: "${query.q}" (lat=${lat}, lng=${lng})`)
 
-      // 1차: Orama
-      const r = await this.orama.query({
-        q: query.q,
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-        category: query.category,
-        sort: query.sort,
-      })
+      // 1차: Orama + 알라딘 병렬 호출 (page=1, 2자 이상 쿼리)
+      const shouldFetchAladdin = page === 1 && query.q.length >= 2
+      const [r, aladdinHits] = await Promise.all([
+        this.orama.query({
+          q: query.q,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+          category: query.category,
+          sort: query.sort,
+        }),
+        shouldFetchAladdin
+          ? this.aladdin.searchAndCache(query.q).catch(() => [] as any[])
+          : Promise.resolve([] as any[]),
+      ])
       let hits = r.hits as any[]
       let source: SearchResultDto['source'] = 'orama'
 
-      // 2차: 결과 부족 → 알라딘 TTB fallback (page=1만)
-      const threshold = Number(process.env.SEARCH_FALLBACK_THRESHOLD ?? 5)
-      if (hits.length < threshold && page === 1 && query.q.length >= 2) {
-        const aladdinHits = await this.aladdin.searchAndCache(query.q)
-        if (aladdinHits.length > 0) {
-          await this.orama.upsertMany(aladdinHits)
+      // 알라딘 결과를 Orama에 반영하고 병합
+      if (aladdinHits.length > 0) {
+        this.orama.upsertMany(aladdinHits).catch(() => {})
+        if (hits.length < pageSize) {
           hits = mergeUnique(hits, aladdinHits, 'isbn').slice(0, pageSize)
-          source = 'orama+aladdin'
         }
+        source = 'orama+aladdin'
       }
 
       // Personalize context 로딩

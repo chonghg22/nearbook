@@ -12,6 +12,6 @@ import { HomeCurationsModule } from '../home-curations/home-curations.module'
   imports: [LibrariesModule, HomeCurationsModule],
   controllers: [SearchController],
   providers: [SearchService, OramaIndexService, AladdinFallbackService, SearchSyncCron, SearchPersonalizeService],
-  exports: [SearchService, OramaIndexService],
+  exports: [SearchService, OramaIndexService, AladdinFallbackService],
 })
 export class SearchModule {}

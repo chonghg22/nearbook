@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { Cron } from '@nestjs/schedule'
 import { PendingLookupService } from './pending-lookup.service'
 import { JeongbonaruService } from './jeongbonaru.service'
+import { AladdinFallbackService } from '../search/aladdin-fallback.service'
 import { NotifyService } from '../notify/notify.service'
 
 @Injectable()
@@ -14,6 +15,7 @@ export class PendingLookupCron {
     private readonly config: ConfigService,
     private readonly pendingService: PendingLookupService,
     private readonly jeongbonaruService: JeongbonaruService,
+    private readonly aladdin: AladdinFallbackService,
     private readonly notify: NotifyService,
   ) {
     this.dailyBudget = this.config.get<number>('PENDING_LOOKUP_DAILY_BUDGET') ?? 150
@@ -69,7 +71,8 @@ export class PendingLookupCron {
         await this.jeongbonaruService.getBookByIsbnAsCron(payload.isbn)
         break
       case 'keyword':
-        await this.jeongbonaruService.searchBooksAsCron(payload.keyword, payload.page)
+        // 알라딘을 메인 소스로 사용 (정보나루 대신)
+        await this.aladdin.searchAndCache(payload.keyword)
         break
       case 'lib_book':
         await this.jeongbonaruService.getBookOwnershipAsCron(payload.isbn, payload.libCode)

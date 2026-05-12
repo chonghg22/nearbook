@@ -68,8 +68,8 @@ export class AladdinFallbackService {
 
     if (normalized.length === 0) return []
 
-    // book_cache upsert (30일 캐시)
-    const expiresAt = new Date(Date.now() + 30 * 86400_000)
+    // book_cache upsert (365일 캐시 — 책 메타데이터는 거의 변하지 않음)
+    const expiresAt = new Date(Date.now() + 365 * 86400_000)
     for (const b of normalized) {
       await db.insert(bookCache).values({ ...b, cachedAt: new Date(), expiresAt })
         .onConflictDoUpdate({
