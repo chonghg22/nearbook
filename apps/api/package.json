@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start:prod": "node dist/main.js",
+    "start:prod": "node dist/apps/api/src/main.js",
     "refresh:curations": "ts-node --transpile-only src/scripts/refresh-curations.ts",
     "refresh:curations:remote-safe": "JEONGBONARU_TIMEOUT_MS=30000 ts-node --transpile-only src/scripts/refresh-curations.ts --scope=categories,libraries",
     "lint": "eslint \"src/**/*.ts\" --fix",
@@ -36,6 +36,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "svix": "^1.93.0",
+    "web-push": "^3.6.7",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {

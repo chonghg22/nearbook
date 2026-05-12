@@ -336,3 +336,21 @@ export const notificationLogsRelations = relations(notificationLogs, ({ one }) =
   user: one(users, { fields: [notificationLogs.userId], references: [users.id] }),
   library: one(libraries, { fields: [notificationLogs.libraryId], references: [libraries.id] }),
 }))
+
+// 18. 웹 푸시 구독
+export const pushSubscriptions = nearbookSchema.table('push_subscriptions', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  endpoint: text('endpoint').notNull().unique(),
+  p256dh: varchar('p256dh', { length: 256 }).notNull(),
+  auth: varchar('auth', { length: 128 }).notNull(),
+  userAgent: varchar('user_agent', { length: 256 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  lastUsedAt: timestamp('last_used_at').notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('push_sub_user_idx').on(t.userId),
+}))
+
+export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
+  user: one(users, { fields: [pushSubscriptions.userId], references: [users.id] }),
+}))

@@ -13,6 +13,7 @@ import {
   libraries,
   libraryCards,
   notificationPreferences,
+  pushSubscriptions,
   sql,
   users,
 } from '@nearbook/db'
@@ -100,6 +101,90 @@ export class NotificationsService {
         emailOnAvailable: row.emailOnAvailable,
         emailStatus: row.emailStatus,
         softBounceCount: row.softBounceCount,
+      },
+    }
+  }
+
+  async getPushStatus(supabaseUserId: string) {
+    const user = await this.authService.getOrCreateUser(supabaseUserId)
+    const rows = await db
+      .select({
+        id: pushSubscriptions.id,
+        endpoint: pushSubscriptions.endpoint,
+        lastUsedAt: pushSubscriptions.lastUsedAt,
+      })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, user.id))
+
+    return {
+      data: {
+        enabled: rows.length > 0,
+        subscriptions: rows,
+      },
+    }
+  }
+
+  async upsertPushSubscription(supabaseUserId: string, body: any, userAgent?: string) {
+    const endpoint = body?.endpoint
+    const p256dh = body?.keys?.p256dh
+    const auth = body?.keys?.auth
+
+    if (!endpoint || !p256dh || !auth) {
+      throw new BadRequestException('invalid push subscription')
+    }
+
+    const user = await this.authService.getOrCreateUser(supabaseUserId)
+
+    const [row] = await db
+      .insert(pushSubscriptions)
+      .values({
+        userId: user.id,
+        endpoint,
+        p256dh,
+        auth,
+        userAgent: typeof userAgent === 'string' ? userAgent.slice(0, 256) : null,
+        lastUsedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: pushSubscriptions.endpoint,
+        set: {
+          userId: user.id,
+          p256dh,
+          auth,
+          userAgent: typeof userAgent === 'string' ? userAgent.slice(0, 256) : null,
+          lastUsedAt: new Date(),
+        },
+      })
+      .returning({
+        id: pushSubscriptions.id,
+        endpoint: pushSubscriptions.endpoint,
+      })
+
+    return {
+      data: {
+        enabled: true,
+        subscription: row,
+      },
+    }
+  }
+
+  async deletePushSubscription(supabaseUserId: string, endpoint?: string) {
+    const user = await this.authService.getOrCreateUser(supabaseUserId)
+
+    if (endpoint?.trim()) {
+      await db
+        .delete(pushSubscriptions)
+        .where(and(
+          eq(pushSubscriptions.userId, user.id),
+          eq(pushSubscriptions.endpoint, endpoint.trim()),
+        ))
+    } else {
+      await db.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, user.id))
+    }
+
+    return {
+      data: {
+        enabled: false,
       },
     }
   }

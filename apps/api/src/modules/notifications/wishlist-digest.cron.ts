@@ -16,6 +16,7 @@ import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 import { NotificationsService } from './notifications.service'
 import { ResendClient } from './resend.client'
 import { renderWishlistDigestEmail, WishlistDigestHit } from './templates/wishlist-digest'
+import { PushService } from './push.service'
 
 interface Candidate extends WishlistDigestHit {
   userId: number
@@ -36,6 +37,7 @@ export class WishlistDigestCron {
     private readonly notificationsService: NotificationsService,
     private readonly resend: ResendClient,
     private readonly notify: NotifyService,
+    private readonly pushService: PushService,
   ) {}
 
   @Cron('0 4 * * *', { timeZone: 'Asia/Seoul' })
@@ -113,6 +115,14 @@ export class WishlistDigestCron {
         text,
         tag: `wishlist_${frequency}`,
         unsubscribeUrl,
+      })
+
+      await this.pushService.sendToUser(userId, {
+        title: hits.length > 1 ? `위시한 책 ${hits.length}권이 대출 가능해졌어요` : '위시한 책이 대출 가능해졌어요',
+        body: hits.length > 1
+          ? `${first.title} 외 ${hits.length - 1}권을 확인해 보세요.`
+          : `${first.title}을(를) 지금 확인해 보세요.`,
+        url: `${process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? 'https://www.near-book.com'}/me/wishlist?source=push`,
       })
 
       await db.insert(notificationLogs).values(

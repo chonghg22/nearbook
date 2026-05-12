@@ -41,6 +41,30 @@ export class NotificationsController {
 
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
+  @Get('me/push-subscriptions/status')
+  @ApiOperation({ summary: '내 웹 푸시 구독 상태 조회' })
+  getPushStatus(@Req() req: any) {
+    return this.service.getPushStatus(req.user.supabaseUserId)
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @Post('me/push-subscriptions')
+  @ApiOperation({ summary: '웹 푸시 구독 등록' })
+  upsertPushSubscription(@Req() req: any, @Body() body: any) {
+    return this.service.upsertPushSubscription(req.user.supabaseUserId, body, req.headers['user-agent'])
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @Post('me/push-subscriptions/delete')
+  @ApiOperation({ summary: '웹 푸시 구독 해제' })
+  deletePushSubscription(@Req() req: any, @Body() body: any) {
+    return this.service.deletePushSubscription(req.user.supabaseUserId, body?.endpoint)
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
   @Post('me/notification-preferences/reactivate')
   @ApiOperation({ summary: '이메일 알림 상태 재활성화' })
   reactivate(@Req() req: any) {
