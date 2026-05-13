@@ -110,6 +110,7 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
     offset: number
     category?: string
     sort?: 'relevance' | 'popular' | 'recent'
+    searchType?: 'title' | 'author' | 'isbn' | 'publisher'
   }) {
     const sortBy =
       args.sort === 'recent' ? { property: 'publishedYear' as const, order: 'DESC' as const } :
@@ -119,19 +120,39 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
     const where: Record<string, any> = {}
     if (args.category) where.category = args.category
 
+    // ISBN 검색은 exact match로 처리
+    if (args.searchType === 'isbn') {
+      where.isbn = args.q.replace(/[^0-9X]/gi, '')
+    }
+
+    // searchType에 따라 검색 대상 필드 결정
+    const searchProps = args.searchType === 'isbn'
+      ? ['isbn'] as const
+      : args.searchType === 'author'
+        ? ['author'] as const
+        : args.searchType === 'publisher'
+          ? ['publisher'] as const
+          : ['title', 'author', 'publisher'] as const
+
+    const boost = args.searchType === 'author'
+      ? { author: 2.0 }
+      : args.searchType === 'publisher'
+        ? { publisher: 2.0 }
+        : { title: 2.0, author: 1.5 }
+
     // 한글은 bigram 토크나이저 특성상 fuzzy 매칭 시 무관한 결과 다수 발생 — 전면 비활성화
     const isKorean = /[가-힣]/.test(args.q)
     const tolerance = isKorean ? 0 : 1
 
     const result = await search(this.index, {
-      term: args.q,
+      term: args.searchType === 'isbn' ? '' : args.q,
       limit: args.limit,
       offset: args.offset,
       ...(Object.keys(where).length > 0 && { where }),
       ...(sortBy && { sortBy }),
       tolerance,
-      properties: ['title', 'author', 'publisher'],
-      boost: { title: 2.0, author: 1.5 },
+      properties: searchProps as any,
+      boost,
     })
 
     return {

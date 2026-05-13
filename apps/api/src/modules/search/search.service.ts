@@ -65,9 +65,9 @@ export class SearchService {
     const start = Date.now()
 
     const page = typeof query.page === 'number' && !isNaN(query.page) ? query.page : 1
-    const pageSize = typeof query.pageSize === 'number' && !isNaN(query.pageSize) ? query.pageSize : 20
+    const pageSize = typeof query.pageSize === 'number' && !isNaN(query.pageSize) ? query.pageSize : 10
 
-    const cacheKey = JSON.stringify({ q: query.q, sort: query.sort, category: query.category, page, pageSize })
+    const cacheKey = JSON.stringify({ q: query.q, sort: query.sort, category: query.category, searchType: query.searchType, page, pageSize })
     const cached = this.cache.get(cacheKey)
     if (cached && cached.expiresAt > Date.now()) return cached.data
 
@@ -80,6 +80,7 @@ export class SearchService {
         offset: (page - 1) * pageSize,
         category: query.category,
         sort: query.sort,
+        searchType: query.searchType,
       })
       const items = r.hits as any[]
 

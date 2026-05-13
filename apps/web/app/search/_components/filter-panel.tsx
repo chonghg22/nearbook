@@ -1,25 +1,24 @@
 'use client'
 
 type Props = {
-  category: string
+  searchType: string
   sort: string
   onChange: (key: string, value: string | null) => void
 }
 
-export function FilterPanel({ category, sort, onChange }: Props) {
+export function FilterPanel({ searchType, sort, onChange }: Props) {
   return (
     <div className="mt-4 flex flex-wrap items-center gap-3">
       <select
-        value={category}
-        onChange={(e) => onChange('category', e.target.value)}
+        value={searchType}
+        onChange={(e) => onChange('searchType', e.target.value)}
         className="px-3 py-1.5 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-        aria-label="카테고리"
+        aria-label="검색 유형"
       >
-        <option value="">전체</option>
-        <option value="novel">소설</option>
-        <option value="essay">에세이</option>
-        <option value="children">어린이</option>
-        <option value="comics">만화</option>
+        <option value="title">도서명</option>
+        <option value="author">저자명</option>
+        <option value="isbn">ISBN</option>
+        <option value="publisher">출판사</option>
       </select>
 
       <select

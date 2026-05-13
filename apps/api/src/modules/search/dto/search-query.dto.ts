@@ -10,6 +10,11 @@ export class SearchQueryDto {
   @IsString()
   q: string
 
+  @ApiPropertyOptional({ enum: ['title', 'author', 'isbn', 'publisher'], default: 'title' })
+  @IsOptional()
+  @IsIn(['title', 'author', 'isbn', 'publisher'])
+  searchType?: 'title' | 'author' | 'isbn' | 'publisher' = 'title'
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -27,11 +32,11 @@ export class SearchQueryDto {
   @Min(1)
   page?: number = 1
 
-  @ApiPropertyOptional({ default: 20 })
+  @ApiPropertyOptional({ default: 10 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(50)
-  pageSize?: number = 20
+  pageSize?: number = 10
 }
