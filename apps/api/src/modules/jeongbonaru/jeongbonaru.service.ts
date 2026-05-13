@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { db, bookCache, eq, sql } from '@nearbook/db'
+import { db, bookCache, eq, sql, searchStats, and } from '@nearbook/db'
 import { CacheService } from '../../common/cache/cache.service'
 import { JeongbonaruClient } from './jeongbonaru.client'
 import {
@@ -98,20 +98,40 @@ export class JeongbonaruService {
    * 키워드로 검색 후 결과를 DB 캐시(book_cache)에 저장.
    * 검색 결과가 부족할 때 동기적으로 호출하여 로컬 DB를 채우는 용도.
    */
-  async searchAndCacheBooks(keyword: string, page = 1, pageSize = 40): Promise<BookCacheRow[]> {
+  async searchAndCacheBooks(keyword: string, page = 1, pageSize = 40, searchType = 'title'): Promise<{ items: BookCacheRow[], total: number }> {
     try {
       const response = await this.client.get<JeongbonaruDocsResponse>(
         '/srchBooks',
         { keyword, pageNo: page, pageSize },
       )
 
+      const total = Number(response.response?.numFound ?? 0)
       const docs = response.response?.docs ?? []
-      if (docs.length === 0) return []
+
+      // 검색 통계 업데이트 (정보나루 실제 총 건수 저장)
+      if (total > 0) {
+        await db.insert(searchStats)
+          .values({
+            query: keyword,
+            searchType,
+            remoteTotal: total,
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: [searchStats.query, searchStats.searchType],
+            set: {
+              remoteTotal: total,
+              updatedAt: new Date(),
+            },
+          })
+      }
+
+      if (docs.length === 0) return { items: [], total }
 
       const books = docs.map((d) => this.mapBookDoc(d.doc, d.doc.isbn13 || ''))
         .filter(b => b.isbn && /^97[89]\d{10}$/.test(b.isbn)) // 유효한 ISBN13만 필터
 
-      if (books.length === 0) return []
+      if (books.length === 0) return { items: [], total }
 
       // DB에 저장 (365일 캐시)
       await Promise.allSettled(
@@ -134,10 +154,10 @@ export class JeongbonaruService {
         ),
       )
 
-      return books as BookCacheRow[]
+      return { items: books as BookCacheRow[], total }
     } catch (err) {
       this.logger.error(`정보나루 키워드 검색 실패: ${keyword}`, err as Error)
-      return []
+      return { items: [], total: 0 }
     }
   }
 

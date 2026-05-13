@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { db, bookCache, searchLogs, sql, ilike } from '@nearbook/db'
+import { db, bookCache, searchLogs, sql, ilike, searchStats, and, eq } from '@nearbook/db'
 import { OramaIndexService } from './orama-index.service'
 import { AladdinFallbackService } from './aladdin-fallback.service'
 import { SearchQueryDto } from './dto/search-query.dto'
@@ -91,21 +91,36 @@ export class SearchService {
       const lastSync = this.naruSyncCache.get(lastSyncKey) || 0
       const isExpired = Date.now() - lastSync > 3600_000 // 1시간 경과
 
-      // 1. 첫 검색(1페이지)인데 로컬 결과가 너무 적거나(예: 60건 미만) 아예 처음인 경우 -> 넓게 긁어옴 (60건)
-      // 2. 2페이지 이상을 보는데 해당 페이지의 로컬 결과가 부족한 경우 -> 해당 구간 긁어옴
+      // DB에서 기존 통계(총 수량) 확인
+      const stats = await db.query.searchStats.findFirst({
+        where: and(
+          eq(searchStats.query, query.q),
+          eq(searchStats.searchType, query.searchType || 'title')
+        )
+      })
+
+      // 1. 첫 검색인데 로컬 결과가 너무 적거나
+      // 2. 페이지를 넘겼는데 로컬 결과가 없거나
+      // 3. 마지막 동기화 후 시간이 많이 흘렀을 때
       const isFirstPageUnderpopulated = page === 1 && r.total < 60
-      const isTargetPageEmpty = r.hits.length < pageSize && r.total < 1000 // 1000건 미만일 때만 시도 (성능)
+      const isTargetPageEmpty = r.hits.length < pageSize && (!stats || r.total < stats.remoteTotal)
+
+      let remoteTotal = stats?.remoteTotal ?? r.total
 
       if (query.q.length >= 2 && isExpired && (isFirstPageUnderpopulated || isTargetPageEmpty)) {
-        this.logger.log(`[Search] Naru Deep Sync for "${query.q}" P${page} (local total: ${r.total})`)
+        this.logger.log(`[Search] Naru Deep Sync for "${query.q}" P${page} (local: ${r.total}, remote: ${remoteTotal})`)
         this.naruSyncCache.set(lastSyncKey, Date.now())
         
-        // 첫 페이지라면 60건(넓게), 아니면 해당 페이지 위주로 40건 보충
         const syncSize = page === 1 ? 60 : 40
-        const naruItems = await this.jeongbonaru.searchAndCacheBooks(query.q, page, syncSize)
+        const naruRes = await this.jeongbonaru.searchAndCacheBooks(query.q, page, syncSize, query.searchType)
         
-        if (naruItems.length > 0) {
-          await this.orama.upsertMany(naruItems)
+        // 정보나루에서 알려준 최신 총 수량이 기존과 다르다면 UI용 remoteTotal 업데이트
+        if (naruRes.total !== remoteTotal) {
+          remoteTotal = naruRes.total
+        }
+
+        if (naruRes.items.length > 0) {
+          await this.orama.upsertMany(naruRes.items)
           // 데이터 보충 후 재검색
           r = await this.orama.query({
             q: query.q,
@@ -137,7 +152,7 @@ export class SearchService {
 
       const result: SearchResultDto = {
         items,
-        total: r.total,
+        total: remoteTotal,
         page,
         pageSize,
         source: 'orama',

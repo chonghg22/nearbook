@@ -354,3 +354,13 @@ export const pushSubscriptions = nearbookSchema.table('push_subscriptions', {
 export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
   user: one(users, { fields: [pushSubscriptions.userId], references: [users.id] }),
 }))
+
+// 19. 검색 통계 (정보나루 실제 총 건수 캐시)
+export const searchStats = nearbookSchema.table('search_stats', {
+  query: varchar('query', { length: 256 }).notNull(),
+  searchType: varchar('search_type', { length: 16 }).notNull().default('title'),
+  remoteTotal: integer('remote_total').notNull().default(0),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  pk: sql`PRIMARY KEY (${t.query}, ${t.search_type})`,
+}))

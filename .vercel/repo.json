@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_Od4KEEHZEkGO8ZuBEFX4AygCz7bi",
+      "name": "nearbook-web",
+      "directory": "apps/web",
+      "orgId": "team_ed914wue1yAGiSI4dvKdjrkU"
+    }
+  ]
+}
