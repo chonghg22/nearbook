@@ -16,6 +16,7 @@ export interface JeongbonaruDocsResponse {
   response?: {
     docs?: Array<{ doc: JeongbonaruBookDoc }>
     numFound?: number
+    resultNum?: number
     pageNo?: number
     pageSize?: number
   }
