@@ -60,6 +60,7 @@ export class LibrariesService {
     return results
       .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
       .map((r) => r.value)
+      .filter((lib) => lib.holdingCount > 0)
   }
 
   async findNearWithBook(lat: number, lng: number, isbn: string, radiusKm = 5) {
@@ -98,6 +99,7 @@ export class LibrariesService {
     return results
       .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
       .map((r) => r.value)
+      .filter((lib) => lib.holdingCount > 0)
   }
 
   async findInBounds(bounds: {
@@ -360,7 +362,7 @@ export class LibrariesService {
           const res = await this.jeongbonaru.getBookOwnership(isbn, String(lib.id))
           const exist = res?.response?.result
           const availability = {
-            holdingCount: 1,
+            holdingCount: exist?.hasBook === 'Y' ? 1 : 0,
             loanAvailable: exist?.loanAvailable === 'Y' ? 1 : 0,
           }
           this.cache.set(cacheKey, availability, 5 * 60 * 1000)
@@ -371,6 +373,7 @@ export class LibrariesService {
       return results
         .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
         .map((r) => r.value)
+        .filter((lib) => lib.holdingCount > 0)
     } catch {
       return []
     }

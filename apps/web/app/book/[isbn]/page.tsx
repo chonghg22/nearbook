@@ -82,7 +82,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
   if (!result) notFound()
 
   const { book, libraries } = result
-  const hasAnalysis =
+  const hasAnalysis = !!(
     analysis &&
     (
       analysis.keywords?.length ||
@@ -92,6 +92,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
       analysis.maniaRecBooks?.length ||
       analysis.readerRecBooks?.length
     )
+  )
 
   return (
     <>

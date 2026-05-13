@@ -57,7 +57,7 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
 
       {libraries.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {libraries.map((lib: any) => {
+          {libraries.filter((lib: any) => lib.holdingCount > 0).map((lib: any) => {
             const status: Status = lib.loanAvailable ? 'available' : 'borrowed'
             return (
               <LibraryCard
