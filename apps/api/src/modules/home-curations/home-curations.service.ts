@@ -231,7 +231,7 @@ export class HomeCurationsService {
     if (!category) return { refreshed: false, count: 0, categoryCode, periodKey }
 
     try {
-      const books = await this.jeongbonaru.getLoanItemBooks(limit, { kdc: categoryCode })
+      const books = await this.jeongbonaru.getLoanItemBooks(limit, { kdc: categoryCode, addCode: '0;1;2;9' })
       if (books.length === 0) {
         this.logger.warn(`category_curations refresh skipped: empty response (${category.name}, ${periodKey})`)
         return { refreshed: false, count: 0, categoryCode, periodKey }
