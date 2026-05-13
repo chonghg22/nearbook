@@ -248,10 +248,20 @@ export class JeongbonaruService {
   }
 
   async getLoanItemBooks(limit = 10, options: { kdc?: string } = {}) {
+    const kdcParams: Record<string, string> = {}
+    if (options.kdc) {
+      if (options.kdc.length >= 2) {
+        // 2자리 이상 세부주제 → dtl_kdc 파라미터 + 대분류 kdc 필요
+        kdcParams.kdc = options.kdc.charAt(0)
+        kdcParams.dtl_kdc = options.kdc
+      } else {
+        kdcParams.kdc = options.kdc
+      }
+    }
     const response = await this.client.get<JeongbonaruDocsResponse>(
       '/loanItemSrch',
       {
-        ...(options.kdc ? { kdc: options.kdc } : {}),
+        ...kdcParams,
         pageNo: 1,
         pageSize: limit,
       },

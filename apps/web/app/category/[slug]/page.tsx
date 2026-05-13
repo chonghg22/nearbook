@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { CATEGORIES, CATEGORY_BY_SLUG } from '@/lib/category-config'
@@ -36,6 +37,28 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+type CategoryApiItem = {
+  code: string
+  count: number
+}
+
+async function fetchCategoryCounts(): Promise<Map<string, number>> {
+  try {
+    const res = await fetch(`${API_URL}/books/categories?limit=40`, { next: { revalidate: 21600 } })
+    if (!res.ok) return new Map()
+    const json = await res.json()
+    const rows = Array.isArray(json.data) ? json.data : []
+    return new Map(
+      rows.map((item: Record<string, unknown>) => [
+        String(item.code ?? item.categoryCode ?? ''),
+        Number(item.count ?? 0),
+      ]),
+    )
+  } catch {
+    return new Map()
+  }
+}
+
 async function fetchBooks(kdcCode: string): Promise<ExploreBook[]> {
   try {
     const res = await fetch(
@@ -55,7 +78,12 @@ export default async function CategoryDetailPage({ params }: Props) {
   const category = CATEGORY_BY_SLUG.get(slug)
   if (!category) notFound()
 
-  const books = await fetchBooks(category.kdcCode)
+  const [books, countMap] = await Promise.all([
+    fetchBooks(category.kdcCode),
+    fetchCategoryCounts(),
+  ])
+
+  const displayCategories = CATEGORIES.filter((cat) => (countMap.get(cat.kdcCode) ?? 0) > 0)
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -86,6 +114,32 @@ export default async function CategoryDetailPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+
+      {displayCategories.length > 0 && (
+        <div className="mb-8 flex flex-wrap gap-3">
+          {displayCategories.map((cat) => {
+            const count = countMap.get(cat.kdcCode) ?? 0
+            const isCurrent = cat.slug === slug
+            return (
+              <Link
+                key={cat.slug}
+                href={`/category/${cat.slug}`}
+                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  isCurrent
+                    ? 'bg-primary-700 text-white shadow-sm'
+                    : 'border border-gray-200 bg-white text-gray-700 hover:border-primary-300 hover:text-primary-700'
+                }`}
+                title={cat.seoDescription}
+              >
+                <span>{cat.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${isCurrent ? 'bg-white/15 text-primary-50' : 'bg-gray-100 text-gray-500'}`}>
+                  {count}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      )}
 
       <div className="mb-8 rounded-2xl bg-white px-5 py-4 text-sm leading-relaxed text-gray-600 shadow-sm ring-1 ring-gray-100">
         {category.introduction}
