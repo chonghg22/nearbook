@@ -1,8 +1,8 @@
 import {
-  IsString, IsOptional, IsInt, IsBoolean,
+  IsString, IsOptional, IsInt,
   Min, Max, IsIn,
 } from 'class-validator'
-import { Type, Transform } from 'class-transformer'
+import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class SearchQueryDto {
@@ -14,18 +14,6 @@ export class SearchQueryDto {
   @IsOptional()
   @IsString()
   category?: string
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  libraryId?: number
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  availableOnly?: boolean = false
 
   @ApiPropertyOptional({ enum: ['relevance', 'popular', 'recent'] })
   @IsOptional()
@@ -46,25 +34,4 @@ export class SearchQueryDto {
   @Min(1)
   @Max(50)
   pageSize?: number = 20
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  regionSlug?: string
-
-  @ApiPropertyOptional({ description: '위도 (도서관 매칭용)' })
-  @IsOptional()
-  @Type(() => Number)
-  lat?: number
-
-  @ApiPropertyOptional({ description: '경도 (도서관 매칭용)' })
-  @IsOptional()
-  @Type(() => Number)
-  lng?: number
-
-  @ApiPropertyOptional({ description: '내 도서관 우선 정렬 (default: false)' })
-  @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true || value === '1')
-  @IsBoolean()
-  personalize?: boolean = false
 }

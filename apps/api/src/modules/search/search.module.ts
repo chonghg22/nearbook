@@ -4,14 +4,12 @@ import { SearchService } from './search.service'
 import { OramaIndexService } from './orama-index.service'
 import { AladdinFallbackService } from './aladdin-fallback.service'
 import { SearchSyncCron } from './search-sync.cron'
-import { SearchPersonalizeService } from './search-personalize.service'
-import { LibrariesModule } from '../libraries/libraries.module'
 import { HomeCurationsModule } from '../home-curations/home-curations.module'
 
 @Module({
-  imports: [LibrariesModule, HomeCurationsModule],
+  imports: [HomeCurationsModule],
   controllers: [SearchController],
-  providers: [SearchService, OramaIndexService, AladdinFallbackService, SearchSyncCron, SearchPersonalizeService],
+  providers: [SearchService, OramaIndexService, AladdinFallbackService, SearchSyncCron],
   exports: [SearchService, OramaIndexService, AladdinFallbackService],
 })
 export class SearchModule {}

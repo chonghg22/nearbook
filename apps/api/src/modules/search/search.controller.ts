@@ -1,9 +1,8 @@
-import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe, UseGuards, Req } from '@nestjs/common'
+import { Controller, Get, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { SearchService } from './search.service'
 import { SearchQueryDto } from './dto/search-query.dto'
 import { HomeCurationsService } from '../home-curations/home-curations.service'
-import { OptionalAuthGuard } from '../auth/auth.guard'
 
 @ApiTags('search')
 @Controller('search')
@@ -14,11 +13,9 @@ export class SearchController {
   ) {}
 
   @Get()
-  @UseGuards(OptionalAuthGuard)
   @ApiOperation({ summary: '책 검색 (Orama + 알라딘 TTB fallback)' })
-  async search(@Query() query: SearchQueryDto, @Req() req: any) {
-    const user = req.user ?? null
-    return { data: await this.service.search(query, user) }
+  async search(@Query() query: SearchQueryDto) {
+    return { data: await this.service.search(query) }
   }
 
   @Get('suggest')

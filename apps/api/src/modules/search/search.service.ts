@@ -1,9 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { db, bookCache, searchLogs, sql, ilike } from '@nearbook/db'
-import { LibrariesService } from '../libraries/libraries.service'
 import { OramaIndexService } from './orama-index.service'
 import { AladdinFallbackService } from './aladdin-fallback.service'
-import { SearchPersonalizeService, AuthenticatedUser } from './search-personalize.service'
 import { SearchQueryDto } from './dto/search-query.dto'
 import { SearchResultDto } from './dto/search-result.dto'
 import { isProfane } from '../../common/profanity/ko-profanity'
@@ -22,8 +20,6 @@ export class SearchService {
   constructor(
     private readonly orama: OramaIndexService,
     private readonly aladdin: AladdinFallbackService,
-    private readonly libraries: LibrariesService,
-    private readonly personalize: SearchPersonalizeService,
   ) {}
 
   async getTrending(limit: number): Promise<string[]> {
@@ -65,34 +61,27 @@ export class SearchService {
     }
   }
 
-  async search(query: SearchQueryDto, user: AuthenticatedUser | null = null): Promise<SearchResultDto> {
+  async search(query: SearchQueryDto): Promise<SearchResultDto> {
     const start = Date.now()
 
-    const lat = typeof query.lat === 'number' && !isNaN(query.lat) ? query.lat : undefined
-    const lng = typeof query.lng === 'number' && !isNaN(query.lng) ? query.lng : undefined
     const page = typeof query.page === 'number' && !isNaN(query.page) ? query.page : 1
     const pageSize = typeof query.pageSize === 'number' && !isNaN(query.pageSize) ? query.pageSize : 20
 
-    const cacheKey = JSON.stringify({ ...query, lat, lng, page, pageSize, userId: user?.supabaseUserId ?? null })
+    const cacheKey = JSON.stringify({ q: query.q, sort: query.sort, category: query.category, page, pageSize })
     const cached = this.cache.get(cacheKey)
     if (cached && cached.expiresAt > Date.now()) return cached.data
 
     try {
-      this.logger.log(`[Search] Query: "${query.q}" (lat=${lat}, lng=${lng})`)
+      this.logger.log(`[Search] Query: "${query.q}"`)
 
-      // Orama 쿼리 + Personalize context를 병렬 실행
-      const [r, personalizeCtx] = await Promise.all([
-        this.orama.query({
-          q: query.q,
-          limit: pageSize,
-          offset: (page - 1) * pageSize,
-          category: query.category,
-          sort: query.sort,
-        }),
-        this.personalize.loadContext(user, query.sort, query.personalize),
-      ])
-      let hits = r.hits as any[]
-      let source: SearchResultDto['source'] = 'orama'
+      const r = await this.orama.query({
+        q: query.q,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        category: query.category,
+        sort: query.sort,
+      })
+      const items = r.hits as any[]
 
       // 알라딘은 항상 백그라운드로 캐시만 채움 (응답 블로킹 없음)
       const shouldFetchAladdin = page === 1 && query.q.length >= 2
@@ -102,61 +91,25 @@ export class SearchService {
           .catch(() => {})
       }
 
-      // 3. Library Enrichment (10초 타임아웃 — 정보나루 장애 시 검색 결과 블로킹 방지)
-      const noLibInfo = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
-      let finalResults: any[] = noLibInfo
-
-      try {
-        const enrichPromise = (async () => {
-          if (query.libraryId) {
-            return this.checkSpecificLibrary(hits, query.libraryId)
-          } else if (lat && lng) {
-            return this.enrichWithLibraries(hits, lat, lng)
-          } else if (personalizeCtx.applied) {
-            return this.checkFavoriteHoldings(hits, personalizeCtx.myLibraryIds)
-          }
-          return noLibInfo
-        })()
-
-        finalResults = await Promise.race([
-          enrichPromise,
-          new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('enrichment timeout')), 10_000)),
-        ])
-      } catch (err) {
-        this.logger.warn(`Library enrichment skipped: ${(err as Error).message}`)
-        finalResults = noLibInfo
-      }
-
-      if (query.availableOnly) {
-        finalResults = query.libraryId
-          ? finalResults.filter((b: any) => (b.libraryHoldings || 0) > 0)
-          : finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
-      }
-
-      // Personalize 재정렬
-      const { items: rankedItems, context: finalContext } = this.personalize.rerank(finalResults, personalizeCtx)
-
-      const total = query.availableOnly ? rankedItems.length : r.total
-
       // zero result 로그 (fire-and-forget)
-      if (rankedItems.length === 0) {
+      if (items.length === 0) {
         db.insert(searchLogs).values({ query: query.q, resultCount: 0, region: null }).catch(() => {})
       } else {
-        this.logSearch(query, total).catch(() => {})
+        this.logSearch(query, r.total).catch(() => {})
       }
 
       const result: SearchResultDto = {
-        items: rankedItems as any,
-        total,
+        items,
+        total: r.total,
         page,
         pageSize,
-        source,
+        source: 'orama',
         durationMs: Date.now() - start,
-        personalized: finalContext.applied,
-        personalizeReason: finalContext.reason,
+        personalized: false,
+        personalizeReason: 'disabled',
       }
 
-      if (rankedItems.length === 0) {
+      if (items.length === 0) {
         result.suggestions = await this.findSimilar(query.q).catch(() => [])
         result.trending = await this.getTrending(5).catch(() => [])
       }
@@ -185,98 +138,6 @@ export class SearchService {
     if (q.length < 2) return []
     const r = await this.orama.query({ q, limit: 8, offset: 0 })
     return r.hits
-  }
-
-  /**
-   * personalize용 경량 소장 확인: 즐겨찾기 도서관 ID만 대상으로 조회.
-   * enrichWithLibraries(주변 30개 도서관 전체 조회)와 달리 API 호출이 최소화됨.
-   */
-  private async checkFavoriteHoldings(books: any[], libraryIds: number[]) {
-    if (libraryIds.length === 0) {
-      return books.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
-    }
-
-    return Promise.all(
-      books.map(async (book) => {
-        const matched: number[] = []
-        try {
-          const checks = await Promise.allSettled(
-            libraryIds.map(async (libId) => {
-              const res = await this.libraries.checkOwnership(book.isbn, libId)
-              return { libId, hasBook: res }
-            }),
-          )
-          for (const c of checks) {
-            if (c.status === 'fulfilled' && c.value.hasBook) {
-              matched.push(c.value.libId)
-            }
-          }
-        } catch (err) {
-          this.logger.warn(`favorite holding check failed isbn=${book.isbn}: ${(err as Error).message}`)
-        }
-        return {
-          ...book,
-          libraryHoldings: matched.length,
-          loanAvailable: 0,
-          matchedLibraryIds: matched,
-        }
-      }),
-    )
-  }
-
-  /**
-   * 특정 도서관 1곳의 소장 여부만 확인 (libraryId 필터 전용)
-   */
-  private async checkSpecificLibrary(books: any[], libraryId: number) {
-    return Promise.all(
-      books.map(async (book) => {
-        try {
-          const hasBook = await this.libraries.checkOwnership(book.isbn, libraryId)
-          return {
-            ...book,
-            libraryHoldings: hasBook ? 1 : 0,
-            loanAvailable: 0,
-            matchedLibraryIds: hasBook ? [libraryId] : [],
-          }
-        } catch {
-          return { ...book, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }
-        }
-      }),
-    )
-  }
-
-  private async enrichWithLibraries(books: any[], lat: number, lng: number) {
-    // findNear를 한 번만 호출하고 결과를 재사용
-    const nearLibs = await this.libraries.findNear(lat, lng, 5, 30)
-    if (nearLibs.length === 0) {
-      return books.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
-    }
-
-    const ENRICH_TIMEOUT_MS = 8000
-
-    return Promise.all(
-      books.map(async (book) => {
-        const fallback = { ...book, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }
-        try {
-          const libs = await Promise.race([
-            this.libraries.findNearWithBookUsingLibs(nearLibs, book.isbn),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('enrich timeout')), ENRICH_TIMEOUT_MS)),
-          ])
-          return {
-            ...book,
-            libraryHoldings: libs.reduce((s: number, l: any) => s + (l.holdingCount ?? 0), 0),
-            loanAvailable: libs.reduce((s: number, l: any) => s + (l.loanAvailable ?? 0), 0),
-            matchedLibraryIds: libs
-              .filter((l: any) => (l.holdingCount ?? 0) > 0)
-              .map((l: any) => l.id)
-              .filter(Boolean),
-          }
-        } catch (err) {
-          this.logger.warn(`enrich failed isbn=${book.isbn}: ${(err as Error).message}`)
-          return fallback
-        }
-      }),
-    )
   }
 
   private async logSearch(query: SearchQueryDto, resultCount: number) {

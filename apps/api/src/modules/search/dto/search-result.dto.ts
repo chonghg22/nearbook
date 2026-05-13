@@ -6,9 +6,6 @@ export class SearchResultItemDto {
   @ApiProperty() author: string
   @ApiProperty({ nullable: true }) publisher: string | null
   @ApiProperty({ nullable: true }) coverUrl: string | null
-  @ApiProperty() libraryHoldings: number
-  @ApiProperty() loanAvailable: number
-  @ApiProperty() score: number
 }
 
 export class SearchResultDto {
@@ -16,13 +13,10 @@ export class SearchResultDto {
   @ApiProperty() total: number
   @ApiProperty() page: number
   @ApiProperty() pageSize: number
-  @ApiProperty() source: 'cache' | 'jeongbonaru' | 'mixed' | 'orama' | 'orama+aladdin'
+  @ApiProperty() source: 'orama' | 'orama+aladdin'
   @ApiProperty() durationMs: number
   @ApiProperty({ nullable: true }) suggestions?: string[]
   @ApiProperty({ nullable: true }) trending?: string[]
-  @ApiProperty({ description: 'personalize boost 실제 적용 여부' }) personalized: boolean
-  @ApiProperty({
-    description: 'personalize 미적용 시 사유',
-    enum: ['disabled', 'anonymous', 'sort_override', 'no_library_cards', 'no_match', 'applied'],
-  }) personalizeReason: string
+  @ApiProperty() personalized: boolean
+  @ApiProperty() personalizeReason: string
 }

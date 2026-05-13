@@ -3,11 +3,10 @@
 type Props = {
   category: string
   sort: string
-  availableOnly: boolean
   onChange: (key: string, value: string | null) => void
 }
 
-export function FilterPanel({ category, sort, availableOnly, onChange }: Props) {
+export function FilterPanel({ category, sort, onChange }: Props) {
   return (
     <div className="mt-4 flex flex-wrap items-center gap-3">
       <select
@@ -33,16 +32,6 @@ export function FilterPanel({ category, sort, availableOnly, onChange }: Props) 
         <option value="popular">인기순</option>
         <option value="recent">최신순</option>
       </select>
-
-      <label className="flex items-center gap-2 text-sm text-gray-700 select-none cursor-pointer">
-        <input
-          type="checkbox"
-          checked={availableOnly}
-          onChange={(e) => onChange('availableOnly', e.target.checked ? 'true' : null)}
-          className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary-500"
-        />
-        대출 가능만
-      </label>
     </div>
   )
 }
