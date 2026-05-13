@@ -6,9 +6,10 @@ import { JeongbonaruModule } from '../jeongbonaru/jeongbonaru.module'
 import { LibrariesModule } from '../libraries/libraries.module'
 import { AffiliatesModule } from '../affiliates/affiliates.module'
 import { HomeCurationsModule } from '../home-curations/home-curations.module'
+import { LibraryCardsModule } from '../library-cards/library-cards.module'
 
 @Module({
-  imports: [JeongbonaruModule, LibrariesModule, AffiliatesModule, HomeCurationsModule],
+  imports: [JeongbonaruModule, LibrariesModule, AffiliatesModule, HomeCurationsModule, LibraryCardsModule],
   controllers: [BooksController],
   providers: [BooksService, BooksRepository],
   exports: [BooksService],

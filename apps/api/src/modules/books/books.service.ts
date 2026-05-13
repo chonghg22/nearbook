@@ -5,6 +5,7 @@ import { AffiliatesService } from '../affiliates/affiliates.service'
 import { CacheService } from '../../common/cache.service'
 import { BooksRepository } from './books.repository'
 import { HomeCurationsService } from '../home-curations/home-curations.service'
+import { LibraryCardsService } from '../library-cards/library-cards.service'
 
 @Injectable()
 export class BooksService {
@@ -17,6 +18,7 @@ export class BooksService {
     private readonly cache: CacheService,
     private readonly repo: BooksRepository,
     private readonly homeCurations: HomeCurationsService,
+    private readonly libraryCards: LibraryCardsService,
   ) {}
 
   async getByIsbn(isbn: string) {
@@ -116,16 +118,52 @@ export class BooksService {
     }
   }
 
-  async getWithLibraries(isbn: string, lat: number, lng: number, radiusKm = 5) {
-    const [book, libsWithAvail, affiliateLinks] = await Promise.all([
+  async getWithLibraries(
+    isbn: string,
+    options: { lat: number; lng: number; radiusKm: number; region?: string; user?: any },
+  ) {
+    const { lat, lng, radiusKm, region, user } = options
+
+    const [book, affiliateLinks] = await Promise.all([
       this.getByIsbn(isbn),
-      this.libraries.findNearWithBook(lat, lng, isbn, radiusKm),
       this.affiliates.getAffiliateOptions(isbn),
     ])
 
+    let libs: any[] = []
+
+    if (user) {
+      // 1. 로그인 회원: 내 도서관 카드 목록 우선
+      const { data: cards } = await this.libraryCards.listByUser(user.supabaseUserId)
+      if (cards.length > 0) {
+        const myLibs = cards.map((c) => ({
+          id: c.libraryId,
+          name: c.library.name,
+          address: c.library.address,
+          lat: c.library.lat,
+          lng: c.library.lng,
+          phone: c.library.phone,
+          homepage: c.library.homepage,
+          isMember: true,
+          nickname: c.nickname,
+        }))
+        libs = await this.libraries.findNearWithBookUsingLibs(myLibs, isbn)
+      }
+    }
+
+    if (libs.length === 0) {
+      if (region) {
+        // 2. 지역 선택 시
+        const { data: regionLibs } = await this.libraries.findByRegion(region, 50)
+        libs = await this.libraries.findNearWithBookUsingLibs(regionLibs, isbn)
+      } else {
+        // 3. 기본: 내 주변 도서관
+        libs = await this.libraries.findNearWithBook(lat, lng, isbn, radiusKm)
+      }
+    }
+
     return {
       book,
-      libraries: libsWithAvail,
+      libraries: libs,
       affiliates: affiliateLinks,
       cachedAt: new Date().toISOString(),
     }
