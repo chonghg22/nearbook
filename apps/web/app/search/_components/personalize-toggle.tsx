@@ -8,15 +8,15 @@ export function PersonalizeToggle({ sort }: { sort?: string }) {
   const pathname = usePathname()
 
   const isDisabled = !!sort && sort !== 'relevance'
-  const isOn = !isDisabled && params.get('personalize') !== '0'
+  const isOn = !isDisabled && params.get('personalize') === '1'
 
   function handleToggle() {
     if (isDisabled) return
     const next = new URLSearchParams(params.toString())
     if (isOn) {
-      next.set('personalize', '0')
-    } else {
       next.delete('personalize')
+    } else {
+      next.set('personalize', '1')
     }
     router.push(`${pathname}?${next.toString()}`)
   }

@@ -25,7 +25,7 @@ export function SearchPageInner() {
 
   const { toSearchParams, isLoaded } = useLocationContext()
 
-  const personalizeOff = params.get('personalize') === '0'
+  const personalizeOn = params.get('personalize') === '1'
 
   const buildSearchUrl = (): string | null => {
     if (!q || !isLoaded) return null
@@ -35,7 +35,7 @@ export function SearchPageInner() {
       ...(sort !== 'relevance' && { sort }),
       ...(category && { category }),
       ...(availableOnly && { availableOnly: 'true' }),
-      ...(personalizeOff && { personalize: '0' }),
+      ...(personalizeOn && { personalize: '1' }),
       ...locationParams,
     })
     return `/search?${qs.toString()}`

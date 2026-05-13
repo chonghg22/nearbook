@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { LibraryCard } from '@/components/library/library-card'
 import { useLocationContext } from '@/lib/use-location-context'
+import { LocationBar } from '@/components/location-bar'
 import type { Status } from '@/components/ui/status-badge'
 import { Loader2 } from 'lucide-react'
 
@@ -15,29 +16,30 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
   const { location, isLoaded } = useLocationContext()
   const [libraries, setLibraries] = useState(initialLibraries)
   const [isLoading, setIsLoading] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
 
   useEffect(() => {
     if (!isLoaded) return
 
-    // 사용자의 실제 위치가 서울 시청(기본값)과 다르면 재조회
+    // 사용자 위치가 서울 시청(기본값)과 같고 아직 한번도 fetch하지 않았으면 초기 데이터 사용
     const isDefaultLocation = Math.abs(location.lat - 37.5665) < 0.001 && Math.abs(location.lng - 126.978) < 0.001
-    
-    if (!isDefaultLocation) {
-      const fetchNearby = async () => {
-        setIsLoading(true)
-        try {
-          const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
-          const res = await fetch(`${API_BASE}/books/${isbn}/with-libraries?lat=${location.lat}&lng=${location.lng}`)
-          const data = await res.json()
-          setLibraries(data.libraries || [])
-        } catch (err) {
-          console.error('Failed to fetch nearby libraries:', err)
-        } finally {
-          setIsLoading(false)
-        }
+    if (isDefaultLocation && !hasFetched) return
+
+    const fetchNearby = async () => {
+      setIsLoading(true)
+      try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
+        const res = await fetch(`${API_BASE}/books/${isbn}/with-libraries?lat=${location.lat}&lng=${location.lng}`)
+        const data = await res.json()
+        setLibraries(data.libraries || [])
+      } catch (err) {
+        console.error('Failed to fetch nearby libraries:', err)
+      } finally {
+        setIsLoading(false)
+        setHasFetched(true)
       }
-      fetchNearby()
     }
+    fetchNearby()
   }, [isbn, location.lat, location.lng, isLoaded])
 
   return (
@@ -47,6 +49,10 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
           📚 주변 도서관 보유 현황
         </h2>
         {isLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+      </div>
+
+      <div className="mb-4">
+        <LocationBar />
       </div>
 
       {libraries.length > 0 ? (

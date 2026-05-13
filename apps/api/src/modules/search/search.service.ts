@@ -105,11 +105,19 @@ export class SearchService {
       // 3. Library Enrichment
       let finalResults: any[] = hits
 
-      if (query.availableOnly && lat && lng) {
+      if (query.libraryId) {
+        // 특정 도서관 선택: 해당 도서관 소장 여부 확인
+        finalResults = await this.checkSpecificLibrary(hits, query.libraryId)
+        if (query.availableOnly) {
+          finalResults = finalResults.filter((b: any) => (b.libraryHoldings || 0) > 0)
+        }
+      } else if (lat && lng) {
+        // 지역/GPS 기반: 주변 도서관 소장 정보 enrichment
         finalResults = await this.enrichWithLibraries(hits, lat, lng)
-        finalResults = finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
+        if (query.availableOnly) {
+          finalResults = finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
+        }
       } else if (personalizeCtx.applied) {
-        // personalize: 즐겨찾기 도서관만 경량 조회 (전체 enrich 대신)
         finalResults = await this.checkFavoriteHoldings(hits, personalizeCtx.myLibraryIds)
       } else {
         finalResults = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
@@ -201,6 +209,27 @@ export class SearchService {
           libraryHoldings: matched.length,
           loanAvailable: 0,
           matchedLibraryIds: matched,
+        }
+      }),
+    )
+  }
+
+  /**
+   * 특정 도서관 1곳의 소장 여부만 확인 (libraryId 필터 전용)
+   */
+  private async checkSpecificLibrary(books: any[], libraryId: number) {
+    return Promise.all(
+      books.map(async (book) => {
+        try {
+          const hasBook = await this.libraries.checkOwnership(book.isbn, libraryId)
+          return {
+            ...book,
+            libraryHoldings: hasBook ? 1 : 0,
+            loanAvailable: 0,
+            matchedLibraryIds: hasBook ? [libraryId] : [],
+          }
+        } catch {
+          return { ...book, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }
         }
       }),
     )

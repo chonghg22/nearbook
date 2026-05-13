@@ -62,9 +62,9 @@ export class SearchQueryDto {
   @Type(() => Number)
   lng?: number
 
-  @ApiPropertyOptional({ description: '내 도서관 우선 정렬 (default: true)' })
+  @ApiPropertyOptional({ description: '내 도서관 우선 정렬 (default: false)' })
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true || value === '1')
   @IsBoolean()
-  personalize?: boolean = true
+  personalize?: boolean = false
 }
