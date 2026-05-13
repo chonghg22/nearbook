@@ -39,6 +39,7 @@ type NewArrivalBookItem = BookItem & {
 }
 
 export const BOOK_CATEGORY_GROUPS = [
+  // KDC 대분류 (기존)
   { code: '8', name: '문학', description: '소설, 시, 에세이 등 문학 분야 인기 도서' },
   { code: '3', name: '사회과학', description: '경제, 경영, 정치, 사회 이슈 도서' },
   { code: '9', name: '역사', description: '역사, 지리, 여행 분야 도서' },
@@ -49,6 +50,18 @@ export const BOOK_CATEGORY_GROUPS = [
   { code: '7', name: '언어', description: '한국어, 외국어, 학습 언어 도서' },
   { code: '2', name: '종교', description: '종교와 신앙 분야 도서' },
   { code: '0', name: '총류', description: '컴퓨터, 독서, 백과, 정보 분야 도서' },
+  // KDC 2자리 세분화
+  { code: '81', name: '소설', description: '한국소설, 추리, 로맨스, 스릴러 등 소설 도서' },
+  { code: '82', name: '시·에세이', description: '시집, 에세이, 수필 분야 도서' },
+  { code: '32', name: '경제·경영', description: '경제, 경영, 재테크, 투자 분야 도서' },
+  { code: '18', name: '심리학', description: '심리학, 자기이해, 인간관계 분야 도서' },
+  { code: '37', name: '교육', description: '자녀교육, 학습법, 교육 철학 도서' },
+  { code: '51', name: '의학·건강', description: '건강 관리, 질병 예방, 운동, 식이요법 도서' },
+  { code: '59', name: '요리·생활', description: '요리, 살림, 인테리어, 생활 실용서' },
+  { code: '60', name: '미술·디자인', description: '미술, 디자인, 건축, 사진 분야 도서' },
+  { code: '67', name: '음악·공연', description: '음악 이론, 악기 교본, 공연 예술 도서' },
+  { code: '69', name: '스포츠·취미', description: '운동, 등산, 캠핑, 수공예 등 취미 도서' },
+  { code: '00', name: '컴퓨터·IT', description: '프로그래밍, AI, 데이터 분석, IT 트렌드 도서' },
 ] as const
 
 export type BookCategoryCode = typeof BOOK_CATEGORY_GROUPS[number]['code']
