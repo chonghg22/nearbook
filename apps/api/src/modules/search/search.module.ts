@@ -5,9 +5,10 @@ import { OramaIndexService } from './orama-index.service'
 import { AladdinFallbackService } from './aladdin-fallback.service'
 import { SearchSyncCron } from './search-sync.cron'
 import { HomeCurationsModule } from '../home-curations/home-curations.module'
+import { JeongbonaruModule } from '../jeongbonaru/jeongbonaru.module'
 
 @Module({
-  imports: [HomeCurationsModule],
+  imports: [HomeCurationsModule, JeongbonaruModule],
   controllers: [SearchController],
   providers: [SearchService, OramaIndexService, AladdinFallbackService, SearchSyncCron],
   exports: [SearchService, OramaIndexService, AladdinFallbackService],

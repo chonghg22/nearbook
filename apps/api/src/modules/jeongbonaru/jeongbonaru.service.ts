@@ -94,6 +94,53 @@ export class JeongbonaruService {
     return { items }
   }
 
+  /**
+   * 키워드로 검색 후 결과를 DB 캐시(book_cache)에 저장.
+   * 검색 결과가 부족할 때 동기적으로 호출하여 로컬 DB를 채우는 용도.
+   */
+  async searchAndCacheBooks(keyword: string, page = 1, pageSize = 40): Promise<BookCacheRow[]> {
+    try {
+      const response = await this.client.get<JeongbonaruDocsResponse>(
+        '/srchBooks',
+        { keyword, pageNo: page, pageSize },
+      )
+
+      const docs = response.response?.docs ?? []
+      if (docs.length === 0) return []
+
+      const books = docs.map((d) => this.mapBookDoc(d.doc, d.doc.isbn13 || ''))
+        .filter(b => b.isbn && /^97[89]\d{10}$/.test(b.isbn)) // 유효한 ISBN13만 필터
+
+      if (books.length === 0) return []
+
+      // DB에 저장 (365일 캐시)
+      await Promise.allSettled(
+        books.map((book) =>
+          db
+            .insert(bookCache)
+            .values({
+              ...book,
+              cachedAt: new Date(),
+              expiresAt: sql`now() + interval '365 days'`,
+            })
+            .onConflictDoUpdate({
+              target: bookCache.isbn,
+              set: {
+                ...book,
+                cachedAt: new Date(),
+                expiresAt: sql`now() + interval '365 days'`,
+              },
+            }),
+        ),
+      )
+
+      return books as BookCacheRow[]
+    } catch (err) {
+      this.logger.error(`정보나루 키워드 검색 실패: ${keyword}`, err as Error)
+      return []
+    }
+  }
+
   /** 도서관 보유 정보 (5분 캐시) */
   async getBookOwnership(isbn: string, libCode: string | number): Promise<any> {
     const cacheKey = `loan:${isbn}:${libCode}`

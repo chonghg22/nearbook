@@ -5,6 +5,7 @@ import { AladdinFallbackService } from './aladdin-fallback.service'
 import { SearchQueryDto } from './dto/search-query.dto'
 import { SearchResultDto } from './dto/search-result.dto'
 import { isProfane } from '../../common/profanity/ko-profanity'
+import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 
 const POPULAR_QUERIES_FALLBACK = [
   '한강', '김호연', '베르나르 베르베르', '무라카미 하루키',
@@ -16,10 +17,12 @@ export class SearchService {
   private readonly logger = new Logger(SearchService.name)
   private cache = new Map<string, { data: SearchResultDto; expiresAt: number }>()
   private trendingCache: { items: string[]; at: number } | null = null
+  private naruSyncCache = new Map<string, number>() // keyword -> timestamp
 
   constructor(
     private readonly orama: OramaIndexService,
     private readonly aladdin: AladdinFallbackService,
+    private readonly jeongbonaru: JeongbonaruService,
   ) {}
 
   async getTrending(limit: number): Promise<string[]> {
@@ -72,9 +75,9 @@ export class SearchService {
     if (cached && cached.expiresAt > Date.now()) return cached.data
 
     try {
-      this.logger.log(`[Search] Query: "${query.q}"`)
+      this.logger.log(`[Search] Query: "${query.q}" (Page: ${page})`)
 
-      const r = await this.orama.query({
+      let r = await this.orama.query({
         q: query.q,
         limit: pageSize,
         offset: (page - 1) * pageSize,
@@ -82,6 +85,39 @@ export class SearchService {
         sort: query.sort,
         searchType: query.searchType,
       })
+
+      // [정보나루 지능형 동기 보충]
+      const lastSyncKey = `${query.q}:${page}`
+      const lastSync = this.naruSyncCache.get(lastSyncKey) || 0
+      const isExpired = Date.now() - lastSync > 3600_000 // 1시간 경과
+
+      // 1. 첫 검색(1페이지)인데 로컬 결과가 너무 적거나(예: 60건 미만) 아예 처음인 경우 -> 넓게 긁어옴 (60건)
+      // 2. 2페이지 이상을 보는데 해당 페이지의 로컬 결과가 부족한 경우 -> 해당 구간 긁어옴
+      const isFirstPageUnderpopulated = page === 1 && r.total < 60
+      const isTargetPageEmpty = r.hits.length < pageSize && r.total < 1000 // 1000건 미만일 때만 시도 (성능)
+
+      if (query.q.length >= 2 && isExpired && (isFirstPageUnderpopulated || isTargetPageEmpty)) {
+        this.logger.log(`[Search] Naru Deep Sync for "${query.q}" P${page} (local total: ${r.total})`)
+        this.naruSyncCache.set(lastSyncKey, Date.now())
+        
+        // 첫 페이지라면 60건(넓게), 아니면 해당 페이지 위주로 40건 보충
+        const syncSize = page === 1 ? 60 : 40
+        const naruItems = await this.jeongbonaru.searchAndCacheBooks(query.q, page, syncSize)
+        
+        if (naruItems.length > 0) {
+          await this.orama.upsertMany(naruItems)
+          // 데이터 보충 후 재검색
+          r = await this.orama.query({
+            q: query.q,
+            limit: pageSize,
+            offset: (page - 1) * pageSize,
+            category: query.category,
+            sort: query.sort,
+            searchType: query.searchType,
+          })
+        }
+      }
+
       const items = r.hits as any[]
 
       // 알라딘은 항상 백그라운드로 캐시만 채움 (응답 블로킹 없음)
