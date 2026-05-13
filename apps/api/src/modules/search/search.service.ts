@@ -99,25 +99,25 @@ export class SearchService {
         )
       })
 
+      let remoteTotal = Math.max(stats?.remoteTotal ?? 0, r.total)
+
       // 1. 첫 검색인데 로컬 결과가 너무 적거나
       // 2. 페이지를 넘겼는데 로컬 결과가 없거나
-      // 3. 마지막 동기화 후 시간이 많이 흘렀을 때
+      // 3. 로컬 결과가 저장된 리모트 총 건수보다 많아진 경우 (통계 데이터 정합성 깨짐)
+      // 4. 마지막 동기화 후 시간이 많이 흘렀을 때
       const isFirstPageUnderpopulated = page === 1 && r.total < 60
-      const isTargetPageEmpty = r.hits.length < pageSize && (!stats || r.total < stats.remoteTotal)
+      const isTargetPageEmpty = r.hits.length < pageSize && r.total < remoteTotal
+      const isStatsInconsistent = r.total > (stats?.remoteTotal ?? 0)
 
-      let remoteTotal = stats?.remoteTotal ?? r.total
-
-      if (query.q.length >= 2 && isExpired && (isFirstPageUnderpopulated || isTargetPageEmpty)) {
-        this.logger.log(`[Search] Naru Deep Sync for "${query.q}" P${page} (local: ${r.total}, remote: ${remoteTotal})`)
+      if (query.q.length >= 2 && (isExpired || isStatsInconsistent) && (isFirstPageUnderpopulated || isTargetPageEmpty || isStatsInconsistent)) {
+        this.logger.log(`[Search] Naru Deep Sync for "${query.q}" P${page} (local: ${r.total}, remote: ${remoteTotal}, inconsistent: ${isStatsInconsistent})`)
         this.naruSyncCache.set(lastSyncKey, Date.now())
         
         const syncSize = page === 1 ? 60 : 40
         const naruRes = await this.jeongbonaru.searchAndCacheBooks(query.q, page, syncSize, query.searchType)
         
-        // 정보나루에서 알려준 최신 총 수량이 기존과 다르다면 UI용 remoteTotal 업데이트
-        if (naruRes.total !== remoteTotal) {
-          remoteTotal = naruRes.total
-        }
+        // 정보나루에서 알려준 최신 총 수량 반영
+        remoteTotal = Math.max(naruRes.total, r.total)
 
         if (naruRes.items.length > 0) {
           await this.orama.upsertMany(naruRes.items)
@@ -130,6 +130,7 @@ export class SearchService {
             sort: query.sort,
             searchType: query.searchType,
           })
+          remoteTotal = Math.max(remoteTotal, r.total)
         }
       }
 

@@ -132,7 +132,9 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
         ? ['author'] as const
         : args.searchType === 'publisher'
           ? ['publisher'] as const
-          : ['title', 'author', 'publisher'] as const
+          : args.searchType === 'title'
+            ? ['title'] as const
+            : ['title', 'author', 'publisher'] as const
 
     const boost = args.searchType === 'author'
       ? { author: 2.0 }

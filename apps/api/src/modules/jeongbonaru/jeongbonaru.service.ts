@@ -85,10 +85,16 @@ export class JeongbonaruService {
   }
 
   /** 키워드 검색 (캐시 안 함) */
-  async searchBooks(keyword: string, page = 1): Promise<any> {
+  async searchBooks(keyword: string, page = 1, searchType = 'title'): Promise<any> {
+    const params: Record<string, any> = { pageNo: page, pageSize: 20 }
+    if (searchType === 'title') params.title = keyword
+    else if (searchType === 'author') params.author = keyword
+    else if (searchType === 'publisher') params.publisher = keyword
+    else params.keyword = keyword
+
     const response = await this.client.get<JeongbonaruDocsResponse>(
       '/srchBooks',
-      { keyword, pageNo: page, pageSize: 20 },
+      params,
     )
     const items = (response.response?.docs ?? []).map((d) => d.doc)
     return { items }
@@ -100,9 +106,15 @@ export class JeongbonaruService {
    */
   async searchAndCacheBooks(keyword: string, page = 1, pageSize = 40, searchType = 'title'): Promise<{ items: BookCacheRow[], total: number }> {
     try {
+      const params: Record<string, any> = { pageNo: page, pageSize }
+      if (searchType === 'title') params.title = keyword
+      else if (searchType === 'author') params.author = keyword
+      else if (searchType === 'publisher') params.publisher = keyword
+      else params.keyword = keyword
+
       const response = await this.client.get<JeongbonaruDocsResponse>(
         '/srchBooks',
-        { keyword, pageNo: page, pageSize },
+        params,
       )
 
       const total = Number(response.response?.numFound ?? 0)
