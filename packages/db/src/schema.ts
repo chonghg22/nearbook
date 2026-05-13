@@ -9,6 +9,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
+  primaryKey,
   customType,
   doublePrecision,
 } from 'drizzle-orm/pg-core'
@@ -362,5 +363,5 @@ export const searchStats = nearbookSchema.table('search_stats', {
   remoteTotal: integer('remote_total').notNull().default(0),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ({
-  pk: sql`PRIMARY KEY (${t.query}, ${t.search_type})`,
+  pk: primaryKey({ columns: [t.query, t.searchType] }),
 }))
