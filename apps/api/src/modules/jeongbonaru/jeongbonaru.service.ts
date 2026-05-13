@@ -117,8 +117,9 @@ export class JeongbonaruService {
         params,
       )
 
-      const total = Number(response.response?.numFound ?? 0)
-      const docs = response.response?.docs ?? []
+      const resp = response.response
+      const total = Number(resp?.numFound ?? resp?.resultNum ?? 0)
+      const docs = resp?.docs ?? []
 
       // 검색 통계 업데이트 (정보나루 실제 총 건수 저장)
       if (total > 0) {
