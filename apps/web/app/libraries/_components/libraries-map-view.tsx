@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useMapLibraries } from '@/hooks/use-map-libraries'
 import { NaverInteractiveMap } from '@/components/maps/naver-interactive-map'
 import type { NaverBounds } from '@/hooks/use-naver-map'
@@ -64,7 +64,9 @@ export function LibrariesMapView() {
   const [regionCenter, setRegionCenter] = useState<{ lat: number; lng: number; zoom?: number } | undefined>(undefined)
   const [bounds, setBounds] = useState<NaverBounds | null>(null)
   const [hoveredLibraryId, setHoveredLibraryId] = useState<number | null>(null)
-  const [viewMode, setViewMode] = useState<'list' | 'map' | 'split'>('split')
+  const [viewMode, setViewMode] = useState<'list' | 'map' | 'split'>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 768 ? 'map' : 'split'
+  )
 
   // 시군구 목록 (시도 선택 시 동적)
   const sigunguList = sido ? REGION_MAP[sido] ?? [] : []
