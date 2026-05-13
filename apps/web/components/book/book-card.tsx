@@ -18,19 +18,22 @@ export function BookCard({
   isbn, title, author, publisher,
   coverUrl, availableCount, totalCount, status,
 }: BookCardProps) {
+  const displayCoverUrl = coverUrl || (isbn ? `https://www.aladin.co.kr/shop/common/getbookimage.aspx?ISBN=${isbn}&Size=Big` : undefined)
+
   return (
     <Link href={`/book/${isbn}`} className="group block">
       <article className="card-interactive flex gap-3 p-3.5">
         {/* 표지 */}
         <div className="shrink-0 w-[60px] h-[84px] rounded-sm overflow-hidden
                         bg-canvas-muted border border-border/50">
-          {coverUrl ? (
+          {displayCoverUrl ? (
             <Image
-              src={coverUrl}
+              src={displayCoverUrl}
               alt={`${title} 표지`}
               width={60} height={84}
               className="object-cover w-full h-full
                          group-hover:scale-[1.03] transition-transform duration-300"
+              unoptimized={!!displayCoverUrl.includes('aladin.co.kr')}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
