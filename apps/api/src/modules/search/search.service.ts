@@ -80,37 +80,27 @@ export class SearchService {
     try {
       this.logger.log(`[Search] Query: "${query.q}" (lat=${lat}, lng=${lng})`)
 
-      // 1차: Orama (로컬 인덱스, 즉시 응답)
-      const r = await this.orama.query({
-        q: query.q,
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
-        category: query.category,
-        sort: query.sort,
-      })
+      // Orama 쿼리 + Personalize context를 병렬 실행
+      const [r, personalizeCtx] = await Promise.all([
+        this.orama.query({
+          q: query.q,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
+          category: query.category,
+          sort: query.sort,
+        }),
+        this.personalize.loadContext(user, query.sort, query.personalize),
+      ])
       let hits = r.hits as any[]
       let source: SearchResultDto['source'] = 'orama'
 
+      // 알라딘은 항상 백그라운드로 캐시만 채움 (응답 블로킹 없음)
       const shouldFetchAladdin = page === 1 && query.q.length >= 2
       if (shouldFetchAladdin) {
-        if (hits.length < pageSize) {
-          // 결과 부족 → 알라딘 await하여 병합
-          const aladdinHits = await this.aladdin.searchAndCache(query.q).catch(() => [] as any[])
-          if (aladdinHits.length > 0) {
-            this.orama.upsertMany(aladdinHits).catch(() => {})
-            hits = mergeUnique(hits, aladdinHits, 'isbn').slice(0, pageSize)
-            source = 'orama+aladdin'
-          }
-        } else {
-          // 결과 충분 → 알라딘은 백그라운드로 캐시만 채움 (응답 블로킹 없음)
-          this.aladdin.searchAndCache(query.q)
-            .then((h) => { if (h.length > 0) return this.orama.upsertMany(h) })
-            .catch(() => {})
-        }
+        this.aladdin.searchAndCache(query.q)
+          .then((h) => { if (h.length > 0) return this.orama.upsertMany(h) })
+          .catch(() => {})
       }
-
-      // Personalize context 로딩
-      const personalizeCtx = await this.personalize.loadContext(user, query.sort, query.personalize)
 
       // 3. Library Enrichment
       let finalResults: any[] = hits
@@ -130,11 +120,11 @@ export class SearchService {
 
       const total = query.availableOnly ? rankedItems.length : r.total
 
-      // zero result 로그
+      // zero result 로그 (fire-and-forget)
       if (rankedItems.length === 0) {
-        await db.insert(searchLogs).values({ query: query.q, resultCount: 0, region: null }).catch(() => {})
+        db.insert(searchLogs).values({ query: query.q, resultCount: 0, region: null }).catch(() => {})
       } else {
-        await this.logSearch(query, total).catch(() => {})
+        this.logSearch(query, total).catch(() => {})
       }
 
       const result: SearchResultDto = {
