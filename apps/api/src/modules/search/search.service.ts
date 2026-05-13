@@ -102,25 +102,35 @@ export class SearchService {
           .catch(() => {})
       }
 
-      // 3. Library Enrichment
-      let finalResults: any[] = hits
+      // 3. Library Enrichment (10초 타임아웃 — 정보나루 장애 시 검색 결과 블로킹 방지)
+      const noLibInfo = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
+      let finalResults: any[] = noLibInfo
 
-      if (query.libraryId) {
-        // 특정 도서관 선택: 해당 도서관 소장 여부 확인
-        finalResults = await this.checkSpecificLibrary(hits, query.libraryId)
-        if (query.availableOnly) {
-          finalResults = finalResults.filter((b: any) => (b.libraryHoldings || 0) > 0)
-        }
-      } else if (lat && lng) {
-        // 지역/GPS 기반: 주변 도서관 소장 정보 enrichment
-        finalResults = await this.enrichWithLibraries(hits, lat, lng)
-        if (query.availableOnly) {
-          finalResults = finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
-        }
-      } else if (personalizeCtx.applied) {
-        finalResults = await this.checkFavoriteHoldings(hits, personalizeCtx.myLibraryIds)
-      } else {
-        finalResults = hits.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
+      try {
+        const enrichPromise = (async () => {
+          if (query.libraryId) {
+            return this.checkSpecificLibrary(hits, query.libraryId)
+          } else if (lat && lng) {
+            return this.enrichWithLibraries(hits, lat, lng)
+          } else if (personalizeCtx.applied) {
+            return this.checkFavoriteHoldings(hits, personalizeCtx.myLibraryIds)
+          }
+          return noLibInfo
+        })()
+
+        finalResults = await Promise.race([
+          enrichPromise,
+          new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('enrichment timeout')), 10_000)),
+        ])
+      } catch (err) {
+        this.logger.warn(`Library enrichment skipped: ${(err as Error).message}`)
+        finalResults = noLibInfo
+      }
+
+      if (query.availableOnly) {
+        finalResults = query.libraryId
+          ? finalResults.filter((b: any) => (b.libraryHoldings || 0) > 0)
+          : finalResults.filter((b: any) => (b.loanAvailable || 0) > 0)
       }
 
       // Personalize 재정렬
@@ -242,22 +252,28 @@ export class SearchService {
       return books.map((b: any) => ({ ...b, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }))
     }
 
+    const ENRICH_TIMEOUT_MS = 8000
+
     return Promise.all(
       books.map(async (book) => {
-        let libs: Array<{ id?: number; holdingCount?: number; loanAvailable?: number }> = []
+        const fallback = { ...book, libraryHoldings: 0, loanAvailable: 0, matchedLibraryIds: [] }
         try {
-          libs = await this.libraries.findNearWithBookUsingLibs(nearLibs, book.isbn)
+          const libs = await Promise.race([
+            this.libraries.findNearWithBookUsingLibs(nearLibs, book.isbn),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('enrich timeout')), ENRICH_TIMEOUT_MS)),
+          ])
+          return {
+            ...book,
+            libraryHoldings: libs.reduce((s: number, l: any) => s + (l.holdingCount ?? 0), 0),
+            loanAvailable: libs.reduce((s: number, l: any) => s + (l.loanAvailable ?? 0), 0),
+            matchedLibraryIds: libs
+              .filter((l: any) => (l.holdingCount ?? 0) > 0)
+              .map((l: any) => l.id)
+              .filter(Boolean),
+          }
         } catch (err) {
           this.logger.warn(`enrich failed isbn=${book.isbn}: ${(err as Error).message}`)
-        }
-        return {
-          ...book,
-          libraryHoldings: libs.reduce((s, l) => s + (l.holdingCount ?? 0), 0),
-          loanAvailable: libs.reduce((s, l) => s + (l.loanAvailable ?? 0), 0),
-          matchedLibraryIds: libs
-            .filter((l) => (l.holdingCount ?? 0) > 0)
-            .map((l) => l.id)
-            .filter(Boolean),
+          return fallback
         }
       }),
     )
