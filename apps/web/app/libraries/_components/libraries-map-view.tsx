@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
+import Link from 'next/link'
 import { useMapLibraries } from '@/hooks/use-map-libraries'
 import { NaverInteractiveMap } from '@/components/maps/naver-interactive-map'
 import type { NaverBounds } from '@/hooks/use-naver-map'
@@ -180,7 +181,7 @@ export function LibrariesMapView() {
               </div>
             ) : (
               libraries.map((lib) => (
-                <a
+                <Link
                   key={lib.id}
                   href={`/library/${lib.id}`}
                   className={`block p-3 border-b hover:bg-primary-50 transition-colors ${
@@ -191,7 +192,7 @@ export function LibrariesMapView() {
                 >
                   <p className="font-medium text-sm">{lib.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{lib.address}</p>
-                </a>
+                </Link>
               ))
             )}
           </div>

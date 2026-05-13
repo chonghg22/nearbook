@@ -8,7 +8,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-const SUPPRESS_KEY = 'pwa-install-suppressed-until'
+const SUPPRESS_KEY = 'pwa-install-dismissed'
 const VISIT_COUNT_KEY = 'pwa-visit-count'
 const BOOK_VIEW_COUNT_KEY = 'pwa-book-view-count'
 
@@ -35,8 +35,7 @@ export function InstallPrompt() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const suppressedUntil = Number(window.localStorage.getItem(SUPPRESS_KEY) || 0)
-    if (Date.now() < suppressedUntil) return
+    if (window.localStorage.getItem(SUPPRESS_KEY)) return
 
     const visitCount = Number(window.localStorage.getItem(VISIT_COUNT_KEY) || 0)
     const bookViewCount = Number(window.localStorage.getItem(BOOK_VIEW_COUNT_KEY) || 0)
@@ -66,8 +65,8 @@ export function InstallPrompt() {
     return () => window.removeEventListener('beforeinstallprompt', handler)
   }, [])
 
-  function suppress(days: number) {
-    window.localStorage.setItem(SUPPRESS_KEY, String(Date.now() + days * 86_400_000))
+  function dismiss() {
+    window.localStorage.setItem(SUPPRESS_KEY, '1')
     setShowAndroid(false)
     setShowIos(false)
   }
@@ -80,12 +79,7 @@ export function InstallPrompt() {
     const { outcome } = await promptEvent.userChoice
     trackEvent('pwa_install_result', { platform: 'android', outcome })
 
-    if (outcome === 'dismissed') {
-      suppress(7)
-      return
-    }
-
-    setShowAndroid(false)
+    dismiss()
   }
 
   if (showIos) {
@@ -95,7 +89,7 @@ export function InstallPrompt() {
           <>
             <button
               type="button"
-              onClick={() => suppress(14)}
+              onClick={() => dismiss()}
               className="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700"
             >
               나중에
@@ -123,7 +117,7 @@ export function InstallPrompt() {
           </button>
           <button
             type="button"
-            onClick={() => suppress(7)}
+            onClick={() => dismiss()}
             className="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700"
           >
             나중에

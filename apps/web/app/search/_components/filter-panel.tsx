@@ -16,7 +16,7 @@ export function FilterPanel({ category, sort, availableOnly, onChange }: Props) 
         className="px-3 py-1.5 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         aria-label="카테고리"
       >
-        <option value="all">전체</option>
+        <option value="">전체</option>
         <option value="novel">소설</option>
         <option value="essay">에세이</option>
         <option value="children">어린이</option>
@@ -38,7 +38,7 @@ export function FilterPanel({ category, sort, availableOnly, onChange }: Props) 
         <input
           type="checkbox"
           checked={availableOnly}
-          onChange={(e) => onChange('availableOnly', e.target.checked ? '1' : null)}
+          onChange={(e) => onChange('availableOnly', e.target.checked ? 'true' : null)}
           className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary-500"
         />
         대출 가능만
