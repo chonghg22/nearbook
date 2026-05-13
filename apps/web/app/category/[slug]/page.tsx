@@ -7,7 +7,7 @@ import { BookGrid, ExploreShell, SourceNote, type ExploreBook } from '../../expl
 const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL!
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
 
-export const revalidate = 60 // 임시: 캐시 갱신 후 3600으로 복원
+export const revalidate = 3600 // 1시간
 export const dynamicParams = false
 
 export function generateStaticParams() {

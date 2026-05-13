@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { CATEGORIES, CATEGORY_BY_KDC } from '@/lib/category-config'
 import { BookGrid, ExploreShell, SourceNote, type ExploreBook } from '../explore/_components/explore-ui'
 
-export const revalidate = 60 // 임시: 캐시 갱신 후 21600으로 복원
+export const revalidate = 3600 // 1시간
 
 const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL!
 
