@@ -28,7 +28,7 @@ async function fetchBook(isbn: string) {
 async function fetchAnalysis(isbn: string) {
   try {
     const res = await fetch(`${API_URL}/books/${isbn}/analysis`, {
-      next: { revalidate: 86400 },
+      cache: 'no-store',
     })
     if (!res.ok) return null
     const json = await res.json()
