@@ -1,7 +1,6 @@
-import { Controller, Get, Param, Query, DefaultValuePipe, ParseIntPipe, UseGuards, Req } from '@nestjs/common'
+import { Controller, Get, Param, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { BooksService } from './books.service'
-import { OptionalAuthGuard } from '../auth/auth.guard'
 
 @ApiTags('books')
 @Controller('books')
@@ -74,25 +73,16 @@ export class BooksController {
   }
 
   @Get(':isbn/with-libraries')
-  @UseGuards(OptionalAuthGuard)
-  @ApiOperation({ summary: '책 + 주변/지역/회원 도서관 보유 + affiliate' })
+  @ApiOperation({ summary: '책 + 주변 도서관 보유 + affiliate' })
   getWithLibraries(
     @Param('isbn') isbn: string,
     @Query('lat') lat: string,
     @Query('lng') lng: string,
     @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number,
-    @Query('region') region?: string,
-    @Req() req?: any,
   ) {
     const defaultLat = parseFloat(lat) || 37.5665
     const defaultLng = parseFloat(lng) || 126.978
-    return this.service.getWithLibraries(isbn, {
-      lat: defaultLat,
-      lng: defaultLng,
-      radiusKm: radius,
-      region,
-      user: req?.user,
-    })
+    return this.service.getWithLibraries(isbn, defaultLat, defaultLng, radius)
   }
 
   @Get(':isbn')

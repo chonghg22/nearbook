@@ -7,6 +7,5 @@ import { AuthModule } from '../auth/auth.module'
   imports: [AuthModule],
   controllers: [LibraryCardsController],
   providers: [LibraryCardsService],
-  exports: [LibraryCardsService],
 })
 export class LibraryCardsModule {}
