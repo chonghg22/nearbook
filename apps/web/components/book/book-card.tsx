@@ -19,7 +19,8 @@ export function BookCard({
   coverUrl, availableCount, totalCount, status,
 }: BookCardProps) {
   // coverUrl이 없거나 빈 문자열인 경우 알라딘 표지 서비스로 폴백
-  const displayCoverUrl = coverUrl && coverUrl.trim().length > 0 
+  const hasCoverUrl = typeof coverUrl === 'string' && coverUrl.trim().length > 0
+  const displayCoverUrl = hasCoverUrl
     ? coverUrl 
     : (isbn ? `https://www.aladin.co.kr/shop/common/getbookimage.aspx?ISBN=${isbn}&Size=Big` : undefined)
 
