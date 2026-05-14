@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'http', hostname: 'image.aladin.co.kr' },
       { protocol: 'https', hostname: 'image.aladin.co.kr' },
+      { protocol: 'https', hostname: 'www.aladin.co.kr' },
       { protocol: 'https', hostname: 'cover.nl.go.kr' },
       { protocol: 'https', hostname: 'bookthumb-phinf.pstatic.net' },
     ],

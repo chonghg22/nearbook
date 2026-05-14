@@ -18,7 +18,10 @@ export function BookCard({
   isbn, title, author, publisher,
   coverUrl, availableCount, totalCount, status,
 }: BookCardProps) {
-  const displayCoverUrl = coverUrl || (isbn ? `https://www.aladin.co.kr/shop/common/getbookimage.aspx?ISBN=${isbn}&Size=Big` : undefined)
+  // coverUrl이 없거나 빈 문자열인 경우 알라딘 표지 서비스로 폴백
+  const displayCoverUrl = coverUrl && coverUrl.trim().length > 0 
+    ? coverUrl 
+    : (isbn ? `https://www.aladin.co.kr/shop/common/getbookimage.aspx?ISBN=${isbn}&Size=Big` : undefined)
 
   return (
     <Link href={`/book/${isbn}`} className="group block">
