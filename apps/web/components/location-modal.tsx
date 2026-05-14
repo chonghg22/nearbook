@@ -22,9 +22,11 @@ interface LibrarySearchResult {
 export function LocationModal({
   isOpen,
   onClose,
+  onSelect,
 }: {
   isOpen: boolean
   onClose: () => void
+  onSelect?: (regionLabel: string) => void
 }) {
   const { location, requestGps, selectRegion, selectLibrary } = useLocationContext()
   const [activeTab, setActiveTab] = useState<Tab>('gps')
@@ -76,8 +78,13 @@ export function LocationModal({
   }
 
   function handleRegionSelect(slug: string) {
-    selectRegion(slug)
-    onClose()
+    const coord = REGION_COORDS[slug]
+    if (onSelect && coord) {
+      onSelect(coord.label)
+    } else {
+      selectRegion(slug)
+      onClose()
+    }
   }
 
   function handleLibrarySelect(lib: LibrarySearchResult) {
