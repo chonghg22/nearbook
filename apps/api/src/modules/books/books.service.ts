@@ -100,6 +100,7 @@ export class BooksService {
 
     try {
       const analysis = await this.jeongbonaru.getBookUsageAnalysis(isbn)
+      await this.enrichAnalysisCoverUrls(analysis)
       this.cache.set(cacheKey, analysis, 24 * 60 * 60 * 1000)
       return analysis
     } catch (err) {
@@ -112,6 +113,23 @@ export class BooksService {
         coLoanBooks: [],
         maniaRecBooks: [],
         readerRecBooks: [],
+      }
+    }
+  }
+
+  private async enrichAnalysisCoverUrls(analysis: any) {
+    const bookLists = [analysis.coLoanBooks, analysis.maniaRecBooks, analysis.readerRecBooks]
+    const isbns = bookLists.flatMap((list: any[]) =>
+      (list ?? []).filter((b: any) => b.isbn && !b.coverUrl).map((b: any) => b.isbn),
+    )
+    if (isbns.length === 0) return
+
+    const coverMap = await this.repo.findCoversByIsbns([...new Set(isbns)])
+    for (const list of bookLists) {
+      for (const book of list ?? []) {
+        if (!book.coverUrl && coverMap.has(book.isbn)) {
+          book.coverUrl = coverMap.get(book.isbn)
+        }
       }
     }
   }

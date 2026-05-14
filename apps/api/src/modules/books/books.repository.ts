@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { db, bookCache, popularBooks, eq, desc, asc, sql } from '@nearbook/db'
+import { db, bookCache, popularBooks, eq, desc, asc, sql, inArray } from '@nearbook/db'
 
 @Injectable()
 export class BooksRepository {
@@ -46,6 +46,19 @@ export class BooksRepository {
       .limit(limit)
 
     return rows.filter((row): row is { category: string; count: number } => Boolean(row.category))
+  }
+
+  async findCoversByIsbns(isbns: string[]): Promise<Map<string, string>> {
+    if (isbns.length === 0) return new Map()
+    const rows = await db
+      .select({ isbn: bookCache.isbn, coverUrl: bookCache.coverUrl })
+      .from(bookCache)
+      .where(inArray(bookCache.isbn, isbns))
+    const map = new Map<string, string>()
+    for (const row of rows) {
+      if (row.coverUrl) map.set(row.isbn, row.coverUrl)
+    }
+    return map
   }
 
   async getByCategory(category: string, limit = 40) {
