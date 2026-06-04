@@ -7,6 +7,7 @@ const navItems = [
   { href: '/me', label: '대시보드' },
   { href: '/me/wishlist', label: '위시리스트' },
   { href: '/me/libraries', label: '내 도서관' },
+  { href: '/me/events', label: '문화행사' },
   { href: '/me/notifications', label: '알림 설정' },
 ]
 

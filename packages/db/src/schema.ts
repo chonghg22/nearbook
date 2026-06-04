@@ -44,6 +44,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   wishlists: many(wishlists),
   libraryCards: many(libraryCards),
   feedbacks: many(feedback),
+  eventApplications: many(eventApplicationRequests),
 }))
 
 // 2. 도서관 (1,400+ 마스터)
@@ -364,4 +365,83 @@ export const searchStats = nearbookSchema.table('search_stats', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (t) => ({
   pk: primaryKey({ columns: [t.query, t.searchType] }),
+}))
+
+// 20. 관리자 계정
+export const adminUsers = nearbookSchema.table('admin_users', {
+  id: serial('id').primaryKey(),
+  email: varchar('email', { length: 256 }).notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  role: varchar('role', { length: 32 }).notNull().default('super_admin'),
+  status: varchar('status', { length: 16 }).notNull().default('active'),
+  totpEnabled: boolean('totp_enabled').notNull().default(false),
+  totpSecretEncrypted: text('totp_secret_encrypted'),
+  pendingTotpSecretEncrypted: text('pending_totp_secret_encrypted'),
+  failedLoginCount: integer('failed_login_count').notNull().default(0),
+  lockedUntil: timestamp('locked_until'),
+  lastLoginAt: timestamp('last_login_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  emailIdx: uniqueIndex('admin_users_email_idx').on(t.email),
+  statusIdx: index('admin_users_status_idx').on(t.status),
+}))
+
+// 21. 도서관 문화행사
+export const libraryEventPrograms = nearbookSchema.table('library_event_programs', {
+  id: serial('id').primaryKey(),
+  libraryId: integer('library_id').notNull().references(() => libraries.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 256 }).notNull(),
+  summary: varchar('summary', { length: 512 }),
+  description: text('description').notNull(),
+  capacity: integer('capacity').notNull(),
+  confirmedCount: integer('confirmed_count').notNull().default(0),
+  status: varchar('status', { length: 16 }).notNull().default('published'),
+  startsAt: timestamp('starts_at').notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  applicationOpensAt: timestamp('application_opens_at').notNull(),
+  applicationClosesAt: timestamp('application_closes_at').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  libraryIdx: index('library_event_programs_library_idx').on(t.libraryId),
+  statusApplicationIdx: index('library_event_programs_status_application_idx').on(
+    t.status,
+    t.applicationOpensAt,
+    t.applicationClosesAt,
+  ),
+}))
+
+export const libraryEventProgramsRelations = relations(libraryEventPrograms, ({ one, many }) => ({
+  library: one(libraries, { fields: [libraryEventPrograms.libraryId], references: [libraries.id] }),
+  applications: many(eventApplicationRequests),
+}))
+
+// 22. 행사 신청 큐
+export const eventApplicationRequests = nearbookSchema.table('event_application_requests', {
+  id: serial('id').primaryKey(),
+  programId: integer('program_id').notNull().references(() => libraryEventPrograms.id, { onDelete: 'cascade' }),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  idempotencyKey: varchar('idempotency_key', { length: 128 }).notNull(),
+  status: varchar('status', { length: 16 }).notNull().default('queued'),
+  queuePosition: integer('queue_position'),
+  retryCount: integer('retry_count').notNull().default(0),
+  processedAt: timestamp('processed_at'),
+  cancelledAt: timestamp('cancelled_at'),
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+  programStatusIdx: index('event_applications_program_status_idx').on(t.programId, t.status, t.createdAt),
+  userIdx: index('event_applications_user_idx').on(t.userId),
+  uniqueProgramUser: uniqueIndex('event_applications_program_user_idx').on(t.programId, t.userId),
+  uniqueIdempotency: uniqueIndex('event_applications_idempotency_idx').on(t.programId, t.idempotencyKey),
+}))
+
+export const eventApplicationRequestsRelations = relations(eventApplicationRequests, ({ one }) => ({
+  program: one(libraryEventPrograms, {
+    fields: [eventApplicationRequests.programId],
+    references: [libraryEventPrograms.id],
+  }),
+  user: one(users, { fields: [eventApplicationRequests.userId], references: [users.id] }),
 }))

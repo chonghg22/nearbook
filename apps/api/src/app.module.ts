@@ -21,6 +21,8 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module'
 import { HealthModule } from './modules/health/health.module'
 import { CommonModule } from './common/common.module'
 import { CacheModule } from './common/cache/cache.module'
+import { AdminModule } from './modules/admin/admin.module'
+import { EventApplicationsModule } from './modules/event-applications/event-applications.module'
 
 @Module({
   imports: [
@@ -46,6 +48,8 @@ import { CacheModule } from './common/cache/cache.module'
     NotificationsModule,
     WebhooksModule,
     HealthModule,
+    AdminModule,
+    EventApplicationsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,5 +1,6 @@
 import {
   Bookmark,
+  CalendarDays,
   CircleHelp,
   Compass,
   Flame,
@@ -24,6 +25,7 @@ export const primaryNavItems: NavItem[] = [
       { label: '이달의 키워드', href: '/keywords', icon: Sparkles },
       { label: '대출 급상승 도서', href: '/rising', icon: Flame },
       { label: '새로 들어온 책', href: '/new-books', icon: Bookmark },
+      { label: '문화행사', href: '/events', icon: CalendarDays },
     ],
   },
   {

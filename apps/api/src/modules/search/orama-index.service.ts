@@ -24,10 +24,16 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
   private readonly logger = new Logger(OramaIndexService.name)
   private index!: AnyOrama
   private dirtyCount = 0
-  private readonly indexPath = process.env.SEARCH_INDEX_PATH || '/data/orama-books.msgpack'
+  private readonly indexPath =
+    process.env.SEARCH_INDEX_PATH || path.resolve(process.cwd(), '.cache/orama-books.msgpack')
 
   async onApplicationBootstrap() {
-    await this.loadOrBuild()
+    try {
+      await this.loadOrBuild()
+    } catch (error) {
+      this.index = this.createEmptyIndex()
+      this.logger.error('Failed to initialize Orama index. Continuing with empty in-memory index.', error)
+    }
   }
 
   async onApplicationShutdown() {
@@ -46,21 +52,19 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
       this.logger.log('No disk index — building from book_cache')
     }
 
-    this.index = create({
-      schema: SCHEMA,
-      components: { tokenizer: koreanTokenizer },
-    })
+    this.index = this.createEmptyIndex()
 
-    await this.fullRebuild()
+    try {
+      await this.fullRebuild()
+    } catch (error) {
+      this.logger.error('Failed to build Orama index from book_cache. Starting with empty index.', error)
+    }
     this.logger.log(`Built Orama index in ${Date.now() - t0}ms`)
   }
 
   async fullRebuild() {
     // Re-create a fresh index to avoid duplicates
-    this.index = create({
-      schema: SCHEMA,
-      components: { tokenizer: koreanTokenizer },
-    })
+    this.index = this.createEmptyIndex()
 
     const batchSize = 1000
     let offset = 0
@@ -170,6 +174,13 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
     } catch (e) {
       this.logger.warn(`Persist failed: ${e}`)
     }
+  }
+
+  private createEmptyIndex() {
+    return create({
+      schema: SCHEMA,
+      components: { tokenizer: koreanTokenizer },
+    })
   }
 
   private toDoc(row: any) {
