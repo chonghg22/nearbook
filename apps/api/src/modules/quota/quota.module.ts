@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
-import { QuotaService } from './quota.service'
-import { QuotaCron } from './quota.cron'
+import { QuotaService } from './services/quota.service'
+import { QuotaCron } from './workers/quota.cron'
 
 @Module({
   providers: [QuotaService, QuotaCron],

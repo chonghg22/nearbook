@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
-import { LibraryCardsController } from './library-cards.controller'
-import { LibraryCardsService } from './library-cards.service'
+import { LibraryCardsController } from './controllers/library-cards.controller'
+import { LibraryCardsService } from './services/library-cards.service'
 import { AuthModule } from '../auth/auth.module'
 
 @Module({

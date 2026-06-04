@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
-import { JeongbonaruClient } from './jeongbonaru.client'
-import { JeongbonaruService } from './jeongbonaru.service'
-import { JeongbonaruProxyController } from './jeongbonaru-proxy.controller'
+import { JeongbonaruClient } from './services/jeongbonaru.client'
+import { JeongbonaruService } from './services/jeongbonaru.service'
+import { JeongbonaruProxyController } from './controllers/jeongbonaru-proxy.controller'
 
 @Module({
   controllers: [JeongbonaruProxyController],

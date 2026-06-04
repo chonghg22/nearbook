@@ -2,8 +2,8 @@ jest.mock('@nearbook/db', () => ({}))
 
 import { Test, TestingModule } from '@nestjs/testing'
 import { AppController } from './app.controller'
-import { JeongbonaruClient } from './modules/jeongbonaru/jeongbonaru.client'
-import { JeongbonaruService } from './modules/jeongbonaru/jeongbonaru.service'
+import { JeongbonaruClient } from './modules/jeongbonaru/services/jeongbonaru.client'
+import { JeongbonaruService } from './modules/jeongbonaru/services/jeongbonaru.service'
 import { CacheService } from './common/cache/cache.service'
 
 describe('AppController', () => {

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
-import { WishlistsController } from './wishlists.controller'
-import { WishlistsService } from './wishlists.service'
+import { WishlistsController } from './controllers/wishlists.controller'
+import { WishlistsService } from './services/wishlists.service'
 
 @Module({
   controllers: [WishlistsController],

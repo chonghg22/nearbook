@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common'
 import { AuthModule } from '../auth/auth.module'
-import { EventApplicationAdmissionService } from './event-application-admission.service'
-import { EventApplicationsController } from './event-applications.controller'
-import { EventApplicationsService } from './event-applications.service'
-import { EventApplicationsWorker } from './event-applications.worker'
+import { EventApplicationAdmissionService } from './services/event-application-admission.service'
+import { EventApplicationsController } from './controllers/event-applications.controller'
+import { EventApplicationsService } from './services/event-applications.service'
+import { EventApplicationsWorker } from './workers/event-applications.worker'
 
 @Module({
   imports: [AuthModule],

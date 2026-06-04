@@ -12,7 +12,7 @@ for (const envFile of ['.env.local', '.env']) {
 import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from '../app.module'
-import { HomeCurationsService } from '../modules/home-curations/home-curations.service'
+import { HomeCurationsService } from '../modules/home-curations/services/home-curations.service'
 
 type RefreshScope = 'home' | 'monthly' | 'categories' | 'libraries' | 'all'
 

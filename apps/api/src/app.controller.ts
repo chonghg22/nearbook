@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common'
-import { JeongbonaruClient } from './modules/jeongbonaru/jeongbonaru.client'
+import { JeongbonaruClient } from './modules/jeongbonaru/services/jeongbonaru.client'
 import { CacheService } from './common/cache/cache.service'
 
 @Controller()

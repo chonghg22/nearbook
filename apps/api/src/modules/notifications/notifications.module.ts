@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common'
-import { NotificationsController } from './notifications.controller'
-import { NotificationsService } from './notifications.service'
-import { WishlistDigestCron } from './wishlist-digest.cron'
-import { ResendClient } from './resend.client'
+import { NotificationsController } from './controllers/notifications.controller'
+import { NotificationsService } from './services/notifications.service'
+import { WishlistDigestCron } from './workers/wishlist-digest.cron'
+import { ResendClient } from './services/resend.client'
 import { NotifyModule } from '../notify/notify.module'
-import { PushService } from './push.service'
+import { PushService } from './services/push.service'
 import { JeongbonaruModule } from '../jeongbonaru/jeongbonaru.module'
 
 @Module({

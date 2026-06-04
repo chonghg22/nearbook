@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
-import { ResendWebhookController } from './resend.controller'
-import { ResendWebhookService } from './resend-webhook.service'
+import { ResendWebhookController } from './controllers/resend.controller'
+import { ResendWebhookService } from './services/resend-webhook.service'
 
 @Module({
   controllers: [ResendWebhookController],

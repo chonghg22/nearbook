@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
-import { FeedbackController } from './feedback.controller'
-import { FeedbackService } from './feedback.service'
+import { FeedbackController } from './controllers/feedback.controller'
+import { FeedbackService } from './services/feedback.service'
 import { AuthModule } from '../auth/auth.module'
 
 @Module({

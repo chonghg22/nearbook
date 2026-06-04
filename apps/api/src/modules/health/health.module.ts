@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common'
-import { MemoryWatchCron } from './memory-watch.cron'
+import { MemoryWatchCron } from './workers/memory-watch.cron'
 
 @Module({
   providers: [MemoryWatchCron],

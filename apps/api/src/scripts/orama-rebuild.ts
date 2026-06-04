@@ -12,7 +12,7 @@ for (const envFile of ['.env.local', '.env']) {
 import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from '../app.module'
-import { OramaIndexService } from '../modules/search/orama-index.service'
+import { OramaIndexService } from '../modules/search/services/orama-index.service'
 
 async function main() {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['log', 'warn', 'error'] })
