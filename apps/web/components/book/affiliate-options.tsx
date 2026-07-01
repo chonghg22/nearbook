@@ -1,6 +1,7 @@
 'use client'
 
 import useSWR from 'swr'
+import { trackEvent } from '@/lib/analytics'
 
 type AffiliateProvider = 'aladin' | 'aladin-used' | 'millie' | 'ridi' | 'welaaa'
 
@@ -34,11 +35,7 @@ async function fetchAffiliates(isbn: string): Promise<AffiliateItem[]> {
 }
 
 function logAffiliateClick(isbn: string, provider: string) {
-  fetch('/api/analytics/event', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'affiliate_click', payload: { isbn, provider } }),
-  }).catch(() => {})
+  trackEvent('affiliate_click', { isbn, provider })
 }
 
 export function AffiliateOptions({ isbn }: { isbn: string }) {

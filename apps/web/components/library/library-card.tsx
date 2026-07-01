@@ -11,12 +11,13 @@ interface LibraryCardProps {
   status: Status
   reservationUrl?: string | undefined
   directionsUrl?: string | undefined
+  onClick?: ((action: 'reservation' | 'directions') => void) | undefined
 }
 
 export function LibraryCard({
   libraryId, libraryName, distanceKm, walkMinutes,
   availableCount, waitingCount, status,
-  reservationUrl, directionsUrl,
+  reservationUrl, directionsUrl, onClick,
 }: LibraryCardProps) {
   return (
     <article className="card-base p-4 flex flex-col gap-3">
@@ -52,6 +53,7 @@ export function LibraryCard({
             href={reservationUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => onClick?.('reservation')}
             className="flex-1 flex items-center justify-center
                        h-9 rounded-md text-sm font-medium
                        bg-primary text-primary-foreground
@@ -65,6 +67,7 @@ export function LibraryCard({
             href={directionsUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => onClick?.('directions')}
             className="flex items-center justify-center gap-1.5
                        h-9 px-3 rounded-md text-sm font-medium
                        bg-white border border-border text-muted-foreground

@@ -6,6 +6,7 @@ import { useLocationContext } from '@/lib/use-location-context'
 import { LocationBar } from '@/components/location-bar'
 import type { Status } from '@/components/ui/status-badge'
 import { Loader2 } from 'lucide-react'
+import { trackEvent } from '@/lib/analytics'
 
 interface Props {
   isbn: string
@@ -17,6 +18,16 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
   const [libraries, setLibraries] = useState(initialLibraries)
   const [isLoading, setIsLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
+
+  useEffect(() => {
+    trackEvent('library_status_view', {
+      isbn,
+      libraryCount: initialLibraries.length,
+      availableCount: initialLibraries.filter((lib: any) => lib.holdingCount > 0).length,
+      hasLocation: false,
+      source: 'initial',
+    })
+  }, [initialLibraries, isbn])
 
   useEffect(() => {
     if (!isLoaded) return
@@ -31,7 +42,15 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
         const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
         const res = await fetch(`${API_BASE}/books/${isbn}/with-libraries?lat=${location.lat}&lng=${location.lng}`)
         const data = await res.json()
-        setLibraries(data.libraries || [])
+        const nextLibraries = data.libraries || []
+        setLibraries(nextLibraries)
+        trackEvent('library_status_view', {
+          isbn,
+          libraryCount: nextLibraries.length,
+          availableCount: nextLibraries.filter((lib: any) => lib.holdingCount > 0).length,
+          hasLocation: true,
+          source: 'nearby',
+        })
       } catch (err) {
         console.error('Failed to fetch nearby libraries:', err)
       } finally {
@@ -67,6 +86,16 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
                 distanceKm={lib.distanceKm}
                 availableCount={lib.loanAvailable ? 1 : 0}
                 status={status}
+                onClick={(action) => {
+                  trackEvent('library_click', {
+                    isbn,
+                    libraryId: String(lib.id),
+                    libraryName: String(lib.name ?? ''),
+                    action,
+                    status,
+                    distanceKm: lib.distanceKm,
+                  })
+                }}
               />
             )
           })}

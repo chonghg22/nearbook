@@ -19,6 +19,7 @@ import { AffiliatesModule } from './modules/affiliates/affiliates.module'
 import { NotificationsModule } from './modules/notifications/notifications.module'
 import { WebhooksModule } from './modules/webhooks/webhooks.module'
 import { HealthModule } from './modules/health/health.module'
+import { AnalyticsModule } from './modules/analytics/analytics.module'
 import { CommonModule } from './common/common.module'
 import { CacheModule } from './common/cache/cache.module'
 
@@ -43,6 +44,7 @@ import { CacheModule } from './common/cache/cache.module'
     LibraryCardsModule,
     NoticesModule,
     FeedbackModule,
+    AnalyticsModule,
     NotificationsModule,
     WebhooksModule,
     HealthModule,

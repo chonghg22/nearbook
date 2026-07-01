@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
+import { trackEvent } from '@/lib/analytics'
 
 interface Props {
   isbn: string
@@ -44,6 +45,7 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
         const res = await apiFetch(`/wishlists/${isbn}`, { method: 'DELETE' })
         if (res.ok) {
           setAdded(false)
+          trackEvent('wishlist_remove', { isbn })
           showToast('위시리스트에서 제거됨')
         }
       } else {
@@ -64,6 +66,7 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
         }
         if (res.ok) {
           setAdded(true)
+          trackEvent('wishlist_add', { isbn })
           setToastMsg('위시리스트에 추가됨')
           setShowNotificationNudge(true)
           setTimeout(() => {

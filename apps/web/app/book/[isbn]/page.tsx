@@ -5,6 +5,7 @@ import { WishlistButton } from '@/components/book/wishlist-button'
 import { AffiliateOptions } from '@/components/book/affiliate-options'
 import { AdSenseSlot } from '@/components/ads/adsense-slot'
 import { LibraryStatus } from './_components/library-status'
+import { BookViewTracker } from './_components/book-view-tracker'
 
 const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3001'
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
@@ -96,6 +97,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
 
   return (
     <>
+      <BookViewTracker isbn={book.isbn} title={book.title} author={book.author} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

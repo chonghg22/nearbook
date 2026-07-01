@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { trackEvent } from '@/lib/analytics'
 
 type Item = {
   isbn: string
@@ -41,6 +42,13 @@ export function ResultList({ isLoading, items = [], error, query }: Props) {
         <li key={item.isbn}>
           <Link
             href={`/book/${item.isbn}`}
+            onClick={() => {
+              trackEvent('book_result_click', {
+                isbn: item.isbn,
+                title: item.title,
+                query,
+              })
+            }}
             className="flex gap-4 p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="flex-shrink-0 w-15 h-22 relative">

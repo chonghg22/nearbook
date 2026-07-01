@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import useSWR from 'swr'
 import { SearchBar } from './search-bar'
 import { FilterPanel } from './filter-panel'
@@ -9,6 +9,7 @@ import { ResultList } from './result-list'
 import { Pagination } from './pagination'
 import { PopularQueries } from './popular-queries'
 import { apiFetch } from '@/lib/api-client'
+import { trackEvent } from '@/lib/analytics'
 
 const PAGE_SIZE = 10
 
@@ -40,9 +41,30 @@ export function SearchPageInner() {
     fetcher,
     { keepPreviousData: true },
   )
+  const lastResultEventKey = useRef<string | null>(null)
 
   const total = data?.data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  useEffect(() => {
+    if (!q || !data?.data || isLoading) return
+
+    const eventKey = `${q}:${searchType}:${sort}:${page}:${total}`
+    if (lastResultEventKey.current === eventKey) return
+    lastResultEventKey.current = eventKey
+
+    trackEvent('search_result_view', {
+      query: q,
+      searchType,
+      sort,
+      page,
+      pageSize: PAGE_SIZE,
+      total,
+      resultCount: data.data.items?.length ?? 0,
+      durationMs: data.data.durationMs,
+      zeroResult: total === 0,
+    })
+  }, [data, isLoading, page, q, searchType, sort, total])
 
   const pushParams = useCallback((overrides: Record<string, string>) => {
     const next = new URLSearchParams({ q, sort, searchType, page: String(page) })
@@ -57,7 +79,16 @@ export function SearchPageInner() {
   }, [q, sort, searchType, page, router])
 
   const handleSearch = useCallback((query: string) => {
-    const next = new URLSearchParams({ q: query, searchType })
+    const nextQuery = query.trim()
+    if (!nextQuery) return
+
+    trackEvent('search_submit', {
+      query: nextQuery,
+      searchType,
+      source: 'search_page',
+    })
+
+    const next = new URLSearchParams({ q: nextQuery, searchType })
     router.push(`/search?${next.toString()}`)
   }, [router, searchType])
 
