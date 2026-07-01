@@ -98,13 +98,13 @@ export default async function HomePage() {
 
 export const metadata = {
   title: '우리동네책 | 한국 공공도서관 통합 책 검색',
-  description: '전국 1,400+ 공공도서관에서 책을 빠르게 찾고 빌리세요. 위치 기반 도서관 매칭, 보유 여부 확인.',
+  description: '전국 1,400+ 공공도서관에서 책 보유 여부와 대출 가능성을 빠르게 확인하세요. 위치 기반 도서관 매칭을 제공합니다.',
   alternates: {
     canonical: '/',
   },
   openGraph: {
     title: '우리동네책',
-    description: '우리 동네 도서관에서 책 빌리기',
+    description: '책 제목으로 가까운 공공도서관 보유 여부 확인',
     type: 'website',
   },
 }

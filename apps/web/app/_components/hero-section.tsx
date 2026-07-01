@@ -23,7 +23,7 @@ export function HeroSection({ monthlyKeywords }: HeroSectionProps) {
       </h1>
 
       <p className="mt-6 text-lg md:text-xl text-gray-600 max-w-2xl">
-        책 제목만 검색하면 근처 도서관에서 바로 빌릴 수 있는지 알려드려요.
+        책 제목만 검색하면 근처 도서관의 보유 여부와 대출 가능성을 확인할 수 있어요.
       </p>
 
       <div className="mt-10">

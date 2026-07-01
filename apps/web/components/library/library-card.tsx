@@ -11,7 +11,7 @@ interface LibraryCardProps {
   status: Status
   reservationUrl?: string | undefined
   directionsUrl?: string | undefined
-  onClick?: ((action: 'reservation' | 'directions') => void) | undefined
+  onClick?: ((action: 'library_site' | 'directions') => void) | undefined
 }
 
 export function LibraryCard({
@@ -53,13 +53,13 @@ export function LibraryCard({
             href={reservationUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => onClick?.('reservation')}
+            onClick={() => onClick?.('library_site')}
             className="flex-1 flex items-center justify-center
                        h-9 rounded-md text-sm font-medium
                        bg-primary text-primary-foreground
                        hover:bg-primary-600 transition-colors"
           >
-            예약하기
+            도서관에서 확인
           </a>
         )}
         {directionsUrl && (

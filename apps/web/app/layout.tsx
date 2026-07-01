@@ -15,7 +15,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { template: '%s | 우리동네책', default: '우리동네책 — 동네 도서관 책 찾기' },
-  description: '전국 1,400+ 공공도서관에서 책을 빠르게 찾아 빌리세요.',
+  description: '전국 1,400+ 공공도서관의 책 보유 여부와 대출 가능성을 빠르게 확인하세요.',
   applicationName: '우리동네책',
   icons: {
     icon: [

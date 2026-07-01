@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '우리동네책 — 동네 도서관에서 책 빌리기',
+    name: '우리동네책 — 동네 도서관 책 찾기',
     short_name: '우리동네책',
-    description: '한국 1,400+ 공공도서관 책 검색·예약 통합 사이트',
+    description: '한국 1,400+ 공공도서관 책 보유 여부와 대출 가능성 확인',
     start_url: '/?source=pwa',
     scope: '/',
     display: 'standalone',

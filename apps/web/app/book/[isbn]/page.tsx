@@ -63,7 +63,7 @@ export async function generateMetadata({ params }: { params: Promise<{ isbn: str
 
   return {
     title: `${book.title} — ${book.author}`,
-    description: `${book.title}을 우리 동네 공공도서관에서 빌릴 수 있는지 확인하세요. ${book.author} · ${book.publisher ?? ''}`,
+    description: `${book.title}의 공공도서관 보유 여부와 대출 가능성을 확인하세요. ${book.author} · ${book.publisher ?? ''}`,
     openGraph: {
       type: 'book',
       title: book.title,

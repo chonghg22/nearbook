@@ -32,7 +32,7 @@ export function LibrariesNearMe({ fallbackLibraries }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [centerLibraries, setCenterLibraries] = useState<Library[]>([])
   
-  // 1. 실시간 지도 영역(Bounds) 기반 데이터
+  // 1. 현재 지도 영역(Bounds) 기반 데이터
   const { libraries: mapLibraries, isLoading: isMapLoading } = useMapLibraries(bounds)
 
   // 2. 초기 로딩 시 혹은 위치 변경 시 센터(좌표) 기반 데이터 페칭
