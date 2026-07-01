@@ -18,7 +18,7 @@ export function SiteFooter() {
               <span className="text-base font-bold text-gray-900">우리동네책</span>
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-gray-600">
-              한국 1,400+ 공공도서관에서 책을 빠르게 찾고 빌려보세요.
+              한국 1,400+ 공공도서관의 책 보유 여부와 대출 가능성을 확인하세요.
             </p>
           </div>
 
@@ -41,7 +41,7 @@ export function SiteFooter() {
               <li><Link href="/terms" className="hover:text-primary">이용약관</Link></li>
               <li><Link href="/privacy" className="hover:text-primary">개인정보처리방침</Link></li>
               <li><Link href="/notices" className="hover:text-primary">공지사항</Link></li>
-              <li><Link href="/qna" className="hover:text-primary">묻고답하기</Link></li>
+              <li><Link href="/qna" className="hover:text-primary">자주 묻는 질문</Link></li>
               <li><Link href="/feedback" className="hover:text-primary">오류신고&건의사항</Link></li>
             </ul>
           </div>

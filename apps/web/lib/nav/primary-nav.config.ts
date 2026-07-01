@@ -32,7 +32,7 @@ export const primaryNavItems: NavItem[] = [
     icon: Megaphone,
     children: [
       { label: '공지사항', href: '/notices', icon: Megaphone },
-      { label: '묻고답하기', href: '/qna', icon: CircleHelp },
+      { label: '자주 묻는 질문', href: '/qna', icon: CircleHelp },
       { label: '오류신고&건의사항', href: '/feedback', icon: MessageSquareWarning },
     ],
   },
