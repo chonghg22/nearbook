@@ -1,10 +1,11 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { BookGrid, ExploreShell, SourceNote, type ExploreBook } from '../explore/_components/explore-ui'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
 export const revalidate = 3600
 
-const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL!
+const API_URL = SERVER_API_BASE_URL
 
 export const metadata: Metadata = {
   title: '새로 들어온 책 | 우리동네책',

@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
 export const revalidate = 86400
 export const dynamicParams = true
 
-const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL!
+const API_URL = SERVER_API_BASE_URL
 
 type Notice = {
   id: number

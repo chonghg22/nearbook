@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'
+const API_BASE = PUBLIC_API_BASE_URL
 
 interface RegionSelectorProps {
   onChange: (region: string) => void

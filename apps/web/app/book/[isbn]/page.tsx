@@ -6,8 +6,9 @@ import { AffiliateOptions } from '@/components/book/affiliate-options'
 import { AdSenseSlot } from '@/components/ads/adsense-slot'
 import { LibraryStatus } from './_components/library-status'
 import { BookViewTracker } from './_components/book-view-tracker'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
-const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3001'
+const API_URL = SERVER_API_BASE_URL
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
 export const revalidate = 2592000 // 30일
 export const dynamicParams = true

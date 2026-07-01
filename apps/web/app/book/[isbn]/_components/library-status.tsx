@@ -7,6 +7,7 @@ import { LocationBar } from '@/components/location-bar'
 import type { Status } from '@/components/ui/status-badge'
 import { Loader2 } from 'lucide-react'
 import { trackEvent } from '@/lib/analytics'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
 interface Props {
   isbn: string
@@ -39,8 +40,7 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
     const fetchNearby = async () => {
       setIsLoading(true)
       try {
-        const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
-        const res = await fetch(`${API_BASE}/books/${isbn}/with-libraries?lat=${location.lat}&lng=${location.lng}`)
+        const res = await fetch(`${PUBLIC_API_BASE_URL}/books/${isbn}/with-libraries?lat=${location.lat}&lng=${location.lng}`)
         const data = await res.json()
         const nextLibraries = data.libraries || []
         setLibraries(nextLibraries)

@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
 export const revalidate = 86400
 
-const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL!
+const API_URL = SERVER_API_BASE_URL
 
 export const metadata: Metadata = {
   title: '공지사항',

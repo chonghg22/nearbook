@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { CATEGORIES, CATEGORY_BY_SLUG } from '@/lib/category-config'
 import { BookGrid, ExploreShell, SourceNote, type ExploreBook } from '../../explore/_components/explore-ui'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
-const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL!
+const API_URL = SERVER_API_BASE_URL
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
 
 export const revalidate = 3600 // 1시간

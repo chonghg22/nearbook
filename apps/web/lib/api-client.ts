@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'
+const API_BASE = PUBLIC_API_BASE_URL
 
 function readAccessTokenFromCookie() {
   if (typeof document === 'undefined') return null

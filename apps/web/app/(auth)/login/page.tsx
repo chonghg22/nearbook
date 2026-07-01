@@ -5,11 +5,11 @@ import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
 
 function LoginContent() {
-  const supabase = createClient()
   const params = useSearchParams()
   const next = params.get('next') ?? '/'
 
   async function handleKakaoLogin() {
+    const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'kakao',
       options: {

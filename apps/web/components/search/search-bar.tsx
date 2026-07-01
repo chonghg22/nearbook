@@ -8,6 +8,7 @@ import { Camera, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import Image from 'next/image'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
 interface Props {
   defaultValue?: string
@@ -39,7 +40,7 @@ export function SearchBar({
 
   const { data: suggestions, isLoading } = useSWR<{ data: Suggestion[] }>(
     debounced.length >= 2
-      ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/search/suggest?q=${encodeURIComponent(debounced)}`
+      ? `${PUBLIC_API_BASE_URL}/search/suggest?q=${encodeURIComponent(debounced)}`
       : null,
     (url: string) => fetch(url).then((r) => r.json())
   )

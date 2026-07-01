@@ -3,10 +3,11 @@ import { BookListSection } from './_components/book-list-section'
 import { LibrariesNearMe } from './_components/libraries-near-me'
 import { AboutSection } from './_components/about-section'
 import { AdSenseSlot } from './_components/adsense-slot'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
 export const revalidate = 60 // 1분 (데이터 안정화 후 3600으로 복원)
 
-const API = process.env.INTERNAL_API_URL || 'http://localhost:3001'
+const API = SERVER_API_BASE_URL
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
 const MONTHLY_KEYWORDS_FALLBACK = [
   { word: '한강', weight: 0 },

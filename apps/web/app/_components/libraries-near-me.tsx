@@ -8,6 +8,7 @@ import { NaverInteractiveMap } from '@/components/maps/naver-interactive-map'
 import { useLocationContext } from '@/lib/use-location-context'
 import { useMapLibraries } from '@/hooks/use-map-libraries'
 import type { NaverBounds } from '@/hooks/use-naver-map'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
 interface Library {
   id: number
@@ -38,8 +39,7 @@ export function LibrariesNearMe({ fallbackLibraries }: Props) {
   // 2. 초기 로딩 시 혹은 위치 변경 시 센터(좌표) 기반 데이터 페칭
   const fetchByCenter = useCallback(async (lat: number, lng: number) => {
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
-      const res = await fetch(`${API_BASE}/libraries/near?lat=${lat}&lng=${lng}&limit=12`)
+      const res = await fetch(`${PUBLIC_API_BASE_URL}/libraries/near?lat=${lat}&lng=${lng}&limit=12`)
       const json = await res.json()
       // unwrap envelope
       const items = Array.isArray(json) ? json : (json.data?.items ?? json.data ?? [])

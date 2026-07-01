@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { NotificationSettingsForm } from './_components/notification-settings-form'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
-const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
+const API_URL = SERVER_API_BASE_URL
 
 export const metadata = { title: '알림 설정 | 우리동네책' }
 

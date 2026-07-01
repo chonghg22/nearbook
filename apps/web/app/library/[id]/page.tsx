@@ -6,8 +6,9 @@ import { LocationMap } from '@/components/library/location-map'
 import { LibraryFavoriteButton } from '@/components/library/library-favorite-button'
 import { BookCard } from '@/components/book/book-card'
 import { createServerClient } from '@/lib/supabase/server'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
-const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
+const API_URL = SERVER_API_BASE_URL
 export const revalidate = 604800 // 1주
 
 function fetchWithTimeout(

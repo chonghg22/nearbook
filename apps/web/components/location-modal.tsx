@@ -4,10 +4,11 @@ import { X, Locate, Map, Building2, Search, Loader2 } from 'lucide-react'
 import useSWR from 'swr'
 import { useLocationContext } from '@/lib/use-location-context'
 import { REGION_TREE, REGION_COORDS } from '@/lib/region-coords'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
 type Tab = 'gps' | 'region' | 'library'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL!
+const API_BASE = PUBLIC_API_BASE_URL
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 interface LibrarySearchResult {

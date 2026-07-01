@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
-const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'
+const API_URL = PUBLIC_API_BASE_URL
 
 export async function GET(req: NextRequest) {
   const sido = req.nextUrl.searchParams.get('sido') ?? ''

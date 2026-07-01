@@ -1,8 +1,9 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { WishlistView } from './_components/wishlist-view'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
-const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
+const API_URL = SERVER_API_BASE_URL
 
 export const metadata = { title: '내 위시리스트 | 우리동네책' }
 

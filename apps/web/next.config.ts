@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.INTERNAL_API_URL ?? 'http://localhost:3001'}/:path*`,
+        destination: `${process.env.INTERNAL_API_URL ?? 'https://api.near-book.com'}/:path*`,
       },
     ]
   },

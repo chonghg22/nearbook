@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
-const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL!
+const API_URL = PUBLIC_API_BASE_URL
 
 type Category = 'bug' | 'suggestion' | 'other'
 

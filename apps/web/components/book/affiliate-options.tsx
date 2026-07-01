@@ -2,6 +2,7 @@
 
 import useSWR from 'swr'
 import { trackEvent } from '@/lib/analytics'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
 type AffiliateProvider = 'aladin' | 'aladin-used' | 'millie' | 'ridi' | 'welaaa'
 
@@ -27,8 +28,7 @@ const TYPE_BADGE: Record<string, { label: string; className: string }> = {
 }
 
 async function fetchAffiliates(isbn: string): Promise<AffiliateItem[]> {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'
-  const res = await fetch(`${apiBase}/books/${isbn}/affiliates`)
+  const res = await fetch(`${PUBLIC_API_BASE_URL}/books/${isbn}/affiliates`)
   if (!res.ok) return []
   const json = await res.json()
   return json.data ?? []

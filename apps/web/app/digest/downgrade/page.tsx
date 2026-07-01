@@ -1,6 +1,7 @@
 import Link from 'next/link'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
-const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
+const API_URL = SERVER_API_BASE_URL
 
 export const metadata = { title: '이메일 주기 변경 | 우리동네책' }
 

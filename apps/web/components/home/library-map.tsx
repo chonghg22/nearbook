@@ -4,8 +4,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { getStaticMapUrl } from '@/lib/maps'
 import { cn } from '@/lib/utils'
+import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001'
+const API_BASE = PUBLIC_API_BASE_URL
 
 interface LibraryMarker {
   id: number

@@ -5,9 +5,9 @@ import { useSearchParams } from 'next/navigation'
 export function LoginInner() {
   const params = useSearchParams()
   const next = params.get('next') || '/'
-  const supabase = createClient()
 
   async function handleKakaoLogin() {
+    const supabase = createClient()
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'kakao',
       options: {
