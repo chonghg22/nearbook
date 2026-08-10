@@ -46,3 +46,7 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # turbo test는 ^build에 의존하므로 Build 다음에 두어 캐시를 재사용한다.
+      - name: Test
+        run: pnpm test
