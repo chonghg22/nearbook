@@ -1,16 +1,17 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
 import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 export const revalidate = 86400
 
 const API_URL = SERVER_API_BASE_URL
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
+  path: '/notices',
   title: '공지사항',
-  description: '우리동네책 서비스 공지·업데이트·점검 안내',
-  alternates: { canonical: '/notices' },
-}
+  description: '우리동네책 서비스 공지·업데이트·점검 안내를 확인하세요.',
+})
 
 type NoticeItem = {
   id: number

@@ -1,11 +1,23 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
+import { JsonLd } from '@/components/seo/json-ld'
+import { buildFaqJsonLd } from '@/lib/seo/json-ld'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata: Metadata = {
-  title: '자주 묻는 질문',
+const PAGE_PATH = '/qna'
+// 제목·설명은 origin/main의 f6a6d31에서 정한 문구를 따른다. 네비게이션 라벨과도 일치한다.
+const PAGE_TITLE = '자주 묻는 질문'
+
+export const metadata: Metadata = buildPageMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
   description: '우리동네책의 예약 가능 여부, 데이터 정확도, 위치 권한, 제휴 링크 안내',
-  alternates: { canonical: '/qna' },
-}
+})
 
+/**
+ * FAQPage 구조화 데이터는 이 배열 하나만 보고 만든다.
+ * 화면에 보이는 질문·답변과 JSON-LD가 어긋나면 리치 결과 위반이 된다.
+ */
 const QNA_ITEMS = [
   {
     question: '우리동네책에서 도서관 예약까지 할 수 있나요?',
@@ -48,8 +60,10 @@ const QNA_ITEMS = [
 export default function QnaPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-8">
+      <JsonLd data={buildFaqJsonLd({ path: PAGE_PATH, items: QNA_ITEMS })} />
+
       <header className="mb-8">
-        <h1 className="text-2xl font-bold">자주 묻는 질문</h1>
+        <h1 className="text-2xl font-bold">{PAGE_TITLE}</h1>
         <p className="mt-2 text-gray-600">
           도서관 데이터, 대출 가능성, 위치 권한, 제휴 링크에 대해 자주 묻는 내용을 정리했습니다.
         </p>
@@ -63,6 +77,14 @@ export default function QnaPage() {
           </section>
         ))}
       </div>
+
+      <p className="mt-8 text-sm text-gray-600">
+        찾는 답이 없다면{' '}
+        <Link href="/feedback" className="font-semibold text-primary-700 hover:underline">
+          오류신고&건의사항
+        </Link>
+        으로 알려주세요.
+      </p>
     </article>
   )
 }
