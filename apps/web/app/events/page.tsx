@@ -3,9 +3,11 @@ import { CalendarDays, Library, Users } from 'lucide-react'
 
 const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
 
+// 신청·마감 상태가 계속 바뀌는 화면이라 색인하지 않는다. 링크는 따라가게 둔다.
 export const metadata = {
-  title: '문화행사 | 우리동네책',
-  description: '도서관 문화행사 신청과 대기열 기반 접수 데모',
+  title: '도서관 문화행사',
+  description: '도서관 문화행사 신청 안내',
+  robots: { index: false, follow: true },
 }
 
 async function getPrograms() {

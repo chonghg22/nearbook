@@ -1,15 +1,21 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { ExploreShell, SourceNote } from '../explore/_components/explore-ui'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 export const revalidate = 3600
 
 const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL!
 
-export const metadata: Metadata = {
-  title: '이달의 키워드 | 우리동네책',
-  description: '도서관 정보나루 월간 키워드를 기반으로 책을 탐색하세요.',
-}
+const PAGE_PATH = '/keywords'
+const PAGE_TITLE = '이달의 도서 키워드'
+
+export const metadata: Metadata = buildPageMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description:
+    '이번 달 도서관에서 사람들이 가장 많이 찾은 키워드입니다. 관심 가는 작가나 주제를 눌러 관련 도서를 바로 찾아보세요.',
+})
 
 type Keyword = {
   word: string
@@ -28,12 +34,12 @@ export default async function KeywordsPage() {
 
   return (
     <ExploreShell
-      title="이달의 키워드"
-      description="월 1회 저장된 키워드를 통해 지금 많이 언급되는 작가, 주제, 책을 빠르게 검색할 수 있습니다."
+      title={PAGE_TITLE}
+      description="이번 달 도서관 이용자들이 가장 많이 찾은 작가와 주제입니다. 키워드를 누르면 관련 도서를 바로 검색합니다."
     >
       {keywords.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-6 py-16 text-center text-gray-500">
-          저장된 키워드 데이터가 없습니다.
+          이달의 키워드를 준비하고 있습니다. 잠시 후 다시 확인해 주세요.
         </div>
       ) : (
         <div className="flex flex-wrap gap-3">
@@ -49,7 +55,20 @@ export default async function KeywordsPage() {
           ))}
         </div>
       )}
-      <SourceNote>갱신 주기: 매월 1일 03:30, 데이터 출처: 도서관 정보나루 월간 키워드 API</SourceNote>
+
+      <nav className="mt-8 flex flex-wrap gap-3 text-sm" aria-label="관련 탐색">
+        <Link href="/popular" className="rounded-full bg-gray-900 px-4 py-2 font-semibold text-white">
+          인기 대출 도서 보기
+        </Link>
+        <Link href="/rising" className="rounded-full border border-gray-200 bg-white px-4 py-2 font-semibold text-gray-700">
+          대출 급상승 도서 보기
+        </Link>
+        <Link href="/category" className="rounded-full border border-gray-200 bg-white px-4 py-2 font-semibold text-gray-700">
+          분야별로 찾기
+        </Link>
+      </nav>
+
+      <SourceNote>데이터 출처: 도서관 정보나루 이달의 키워드 · 매월 갱신</SourceNote>
     </ExploreShell>
   )
 }

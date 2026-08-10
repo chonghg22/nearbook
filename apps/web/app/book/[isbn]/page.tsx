@@ -1,13 +1,16 @@
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import type { Metadata } from 'next'
 import { BookCard } from '@/components/book/book-card'
 import { WishlistButton } from '@/components/book/wishlist-button'
 import { AffiliateOptions } from '@/components/book/affiliate-options'
 import { AdSenseSlot } from '@/components/ads/adsense-slot'
 import { LibraryStatus } from './_components/library-status'
+import { JsonLd } from '@/components/seo/json-ld'
+import { buildBookJsonLd } from '@/lib/seo/json-ld'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 const API_URL = process.env.INTERNAL_API_URL || 'http://localhost:3001'
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
 export const revalidate = 2592000 // 30일
 export const dynamicParams = true
 
@@ -57,20 +60,26 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ isbn: string }> }): Promise<Metadata> {
   const { isbn } = await params
   const result = await fetchBook(isbn)
-  if (!result) return { title: '책을 찾을 수 없습니다' }
-  const book = result.book ?? result
-
-  return {
-    title: `${book.title} — ${book.author}`,
-    description: `${book.title}을 우리 동네 공공도서관에서 빌릴 수 있는지 확인하세요. ${book.author} · ${book.publisher ?? ''}`,
-    openGraph: {
-      type: 'book',
-      title: book.title,
-      description: `${book.author} · ${book.publisher ?? ''}`,
-      images: book.coverUrl ? [{ url: book.coverUrl }] : [],
-    },
-    alternates: { canonical: `${SITE_URL}/book/${isbn}` },
+  if (!result) {
+    return { title: '책을 찾을 수 없습니다', robots: { index: false, follow: true } }
   }
+  const book = result.book ?? result
+  const author = typeof book.author === 'string' ? book.author.trim() : ''
+  const publisher = typeof book.publisher === 'string' ? book.publisher.trim() : ''
+
+  return buildPageMetadata({
+    path: `/book/${isbn}`,
+    title: author ? `${book.title} — ${author}` : book.title,
+    description: [
+      `${book.title}을(를) 우리 동네 공공도서관에서 빌릴 수 있는지 확인하세요.`,
+      [author, publisher].filter(Boolean).join(' · '),
+    ]
+      .filter(Boolean)
+      .join(' '),
+    openGraphType: 'book',
+    // 표지가 없으면 이미지 자체를 넣지 않는다. 빈 이미지 카드가 생기지 않도록.
+    ...(book.coverUrl ? { images: [{ url: book.coverUrl, alt: `${book.title} 표지` }] } : {}),
+  })
 }
 
 export default async function BookPage({ params }: { params: Promise<{ isbn: string }> }) {
@@ -94,22 +103,22 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
     )
   )
 
+  const authorName = typeof book.author === 'string' ? book.author.trim() : ''
+  // "한강 (지은이)" 같은 역할 표기를 떼어 검색 쿼리로 쓴다.
+  const authorQuery = authorName.replace(/\s*\([^)]*\)\s*$/, '').trim()
+
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'Book',
-            name: book.title,
-            author: { '@type': 'Person', name: book.author },
-            isbn: book.isbn,
-            publisher: book.publisher,
-            datePublished: book.publishedYear,
-            image: book.coverUrl,
-          }),
-        }}
+      <JsonLd
+        data={buildBookJsonLd({
+          book,
+          path: `/book/${isbn}`,
+          breadcrumbs: [
+            { name: '홈', path: '/' },
+            { name: '인기 대출 도서', path: '/popular' },
+            { name: book.title, path: `/book/${isbn}` },
+          ],
+        })}
       />
 
       <main className="bg-canvas min-h-screen">
@@ -135,7 +144,18 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight text-balance leading-tight">
                   {book.title}
                 </h1>
-                <p className="text-lg text-muted-foreground mt-2">{book.author}</p>
+                <p className="text-lg text-muted-foreground mt-2">
+                  {authorQuery ? (
+                    <Link
+                      href={`/search?q=${encodeURIComponent(authorQuery)}`}
+                      className="hover:text-primary hover:underline"
+                    >
+                      {book.author}
+                    </Link>
+                  ) : (
+                    book.author
+                  )}
+                </p>
                 <p className="text-sm text-subtle-foreground mt-2">
                   {book.publisher} {book.publishedYear && `· ${book.publishedYear}`}
                 </p>
@@ -190,6 +210,46 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
               <h2 className="text-lg font-bold text-foreground mb-4">🛒 구매·대여 옵션</h2>
               <AffiliateOptions isbn={isbn} />
             </section>
+
+            <nav aria-label="관련 탐색" className="border-t border-border pt-6">
+              <h2 className="text-lg font-bold text-foreground mb-4">이어서 둘러보기</h2>
+              <ul className="flex flex-wrap gap-3 text-sm">
+                {authorQuery && (
+                  <li>
+                    <Link
+                      href={`/search?q=${encodeURIComponent(authorQuery)}`}
+                      className="inline-flex rounded-full border border-border bg-white px-4 py-2 font-semibold text-foreground hover:border-primary-300 hover:text-primary-700"
+                    >
+                      {authorQuery} 작가의 다른 책
+                    </Link>
+                  </li>
+                )}
+                <li>
+                  <Link
+                    href="/popular"
+                    className="inline-flex rounded-full border border-border bg-white px-4 py-2 font-semibold text-foreground hover:border-primary-300 hover:text-primary-700"
+                  >
+                    도서관 인기 대출 도서
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/category"
+                    className="inline-flex rounded-full border border-border bg-white px-4 py-2 font-semibold text-foreground hover:border-primary-300 hover:text-primary-700"
+                  >
+                    분야별 인기 도서
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/libraries"
+                    className="inline-flex rounded-full border border-border bg-white px-4 py-2 font-semibold text-foreground hover:border-primary-300 hover:text-primary-700"
+                  >
+                    우리 동네 도서관 찾기
+                  </Link>
+                </li>
+              </ul>
+            </nav>
           </div>
         </div>
       </main>

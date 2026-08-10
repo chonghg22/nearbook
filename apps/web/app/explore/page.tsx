@@ -1,26 +1,30 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { Bookmark, Flame, Sparkles, Tags, TrendingUp } from 'lucide-react'
+import { Bookmark, Flame, Library, Sparkles, Tags, TrendingUp } from 'lucide-react'
 import { ExploreShell } from './_components/explore-ui'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata: Metadata = {
-  title: '탐색 | 우리동네책',
-  description: '인기도서, 카테고리, 키워드, 급상승 도서, 신착도서를 탐색하세요.',
-}
+export const metadata: Metadata = buildPageMetadata({
+  path: '/explore',
+  title: '어떤 책을 빌릴까',
+  description:
+    '인기 대출 도서, 분야별 추천, 이달의 키워드, 급상승 도서, 도서관 신착도서까지. 읽을 책을 고르는 다섯 가지 방법을 모았습니다.',
+})
 
 const items = [
-  { href: '/popular', title: '인기도서', description: '매일 저장된 인기대출도서', icon: TrendingUp },
-  { href: '/category', title: '카테고리', description: '캐시된 도서 분류별 탐색', icon: Tags },
-  { href: '/keywords', title: '이달의 키워드', description: '월간 키워드로 바로 검색', icon: Sparkles },
-  { href: '/rising', title: '대출 급상승 도서', description: '최근 순위가 빠르게 오른 책', icon: Flame },
-  { href: '/new-books', title: '새로 들어온 책', description: '도서관 선택 후 신착도서 확인', icon: Bookmark },
+  { href: '/popular', title: '인기 대출 도서', description: '전국 도서관에서 지금 가장 많이 빌려 가는 책', icon: TrendingUp },
+  { href: '/category', title: '분야별 인기 도서', description: '소설, 경제·경영, 역사 등 관심 분야로 찾기', icon: Tags },
+  { href: '/keywords', title: '이달의 키워드', description: '이번 달 사람들이 가장 많이 찾은 작가와 주제', icon: Sparkles },
+  { href: '/rising', title: '대출 급상승 도서', description: '최근 대출이 크게 늘어난 화제의 책', icon: Flame },
+  { href: '/new-books', title: '도서관 신착도서', description: '우리 동네 도서관에 새로 들어온 책', icon: Bookmark },
+  { href: '/libraries', title: '우리 동네 도서관', description: '가까운 공공도서관 위치와 이용 정보', icon: Library },
 ]
 
 export default function ExplorePage() {
   return (
     <ExploreShell
-      title="탐색"
-      description="외부 API를 매번 호출하지 않고, 저장된 큐레이션 데이터와 캐시된 도서 데이터를 중심으로 책을 둘러봅니다."
+      title="어떤 책을 빌릴까"
+      description="읽을 책을 고르는 다섯 가지 방법과, 그 책을 빌릴 수 있는 우리 동네 도서관을 함께 찾아보세요."
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => {

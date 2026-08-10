@@ -1,13 +1,16 @@
+import type { Metadata } from 'next'
 import { HeroSection } from './_components/hero-section'
 import { BookListSection } from './_components/book-list-section'
 import { LibrariesNearMe } from './_components/libraries-near-me'
 import { AboutSection } from './_components/about-section'
 import { AdSenseSlot } from './_components/adsense-slot'
+import { JsonLd } from '@/components/seo/json-ld'
+import { buildHomeJsonLd } from '@/lib/seo/json-ld'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 export const revalidate = 60 // 1분 (데이터 안정화 후 3600으로 복원)
 
 const API = process.env.INTERNAL_API_URL || 'http://localhost:3001'
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.near-book.com'
 const MONTHLY_KEYWORDS_FALLBACK = [
   { word: '한강', weight: 0 },
   { word: '김애란', weight: 0 },
@@ -46,23 +49,9 @@ export default async function HomePage() {
     safeFetch(`${API}/search/monthly-keywords?limit=10`),
   ])
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    "url": SITE_URL,
-    "potentialAction": {
-      "@type": "SearchAction",
-      "target": `${SITE_URL}/search?q={search_term_string}`,
-      "query-input": "required name=search_term_string"
-    }
-  }
-
   return (
     <main className="min-h-screen bg-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={buildHomeJsonLd()} />
       <HeroSection monthlyKeywords={monthlyKeywords.data?.length ? monthlyKeywords.data : MONTHLY_KEYWORDS_FALLBACK} />
       
       <div className="space-y-8 pb-20">
@@ -96,15 +85,11 @@ export default async function HomePage() {
   )
 }
 
-export const metadata = {
+export const metadata: Metadata = buildPageMetadata({
+  path: '/',
+  // 홈은 기존 검색 결과 title을 유지하기 위해 template을 적용하지 않는다.
   title: '우리동네책 | 한국 공공도서관 통합 책 검색',
-  description: '전국 1,400+ 공공도서관에서 책을 빠르게 찾고 빌리세요. 위치 기반 도서관 매칭, 보유 여부 확인.',
-  alternates: {
-    canonical: '/',
-  },
-  openGraph: {
-    title: '우리동네책',
-    description: '우리 동네 도서관에서 책 빌리기',
-    type: 'website',
-  },
-}
+  absoluteTitle: true,
+  description:
+    '전국 공공도서관에서 책을 빠르게 찾고 빌리세요. 우리 동네 도서관의 소장 여부, 인기 대출 도서, 신착 도서를 한 화면에서 확인할 수 있습니다.',
+})

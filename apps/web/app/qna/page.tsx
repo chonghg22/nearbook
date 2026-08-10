@@ -1,11 +1,22 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
+import { JsonLd } from '@/components/seo/json-ld'
+import { buildFaqJsonLd } from '@/lib/seo/json-ld'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata: Metadata = {
-  title: '묻고답하기',
-  description: '우리동네책 서비스 이용 중 자주 묻는 질문과 답변',
-  alternates: { canonical: '/qna' },
-}
+const PAGE_PATH = '/qna'
+const PAGE_TITLE = '묻고답하기'
 
+export const metadata: Metadata = buildPageMetadata({
+  path: PAGE_PATH,
+  title: PAGE_TITLE,
+  description: '우리동네책 서비스 이용 중 자주 묻는 질문과 답변을 모았습니다.',
+})
+
+/**
+ * FAQPage 구조화 데이터는 이 배열 하나만 보고 만든다.
+ * 화면에 보이는 질문·답변과 JSON-LD가 어긋나면 리치 결과 위반이 된다.
+ */
 const QNA_ITEMS = [
   {
     question: '검색 결과에 원하는 책이 보이지 않아요.',
@@ -24,8 +35,10 @@ const QNA_ITEMS = [
 export default function QnaPage() {
   return (
     <article className="mx-auto max-w-3xl px-4 py-8">
+      <JsonLd data={buildFaqJsonLd({ path: PAGE_PATH, items: QNA_ITEMS })} />
+
       <header className="mb-8">
-        <h1 className="text-2xl font-bold">묻고답하기</h1>
+        <h1 className="text-2xl font-bold">{PAGE_TITLE}</h1>
         <p className="mt-2 text-gray-600">서비스 이용 중 자주 묻는 내용을 정리했습니다.</p>
       </header>
 
@@ -37,6 +50,14 @@ export default function QnaPage() {
           </section>
         ))}
       </div>
+
+      <p className="mt-8 text-sm text-gray-600">
+        찾는 답이 없다면{' '}
+        <Link href="/feedback" className="font-semibold text-primary-700 hover:underline">
+          오류신고&건의사항
+        </Link>
+        으로 알려주세요.
+      </p>
     </article>
   )
 }

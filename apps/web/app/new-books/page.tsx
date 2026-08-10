@@ -1,15 +1,20 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { BookGrid, ExploreShell, SourceNote, type ExploreBook } from '../explore/_components/explore-ui'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 export const revalidate = 3600
 
 const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL!
 
-export const metadata: Metadata = {
-  title: '새로 들어온 책 | 우리동네책',
-  description: '도서관을 선택하고 해당 도서관의 신착도서를 확인하세요.',
-}
+// libraryId 쿼리로 화면이 바뀌지만 canonical은 항상 쿼리 없는 경로로 고정한다.
+// 그렇지 않으면 도서관 수만큼 같은 페이지가 중복 색인된다.
+export const metadata: Metadata = buildPageMetadata({
+  path: '/new-books',
+  title: '도서관 신착도서',
+  description:
+    '우리 동네 도서관에 새로 들어온 책을 확인하세요. 도서관을 고르면 최근 입고된 신착도서를 바로 볼 수 있습니다.',
+})
 
 type LibraryItem = {
   id: number
@@ -52,14 +57,14 @@ export default async function NewBooksPage({ searchParams }: Props) {
 
   return (
     <ExploreShell
-      title="새로 들어온 책"
-      description="신착도서는 지역/도서관 조건이 필요한 데이터라서 먼저 도서관을 선택한 뒤 해당 도서관 기준으로 보여줍니다."
+      title="도서관 신착도서"
+      description="우리 동네 도서관에 이번에 새로 들어온 책입니다. 도서관을 고르면 최근 입고된 책을 바로 볼 수 있습니다."
     >
       <section className="mb-8 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-gray-900">도서관 선택</h2>
-            <p className="mt-1 text-sm text-gray-500">신착도서 데이터가 실제로 준비된 도서관만 우선 노출합니다.</p>
+            <p className="mt-1 text-sm text-gray-500">신착도서를 바로 볼 수 있는 도서관을 먼저 보여드립니다.</p>
           </div>
           <Link href="/libraries" className="shrink-0 rounded-full bg-gray-900 px-4 py-2 text-sm font-bold text-white">
             지도에서 찾기
@@ -100,15 +105,25 @@ export default async function NewBooksPage({ searchParams }: Props) {
       </section>
 
       {selectedLibrary && (
-        <h2 className="mb-4 text-xl font-black text-gray-900">{selectedLibrary.name} 신착도서</h2>
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-xl font-black text-gray-900">{selectedLibrary.name} 신착도서</h2>
+          <Link
+            href={`/library/${selectedLibrary.id}`}
+            className="text-sm font-semibold text-primary-700 hover:underline"
+          >
+            {selectedLibrary.name} 도서관 정보 보기 →
+          </Link>
+        </div>
       )}
       <BookGrid
         books={books}
-        emptyMessage={selectedLibraryId ? '이 도서관의 신착도서 데이터가 없습니다.' : '먼저 도서관을 선택해주세요.'}
+        emptyMessage={
+          selectedLibraryId
+            ? '이 도서관의 신착도서를 준비하고 있습니다. 다른 도서관을 선택해 보세요.'
+            : '먼저 도서관을 선택해주세요.'
+        }
       />
-      <SourceNote>
-        갱신 권장: 도서관별 신착도서는 지역/도서관 조건이 필요하므로 인기 도서관 또는 사용자가 자주 보는 도서관 기준으로 하루 1회 저장하는 방식이 적합합니다.
-      </SourceNote>
+      <SourceNote>데이터 출처: 도서관 정보나루 신착도서 · 도서관별로 하루 1회 갱신</SourceNote>
     </ExploreShell>
   )
 }

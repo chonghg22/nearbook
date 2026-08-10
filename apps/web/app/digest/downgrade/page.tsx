@@ -2,7 +2,11 @@ import Link from 'next/link'
 
 const API_URL = process.env.INTERNAL_API_URL ?? 'http://localhost:3001'
 
-export const metadata = { title: '이메일 주기 변경 | 우리동네책' }
+// 토큰이 포함된 1회성 링크라 색인 대상이 아니다.
+export const metadata = {
+  title: '이메일 주기 변경',
+  robots: { index: false, follow: false },
+}
 
 interface PageProps {
   searchParams?: Promise<{ token?: string }>
