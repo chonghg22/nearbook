@@ -46,8 +46,10 @@ function stateLabel(state: string) {
   return '신청 마감'
 }
 
-export default async function EventDetailPage({ params }: { params: { id: string } }) {
-  const program = await getProgram(params.id)
+// Next.js 15의 App Router는 params를 Promise로 전달한다.
+export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const program = await getProgram(id)
   if (!program) notFound()
 
   return (
