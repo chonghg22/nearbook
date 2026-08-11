@@ -1,12 +1,17 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { LibrariesMapView } from './_components/libraries-map-view'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 import { splitRegion } from '@/lib/seo/region'
 
 export const revalidate = 86400
 
-const API_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
+/**
+ * 앱 공통 상수를 그대로 쓴다. 여기서 따로 계산하면 환경변수가 모두 없을 때 빈 문자열이 되고,
+ * 상대 URL fetch가 만들어져 이 페이지의 정적 생성이 멈춘다.
+ */
+const API_URL = SERVER_API_BASE_URL
 
 export const metadata: Metadata = buildPageMetadata({
   path: '/libraries',
