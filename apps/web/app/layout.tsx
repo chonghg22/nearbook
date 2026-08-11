@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import Script from 'next/script'
+import { Analytics } from '@vercel/analytics/next'
 import '@fontsource/pretendard/index.css'
 import './globals.css'
 import { SiteHeader } from '@/components/layout/site-header'
@@ -84,18 +84,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         )}
       </head>
-      <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-CD3HFBCTV9"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-CD3HFBCTV9');
-          `}
-        </Script>
       <body className="antialiased min-h-screen bg-canvas flex flex-col">
         <RegisterSW />
         <PwaRouteTracker />
@@ -108,6 +96,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <InstallPrompt />
           <SiteFooter />
         </LocationProvider>
+        <Analytics />
       </body>
     </html>
   )
