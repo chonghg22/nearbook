@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 import {
   collectSitemapBooks,
   collectSitemapLibraries,
@@ -26,14 +27,57 @@ function librariesPayload(ids: number[], updatedAt?: string) {
 }
 
 beforeEach(() => {
-  vi.stubEnv('INTERNAL_API_URL', 'http://api.test')
   vi.spyOn(console, 'info').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
 afterEach(() => {
-  vi.unstubAllEnvs()
   vi.restoreAllMocks()
+})
+
+/** 요청한 URL을 순서대로 모으는 스텁. */
+function recordingFetch(requested: string[]) {
+  return async (url: string) => {
+    requested.push(url)
+    return { data: [] }
+  }
+}
+
+describe('API base URL', () => {
+  it('책 수집은 공통 상수의 절대 URL로 요청한다', async () => {
+    const requested: string[] = []
+
+    await collectSitemapBooks(recordingFetch(requested), NO_WAIT)
+
+    expect(requested.length).toBeGreaterThan(0)
+    for (const url of requested) {
+      expect(url.startsWith(`${SERVER_API_BASE_URL}/`)).toBe(true)
+    }
+  })
+
+  it('도서관 수집은 공통 상수의 절대 URL로 요청한다', async () => {
+    const requested: string[] = []
+
+    await collectSitemapLibraries(recordingFetch(requested), NO_WAIT)
+
+    expect(requested.length).toBeGreaterThan(0)
+    for (const url of requested) {
+      expect(url.startsWith(`${SERVER_API_BASE_URL}/`)).toBe(true)
+    }
+  })
+
+  it('상대 URL을 만들지 않는다. 서버 런타임에서 fetch가 실패하는 원인이다', async () => {
+    const requested: string[] = []
+
+    await collectSitemapBooks(recordingFetch(requested), NO_WAIT)
+    await collectSitemapLibraries(recordingFetch(requested), NO_WAIT)
+
+    for (const url of requested) {
+      // base 없이 파싱되면 절대 URL이다.
+      expect(() => new URL(url)).not.toThrow()
+      expect(url).not.toMatch(/^\//)
+    }
+  })
 })
 
 describe('ISBN 검증', () => {

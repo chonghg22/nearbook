@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { CATEGORIES } from '@/lib/category-config'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 import { isProductionDeployment } from '@/lib/seo/deployment-environment'
 import { toAbsoluteSiteUrl } from '@/lib/seo/site-url'
 import {
@@ -53,7 +54,8 @@ const STATIC_ENTRIES: StaticEntry[] = [
 async function collectNotices(
   fetchJson: FetchJson,
 ): Promise<{ id: number; publishedAt?: string | undefined }[]> {
-  const api = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
+  // 도서·도서관 수집과 같은 base URL을 쓴다. 여기서만 따로 계산하면 값이 갈라진다.
+  const api = SERVER_API_BASE_URL
 
   try {
     // notices API의 pageSize 상한은 50이다.

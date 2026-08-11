@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SERVER_API_BASE_URL } from '@/lib/constants'
 
 const mocks = vi.hoisted(() => ({
   collectSitemapBooks: vi.fn(),
@@ -121,6 +122,12 @@ describe('sitemap 메타 라우트', () => {
     const book = entries.find((entry) => entry.url.includes('/book/'))
 
     expect(book?.lastModified).toBeUndefined()
+  })
+
+  it('공지 수집도 공통 상수의 절대 URL로 요청한다', async () => {
+    await sitemap()
+
+    expect(mocks.defaultFetchJson).toHaveBeenCalledWith(`${SERVER_API_BASE_URL}/notices?pageSize=50`)
   })
 
   it('도서관 URL은 API가 준 갱신 시각을 그대로 쓴다', async () => {
