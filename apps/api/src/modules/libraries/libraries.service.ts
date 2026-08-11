@@ -254,7 +254,7 @@ export class LibrariesService {
         libCode: libraryId,
         pageNo: 1,
         pageSize: limit,
-      }, { priority: 'LOW' })
+      })
       return res?.response?.docs?.map((d: any) => ({
         isbn: d.doc?.isbn13,
         title: d.doc?.bookname,
@@ -279,7 +279,7 @@ export class LibrariesService {
         to,
         pageNo: 1,
         pageSize: limit,
-      }, { priority: 'LOW' })
+      })
       return res?.response?.docs?.map((d: any) => ({
         isbn: d.doc?.isbn13,
         title: d.doc?.bookname,

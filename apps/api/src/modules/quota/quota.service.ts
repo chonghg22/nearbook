@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { db, sql } from '@nearbook/db'
 import { NotifyService } from '../notify/notify.service'
-import { QuotaBlockedError, QuotaBlockReason } from './quota.errors'
+import { QuotaBlockReason } from './quota.errors'
 
 export type Priority = 'HIGH' | 'LOW'
 export type QuotaMode = 'normal' | 'warn' | 'critical' | 'blocked'

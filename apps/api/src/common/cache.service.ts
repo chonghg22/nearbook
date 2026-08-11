@@ -3,7 +3,8 @@ import { LRUCache } from 'lru-cache'
 
 @Injectable()
 export class CacheService {
-  private readonly cache = new LRUCache<string, {}>({
+  // LRUCache의 값 타입은 non-nullish여야 한다. `{}`와 동일한 의미의 명시적 타입을 쓴다.
+  private readonly cache = new LRUCache<string, NonNullable<unknown>>({
     max: 10_000,
     ttl: 5 * 60 * 1000,
   })
@@ -13,7 +14,7 @@ export class CacheService {
   }
 
   set<T>(key: string, value: T, ttlMs = 5 * 60 * 1000) {
-    this.cache.set(key, value as {}, { ttl: ttlMs })
+    this.cache.set(key, value as NonNullable<unknown>, { ttl: ttlMs })
   }
 
   delete(key: string) {

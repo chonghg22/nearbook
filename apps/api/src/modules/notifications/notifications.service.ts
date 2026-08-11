@@ -15,7 +15,6 @@ import {
   notificationPreferences,
   pushSubscriptions,
   sql,
-  users,
 } from '@nearbook/db'
 import { AuthService } from '../auth/auth.service'
 import { UpdatePrefDto } from './dto/update-pref.dto'

@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { db, pendingLookups, eq, isNull, sql, asc, desc, lt, and } from '@nearbook/db'
 import { LookupType } from './dedupe-key.util'

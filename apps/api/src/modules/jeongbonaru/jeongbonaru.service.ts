@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { db, bookCache, eq, sql, searchStats, and } from '@nearbook/db'
+import { db, bookCache, eq, sql, searchStats } from '@nearbook/db'
 import { CacheService } from '../../common/cache/cache.service'
 import { JeongbonaruClient } from './jeongbonaru.client'
 import {
