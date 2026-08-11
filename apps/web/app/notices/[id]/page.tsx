@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 export const revalidate = 86400
 export const dynamicParams = true
@@ -31,13 +32,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params
   const notice = await fetchNotice(id)
-  if (!notice) return { title: '공지사항' }
-  return {
+  if (!notice) return buildPageMetadata({ path: '/notices', title: '공지사항', index: false })
+
+  return buildPageMetadata({
+    path: `/notices/${notice.id}`,
     title: notice.title,
     description: notice.body.slice(0, 140),
-    alternates: { canonical: `/notices/${notice.id}` },
-    openGraph: { title: notice.title, description: notice.body.slice(0, 140) },
-  }
+    openGraphType: 'article',
+  })
 }
 
 export default async function NoticeDetailPage({

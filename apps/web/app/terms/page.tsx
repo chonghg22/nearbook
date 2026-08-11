@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'chonghg22@gmail.com'
 const UPDATED_AT = '2026년 5월 7일'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
+  path: '/terms',
   title: '이용약관',
-  description: '우리동네책 서비스 이용약관',
-  alternates: { canonical: '/terms' },
-}
+  description: '우리동네책 서비스 이용약관입니다.',
+})
 
 export default function TermsPage() {
   return (

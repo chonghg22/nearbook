@@ -210,8 +210,3 @@ export class SearchService {
     }
   }
 }
-
-function mergeUnique<T extends Record<string, any>>(a: T[], b: T[], key: string): T[] {
-  const seen = new Set(a.map(x => x[key]))
-  return [...a, ...b.filter(x => !seen.has(x[key]))]
-}

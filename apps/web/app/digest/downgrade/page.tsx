@@ -3,7 +3,11 @@ import { SERVER_API_BASE_URL } from '@/lib/constants'
 
 const API_URL = SERVER_API_BASE_URL
 
-export const metadata = { title: '이메일 주기 변경 | 우리동네책' }
+// 토큰이 포함된 1회성 링크라 색인 대상이 아니다.
+export const metadata = {
+  title: '이메일 주기 변경',
+  robots: { index: false, follow: false },
+}
 
 interface PageProps {
   searchParams?: Promise<{ token?: string }>

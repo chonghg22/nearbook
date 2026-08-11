@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { MapPin, Navigation } from 'lucide-react'
 import { StatusBadge, type Status } from '@/components/ui/status-badge'
 
@@ -25,7 +26,10 @@ export function LibraryCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground truncate">
-            {libraryName}
+            {/* 도서관 상세로 가는 내부 링크. 책 상세 → 도서관 상세 크롤 경로를 만든다. */}
+            <Link href={`/library/${libraryId}`} className="hover:text-primary hover:underline">
+              {libraryName}
+            </Link>
           </h3>
           {distanceKm !== undefined && (
             <p className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">

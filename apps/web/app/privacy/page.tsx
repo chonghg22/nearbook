@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
+import { buildPageMetadata } from '@/lib/seo/metadata'
 
 const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'chonghg22@gmail.com'
 const UPDATED_AT = '2026년 5월 7일'
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
+  path: '/privacy',
   title: '개인정보처리방침',
-  description: '우리동네책 개인정보처리방침',
-  alternates: { canonical: '/privacy' },
-}
+  description: '우리동네책이 처리하는 개인정보 항목과 보관·파기 기준을 안내합니다.',
+})
 
 export default function PrivacyPage() {
   return (

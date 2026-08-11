@@ -7,6 +7,10 @@ import { LibraryFavoriteButton } from '@/components/library/library-favorite-but
 import { BookCard } from '@/components/book/book-card'
 import { createServerClient } from '@/lib/supabase/server'
 import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { JsonLd } from '@/components/seo/json-ld'
+import { buildLibraryJsonLd } from '@/lib/seo/json-ld'
+import { buildPageMetadata } from '@/lib/seo/metadata'
+import { splitRegion } from '@/lib/seo/region'
 
 const API_URL = SERVER_API_BASE_URL
 export const revalidate = 604800 // 1주
@@ -46,6 +50,40 @@ async function fetchLibraryFavoriteStatus(libraryId: string) {
   }
 }
 
+type NearbyLibrary = { id: number; name: string }
+
+/**
+ * 같은 시군구의 다른 도서관. 도서관 상세끼리 이어주는 내부 링크를 만든다.
+ * 실패해도 페이지 렌더링에 영향을 주지 않는다.
+ */
+async function fetchNearbyLibraries(
+  region: ReturnType<typeof splitRegion>,
+  currentId: number,
+): Promise<NearbyLibrary[]> {
+  if (!region?.sigungu) return []
+
+  try {
+    const query = new URLSearchParams({ sido: region.sido, sigungu: region.sigungu })
+    const res = await fetchWithTimeout(`${API_URL}/libraries/by-region?${query}`, 5000, {
+      next: { revalidate },
+    })
+    if (!res.ok) return []
+
+    const json = await res.json()
+    const rows: unknown[] = Array.isArray(json.data) ? json.data : []
+
+    return rows
+      .map((row) => {
+        const { id, name } = row as { id?: unknown; name?: unknown }
+        return { id: Number(id), name: typeof name === 'string' ? name.trim() : '' }
+      })
+      .filter((row) => Number.isInteger(row.id) && row.id !== currentId && row.name.length > 0)
+      .slice(0, 12)
+  } catch {
+    return []
+  }
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -56,14 +94,22 @@ export async function generateMetadata({
     const res = await fetchWithTimeout(`${API_URL}/libraries/${id}`, 5000, {
       next: { revalidate },
     })
-    if (!res.ok) return { title: '도서관' }
+    if (!res.ok) return { title: '도서관', robots: { index: false, follow: true } }
     const { data: lib } = await res.json()
-    return {
-      title: `${lib.name} 인기도서·신간 | 우리동네책`,
-      description: `${lib.name} 인기 대출 도서 TOP 20과 이번 주 신간. ${lib.address}`,
-    }
+
+    return buildPageMetadata({
+      path: `/library/${id}`,
+      title: `${lib.name} 인기도서·신착도서`,
+      description: [
+        `${lib.name}에서 많이 빌려 간 인기 도서와 새로 들어온 책을 확인하세요.`,
+        lib.address ? `위치: ${lib.address}` : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    })
   } catch {
-    return { title: '도서관 | 우리동네책' }
+    // 일시적 API 장애로 잘못된 canonical을 심지 않도록 색인만 보류한다.
+    return { title: '도서관', robots: { index: false, follow: true } }
   }
 }
 
@@ -98,17 +144,41 @@ export default async function LibraryPage({
       ? (await trendRes.value.json()).data
       : []
   const initialFavorite = isFavorite.status === 'fulfilled' ? isFavorite.value : false
+  const region = splitRegion(library.region)
+  const nearbyLibraries = await fetchNearbyLibraries(region, Number(library.id))
 
   return (
     <main className="min-h-screen bg-canvas">
+      <JsonLd
+        data={buildLibraryJsonLd({
+          library,
+          path: `/library/${id}`,
+          breadcrumbs: [
+            { name: '홈', path: '/' },
+            { name: '우리 동네 도서관', path: '/libraries' },
+            { name: library.name, path: `/library/${id}` },
+          ],
+        })}
+      />
+
       <div className="mx-auto max-w-6xl px-4 py-8 md:py-12">
         {/* 헤더 */}
         <section className="mb-8 overflow-hidden rounded-[2rem] border border-border bg-white p-6 shadow-card md:p-8">
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
             <div className="min-w-0">
-              <p className="mb-3 inline-flex rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
-                공공도서관 상세
-              </p>
+              <nav aria-label="위치" className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                <Link href="/libraries" className="text-primary-700 hover:underline">
+                  우리 동네 도서관
+                </Link>
+                {region && (
+                  <>
+                    <span className="text-subtle-foreground">›</span>
+                    <span className="text-muted-foreground">
+                      {[region.sido, region.sigungu].filter(Boolean).join(' ')}
+                    </span>
+                  </>
+                )}
+              </nav>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-3">{library.name}</h1>
               <p className="text-muted-foreground text-sm flex items-start gap-1.5 leading-6">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -224,6 +294,30 @@ export default async function LibraryPage({
                 </div>
               )}
             </section>
+
+            {/* 같은 지역 도서관 */}
+            {nearbyLibraries.length > 0 && region?.sigungu && (
+              <section className="rounded-[1.5rem] border border-border bg-white p-5 shadow-card md:p-6">
+                <h2 className="mb-2 text-lg font-bold text-foreground flex items-center gap-2">
+                  <span className="text-primary text-xl">📍</span> {region.sido} {region.sigungu}의 다른 도서관
+                </h2>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  {library.name}에 원하는 책이 없다면 같은 지역의 다른 도서관도 확인해 보세요.
+                </p>
+                <ul className="flex flex-wrap gap-2">
+                  {nearbyLibraries.map((nearby) => (
+                    <li key={nearby.id}>
+                      <Link
+                        href={`/library/${nearby.id}`}
+                        className="inline-flex rounded-full border border-border bg-canvas-subtle px-4 py-2 text-sm font-medium text-foreground transition hover:border-primary-300 hover:text-primary-700"
+                      >
+                        {nearby.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </div>
 
           {/* 사이드바 */}

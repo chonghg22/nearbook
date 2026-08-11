@@ -40,7 +40,6 @@ export class JeongbonaruClient implements OnModuleInit {
   async get<T>(
     endpoint: string,
     params: Record<string, unknown> = {},
-    _options: Record<string, unknown> = {},
   ): Promise<T> {
     if (this.dailyCallCount >= this.DAILY_LIMIT) {
       this.logger.warn(

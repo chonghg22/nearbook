@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 export const metadata = {
-  title: '오프라인 | 우리동네책',
+  title: '오프라인',
   robots: { index: false, follow: false },
 }
 

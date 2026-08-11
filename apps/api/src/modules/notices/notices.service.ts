@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { db, notices, eq, and, desc, count, sql } from '@nearbook/db'
+import { db, notices, eq, and, desc, count } from '@nearbook/db'
 import { ListNoticesDto } from './dto/list-notices.dto'
 
 @Injectable()
