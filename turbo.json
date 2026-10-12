@@ -9,7 +9,7 @@
     "dev": { "cache": false, "persistent": true },
     "lint": { "outputs": [] },
     "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
-    "type-check": { "outputs": [] },
+    "type-check": { "dependsOn": ["^build"], "outputs": [] },
     "clean": { "cache": false }
   }
 }
