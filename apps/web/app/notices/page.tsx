@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
-import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { SERVER_API_BASE_URL } from '@/lib/server-api'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 
 export const revalidate = 86400

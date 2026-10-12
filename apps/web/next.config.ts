@@ -1,4 +1,17 @@
 import type { NextConfig } from 'next'
+import { isProductionApiEnvironment, resolvePublicApiBaseUrl, resolveServerApiBaseUrl } from './lib/api-base-url.mjs'
+
+const production = isProductionApiEnvironment({
+  vercelEnv: process.env.VERCEL_ENV,
+  appEnv: process.env.APP_ENV,
+})
+// Validate both settings before Next starts building/static rendering.
+resolvePublicApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL, production)
+const serverApiBaseUrl = resolveServerApiBaseUrl({
+  internalUrl: process.env.INTERNAL_API_URL,
+  publicUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
+  production,
+})
 
 const nextConfig: NextConfig = {
   images: {
@@ -14,7 +27,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.INTERNAL_API_URL ?? 'https://api.near-book.com'}/:path*`,
+        destination: `${serverApiBaseUrl}/:path*`,
       },
     ]
   },

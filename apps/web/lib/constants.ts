@@ -1,3 +1,5 @@
+import { resolvePublicApiBaseUrl } from './api-base-url.mjs'
+
 export const POPULAR_QUERIES = [
   '한강',
   '김호연',
@@ -9,6 +11,5 @@ export const POPULAR_QUERIES = [
   '아몬드',
 ] as const
 
-export const DEFAULT_API_BASE_URL = 'https://api.near-book.com'
-export const PUBLIC_API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL
-export const SERVER_API_BASE_URL = process.env.INTERNAL_API_URL ?? PUBLIC_API_BASE_URL
+export { DEFAULT_API_BASE_URL } from './api-base-url.mjs'
+export const PUBLIC_API_BASE_URL = resolvePublicApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL)

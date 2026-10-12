@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { SERVER_API_BASE_URL } from '@/lib/server-api'
 
 const mocks = vi.hoisted(() => ({
   collectSitemapBooks: vi.fn(),

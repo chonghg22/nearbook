@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { NotificationSettingsForm } from './_components/notification-settings-form'
-import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { SERVER_API_BASE_URL } from '@/lib/server-api'
 
 const API_URL = SERVER_API_BASE_URL
 

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { SERVER_API_BASE_URL } from './constants'
+import { SERVER_API_BASE_URL } from './server-api'
 
 /**
  * 서버에서 fetch하는 코드가 API base URL을 직접 계산하면
@@ -55,7 +55,7 @@ describe('API base URL 계산', () => {
   it('/libraries 페이지는 공통 상수로 API base URL을 얻는다', () => {
     const source = readFileSync(path.join(WEB_ROOT, 'app/libraries/page.tsx'), 'utf-8')
 
-    expect(source).toContain("from '@/lib/constants'")
+    expect(source).toContain("from '@/lib/server-api'")
     expect(source).toContain('SERVER_API_BASE_URL')
     expect(source).not.toContain('process.env.INTERNAL_API_URL')
   })

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PUBLIC_API_BASE_URL } from '@/lib/constants'
+import { SERVER_API_BASE_URL } from '@/lib/server-api'
 
-const API_URL = PUBLIC_API_BASE_URL
+const API_URL = SERVER_API_BASE_URL
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
