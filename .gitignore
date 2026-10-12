@@ -9,3 +9,7 @@ dist/
 *.tsbuildinfo
 .DS_Store
 CLAUDE.md
+.vercel/
+.cloudflare/
+.vercel
+.env*

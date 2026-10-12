@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { CATEGORIES } from '@/lib/category-config'
-import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { SERVER_API_BASE_URL } from '@/lib/server-api'
 import { isProductionDeployment } from '@/lib/seo/deployment-environment'
 import { toAbsoluteSiteUrl } from '@/lib/seo/site-url'
 import {

@@ -6,14 +6,15 @@ import { LocationMap } from '@/components/library/location-map'
 import { LibraryFavoriteButton } from '@/components/library/library-favorite-button'
 import { BookCard } from '@/components/book/book-card'
 import { createServerClient } from '@/lib/supabase/server'
-import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { SERVER_API_BASE_URL } from '@/lib/server-api'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buildLibraryJsonLd } from '@/lib/seo/json-ld'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 import { splitRegion } from '@/lib/seo/region'
+import { fetchLibraryDetail, fetchOptionalDetail } from '@/lib/detail-data'
 
 const API_URL = SERVER_API_BASE_URL
-export const revalidate = 604800 // 1주
+export const revalidate = 0 // Keep detail errors out of the persistent page cache.
 
 function fetchWithTimeout(
   url: string,
@@ -65,7 +66,7 @@ async function fetchNearbyLibraries(
   try {
     const query = new URLSearchParams({ sido: region.sido, sigungu: region.sigungu })
     const res = await fetchWithTimeout(`${API_URL}/libraries/by-region?${query}`, 5000, {
-      next: { revalidate },
+      next: { revalidate: 3600 },
     })
     if (!res.ok) return []
 
@@ -90,27 +91,19 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  try {
-    const res = await fetchWithTimeout(`${API_URL}/libraries/${id}`, 5000, {
-      next: { revalidate },
-    })
-    if (!res.ok) return { title: '도서관', robots: { index: false, follow: true } }
-    const { data: lib } = await res.json()
+  const lib = await fetchLibraryDetail(id)
+  if (!lib) return { title: '도서관을 찾을 수 없습니다', robots: { index: false, follow: true } }
 
-    return buildPageMetadata({
-      path: `/library/${id}`,
-      title: `${lib.name} 인기도서·신착도서`,
-      description: [
-        `${lib.name}에서 많이 빌려 간 인기 도서와 새로 들어온 책을 확인하세요.`,
-        lib.address ? `위치: ${lib.address}` : '',
-      ]
-        .filter(Boolean)
-        .join(' '),
-    })
-  } catch {
-    // 일시적 API 장애로 잘못된 canonical을 심지 않도록 색인만 보류한다.
-    return { title: '도서관', robots: { index: false, follow: true } }
-  }
+  return buildPageMetadata({
+    path: `/library/${id}`,
+    title: `${lib.name} 인기도서·신착도서`,
+    description: [
+      `${lib.name}에서 많이 빌려 간 인기 도서와 새로 들어온 책을 확인하세요.`,
+      lib.address ? `위치: ${lib.address}` : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
+  })
 }
 
 export default async function LibraryPage({
@@ -120,30 +113,18 @@ export default async function LibraryPage({
 }) {
   const { id } = await params
 
-  const [libRes, popularRes, newArrivalRes, trendRes, isFavorite] = await Promise.allSettled([
-    fetchWithTimeout(`${API_URL}/libraries/${id}`, 8000, { next: { revalidate } }),
-    fetchWithTimeout(`${API_URL}/libraries/${id}/popular?limit=20`, 8000, { next: { revalidate } }),
-    fetchWithTimeout(`${API_URL}/libraries/${id}/new-arrivals?limit=20`, 8000, { next: { revalidate } }),
-    fetchWithTimeout(`${API_URL}/libraries/${id}/trends`, 8000, { next: { revalidate } }),
-    fetchLibraryFavoriteStatus(id),
+  const library = await fetchLibraryDetail(id)
+  if (!library) notFound()
+  const [popularData, newArrivalData, trendData, isFavorite] = await Promise.all([
+    fetchOptionalDetail<any[]>(`/libraries/${id}/popular?limit=20`),
+    fetchOptionalDetail<any[]>(`/libraries/${id}/new-arrivals?limit=20`),
+    fetchOptionalDetail<any>(`/libraries/${id}/trends`),
+    fetchLibraryFavoriteStatus(id).catch(() => false),
   ])
-
-  if (libRes.status === 'rejected' || !libRes.value.ok) notFound()
-
-  const { data: library } = await libRes.value.json()
-  const popular =
-    popularRes.status === 'fulfilled' && popularRes.value.ok
-      ? (await popularRes.value.json()).data
-      : []
-  const newArrivals =
-    newArrivalRes.status === 'fulfilled' && newArrivalRes.value.ok
-      ? (await newArrivalRes.value.json()).data
-      : []
-  const trends =
-    trendRes.status === 'fulfilled' && trendRes.value.ok
-      ? (await trendRes.value.json()).data
-      : []
-  const initialFavorite = isFavorite.status === 'fulfilled' ? isFavorite.value : false
+  const popular = Array.isArray(popularData) ? popularData : []
+  const newArrivals = Array.isArray(newArrivalData) ? newArrivalData : []
+  const trends = trendData
+  const initialFavorite = isFavorite
   const region = splitRegion(library.region)
   const nearbyLibraries = await fetchNearbyLibraries(region, Number(library.id))
 
@@ -230,7 +211,7 @@ export default async function LibraryPage({
               </div>
               {popular.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-canvas/70 p-10 text-center">
-                  <p className="text-muted-foreground text-sm">인기도서 정보가 없습니다.</p>
+                  <p className="text-muted-foreground text-sm">{Array.isArray(popularData) ? '인기도서 정보가 없습니다.' : '인기도서 정보를 잠시 불러올 수 없습니다. 잠시 후 다시 확인해 주세요.'}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-3">
@@ -258,7 +239,7 @@ export default async function LibraryPage({
               </h2>
               {newArrivals.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-border bg-canvas/70 p-10 text-center">
-                  <p className="text-muted-foreground text-sm">신착도서 정보가 없습니다.</p>
+                  <p className="text-muted-foreground text-sm">{Array.isArray(newArrivalData) ? '신착도서 정보가 없습니다.' : '신착도서 정보를 잠시 불러올 수 없습니다. 잠시 후 다시 확인해 주세요.'}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

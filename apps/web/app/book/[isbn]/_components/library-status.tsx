@@ -11,38 +11,37 @@ import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 
 interface Props {
   isbn: string
-  initialLibraries: any[]
 }
 
-export function LibraryStatus({ isbn, initialLibraries }: Props) {
+export function LibraryStatus({ isbn }: Props) {
   const { location, isLoaded } = useLocationContext()
-  const [libraries, setLibraries] = useState(initialLibraries)
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasFetched, setHasFetched] = useState(false)
-
-  useEffect(() => {
-    trackEvent('library_status_view', {
-      isbn,
-      libraryCount: initialLibraries.length,
-      availableCount: initialLibraries.filter((lib: any) => lib.holdingCount > 0).length,
-      hasLocation: false,
-      source: 'initial',
-    })
-  }, [initialLibraries, isbn])
+  const [libraries, setLibraries] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     if (!isLoaded) return
 
-    // 사용자 위치가 서울 시청(기본값)과 같고 아직 한번도 fetch하지 않았으면 초기 데이터 사용
-    const isDefaultLocation = Math.abs(location.lat - 37.5665) < 0.001 && Math.abs(location.lng - 126.978) < 0.001
-    if (isDefaultLocation && !hasFetched) return
-
+    const controller = new AbortController()
+    let active = true
+    const timer = setTimeout(() => controller.abort(), 15000)
     const fetchNearby = async () => {
       setIsLoading(true)
+      setHasError(false)
+      setLibraries([])
       try {
-        const res = await fetch(`${PUBLIC_API_BASE_URL}/books/${isbn}/with-libraries?lat=${location.lat}&lng=${location.lng}`)
+        const res = await fetch(`${PUBLIC_API_BASE_URL}/books/${encodeURIComponent(isbn)}/with-libraries?lat=${location.lat}&lng=${location.lng}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        if (!res.ok) throw new Error('Holdings request failed')
         const data = await res.json()
-        const nextLibraries = data.libraries || []
+        if (!Array.isArray(data?.libraries) || data.libraries.some((lib: unknown) => !lib || typeof lib !== 'object' || Array.isArray(lib))) {
+          throw new Error('Invalid holdings response')
+        }
+        if (!active) return
+        const nextLibraries = data.libraries
         setLibraries(nextLibraries)
         trackEvent('library_status_view', {
           isbn,
@@ -51,15 +50,22 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
           hasLocation: true,
           source: 'nearby',
         })
-      } catch (err) {
-        console.error('Failed to fetch nearby libraries:', err)
+      } catch {
+        if (active) setHasError(true)
       } finally {
-        setIsLoading(false)
-        setHasFetched(true)
+        clearTimeout(timer)
+        if (active) setIsLoading(false)
       }
     }
-    fetchNearby()
-  }, [isbn, location.lat, location.lng, isLoaded])
+    void fetchNearby()
+    return () => {
+      active = false
+      controller.abort()
+      clearTimeout(timer)
+    }
+  }, [isbn, location.lat, location.lng, isLoaded, retryCount])
+
+  const heldLibraries = libraries.filter((lib: any) => lib.holdingCount > 0)
 
   return (
     <section>
@@ -74,9 +80,16 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
         <LocationBar />
       </div>
 
-      {libraries.length > 0 ? (
+      {isLoading ? (
+        <p className="py-8 text-center text-muted-foreground" role="status">주변 도서관 보유 현황을 확인하고 있습니다.</p>
+      ) : hasError ? (
+        <div className="rounded-lg border border-border bg-white p-8 text-center" role="alert">
+          <p className="text-muted-foreground">보유 현황을 잠시 불러올 수 없습니다. 책이 없다는 뜻은 아닙니다.</p>
+          <button type="button" onClick={() => setRetryCount((count) => count + 1)} className="mt-4 rounded-lg bg-primary px-5 py-2 text-white">다시 시도</button>
+        </div>
+      ) : heldLibraries.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {libraries.filter((lib: any) => lib.holdingCount > 0).map((lib: any) => {
+          {heldLibraries.map((lib: any) => {
             const status: Status = lib.loanAvailable ? 'available' : 'borrowed'
             return (
               <LibraryCard
@@ -102,7 +115,7 @@ export function LibraryStatus({ isbn, initialLibraries }: Props) {
         </div>
       ) : (
         <div className="bg-white border border-border border-dashed rounded-lg p-12 text-center">
-          <p className="text-muted-foreground">반경 5km 내 도서관 정보가 없습니다.</p>
+          <p className="text-muted-foreground">현재 조회 결과에 보유 도서관이 표시되지 않습니다. 도서관 공식 사이트에서 한 번 더 확인해 주세요.</p>
         </div>
       )}
     </section>

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { db, bookCache, eq, sql, searchStats } from '@nearbook/db'
 import { CacheService } from '../../common/cache/cache.service'
 import { JeongbonaruClient } from './jeongbonaru.client'
@@ -44,10 +44,16 @@ export class JeongbonaruService {
         },
       )
 
-      const item = response.response?.docs?.[0]?.doc
-      if (!item) {
+      if (!Array.isArray(response.response?.docs)) {
+        throw new Error('Invalid book metadata response')
+      }
+      if (response.response.docs.length === 0) {
         this.logger.warn(`정보나루에 책 없음: ${isbn}`)
         return cached ? (cached as BookCacheRow) : null
+      }
+      const item = response.response.docs[0]?.doc
+      if (!item || typeof item.bookname !== 'string' || !item.bookname.trim()) {
+        throw new Error('Invalid book metadata item')
       }
 
       const book = this.mapBookDoc(item, isbn)
@@ -75,12 +81,14 @@ export class JeongbonaruService {
         })
 
       return book
-    } catch (err) {
+    } catch {
       // graceful: 만료된 캐시라도 반환
       this.logger.warn(
-        `정보나루 호출 실패 → stale cache fallback: ${isbn} (${String(err)})`,
+        `정보나루 조회 실패: ${isbn} (${cached ? 'stale cache fallback' : 'no cached metadata'})`,
       )
-      return cached ? (cached as BookCacheRow) : null
+      if (cached) return cached as BookCacheRow
+      // A failed request without a fallback is unavailable, not a missing book.
+      throw new ServiceUnavailableException('도서 정보를 잠시 조회할 수 없습니다. 다시 시도해 주세요.')
     }
   }
 

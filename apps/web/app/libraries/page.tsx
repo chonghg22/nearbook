@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { LibrariesMapView } from './_components/libraries-map-view'
-import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { SERVER_API_BASE_URL } from '@/lib/server-api'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 import { splitRegion } from '@/lib/seo/region'
 

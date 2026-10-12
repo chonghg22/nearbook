@@ -7,65 +7,24 @@ import { AffiliateOptions } from '@/components/book/affiliate-options'
 import { AdSenseSlot } from '@/components/ads/adsense-slot'
 import { LibraryStatus } from './_components/library-status'
 import { BookViewTracker } from './_components/book-view-tracker'
-import { SERVER_API_BASE_URL } from '@/lib/constants'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buildBookJsonLd } from '@/lib/seo/json-ld'
 import { buildPageMetadata } from '@/lib/seo/metadata'
+import { fetchBookDetail, fetchOptionalDetail } from '@/lib/detail-data'
 
-const API_URL = SERVER_API_BASE_URL
-export const revalidate = 2592000 // 30일
+export const revalidate = 0 // Do not persist a transient detail error as a page.
 export const dynamicParams = true
 
-async function fetchBook(isbn: string) {
-  try {
-    // 서버 사이드 기본값은 유지 (검색 엔진용)
-    const res = await fetch(`${API_URL}/books/${isbn}/with-libraries?lat=37.5665&lng=126.978`, {
-      next: { revalidate },
-    })
-    if (!res.ok) return null
-    return res.json()
-  } catch (error) {
-    console.error('Error fetching book:', error)
-    return null
-  }
-}
-
 async function fetchAnalysis(isbn: string) {
-  try {
-    const res = await fetch(`${API_URL}/books/${isbn}/analysis`, {
-      next: { revalidate: 300 },
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    return json.data
-  } catch (error) {
-    console.error('Error fetching book analysis:', error)
-    return null
-  }
-}
-
-export async function generateStaticParams() {
-  try {
-    const limit = process.env.NODE_ENV === 'production' ? 5000 : 50
-    const res = await fetch(`${API_URL}/books/popular?limit=${limit}`, { cache: 'no-store' })
-    if (!res.ok) return []
-    const data = await res.json()
-    return (Array.isArray(data) ? data : data.data ?? []).map((b: { isbn: string }) => ({
-      isbn: b.isbn,
-    }))
-  } catch (error) {
-    console.error('Error generating static params:', error)
-    return []
-  }
+  return fetchOptionalDetail<any>(`/books/${encodeURIComponent(isbn)}/analysis`)
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ isbn: string }> }): Promise<Metadata> {
   const { isbn } = await params
-  const result = await fetchBook(isbn)
-  if (!result) {
+  const book = await fetchBookDetail(isbn)
+  if (!book) {
     return { title: '책을 찾을 수 없습니다', robots: { index: false, follow: true } }
   }
-  const book = result.book ?? result
   const author = typeof book.author === 'string' ? book.author.trim() : ''
   const publisher = typeof book.publisher === 'string' ? book.publisher.trim() : ''
 
@@ -86,13 +45,9 @@ export async function generateMetadata({ params }: { params: Promise<{ isbn: str
 
 export default async function BookPage({ params }: { params: Promise<{ isbn: string }> }) {
   const { isbn } = await params
-  const [result, analysis] = await Promise.all([
-    fetchBook(isbn),
-    fetchAnalysis(isbn),
-  ])
-  if (!result) notFound()
-
-  const { book, libraries } = result
+  const book = await fetchBookDetail(isbn)
+  if (!book) notFound()
+  const analysis = await fetchAnalysis(isbn)
   const hasAnalysis = !!(
     analysis &&
     (
@@ -197,7 +152,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
 
           {/* 하단: 전체 너비를 사용하는 도서관 목록 섹션 */}
           <div className="space-y-12">
-            <LibraryStatus isbn={isbn} initialLibraries={libraries || []} />
+            <LibraryStatus isbn={isbn} />
 
             {hasAnalysis && (
               <BookAnalysisSection analysis={analysis} />

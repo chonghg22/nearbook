@@ -1,5 +1,5 @@
 import { CATEGORIES } from '@/lib/category-config'
-import { SERVER_API_BASE_URL } from '@/lib/constants'
+import { SERVER_API_BASE_URL } from '@/lib/server-api'
 
 /**
  * sitemap에 넣을 동적 URL 수집.
@@ -62,7 +62,7 @@ export type BookSourceStats = {
  * API base URL은 앱 공통 상수를 그대로 쓴다.
  * 자체 계산하면 두 값이 갈라지고, 빈 문자열로 떨어질 때 상대 URL이 만들어져
  * 서버 런타임(빌드·ISR 재생성)에서 fetch 자체가 실패한다.
- * 우선순위는 SERVER_API_BASE_URL과 동일하다: INTERNAL_API_URL → NEXT_PUBLIC_API_BASE_URL → 기본 API 호스트.
+ * INTERNAL_API_URL → 절대 NEXT_PUBLIC_API_BASE_URL → 기본 API 호스트. 상대 /api는 서버에 전파하지 않는다.
  */
 function getApiBaseUrl() {
   return SERVER_API_BASE_URL

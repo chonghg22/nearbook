@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { SERVER_API_BASE_URL } from '@/lib/server-api'
 
 export const runtime = 'nodejs'
 
@@ -20,15 +21,8 @@ async function getAccessToken() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const apiBase = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL
-
-    if (!apiBase) {
-      console.warn('[analytics] API base URL is not set, event skipped')
-      return NextResponse.json({ ok: false, skipped: true, reason: 'missing_api_base_url' })
-    }
-
     const accessToken = await getAccessToken()
-    const res = await fetch(`${apiBase}/analytics/event`, {
+    const res = await fetch(`${SERVER_API_BASE_URL}/analytics/event`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

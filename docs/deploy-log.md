@@ -10,6 +10,34 @@
 
 ---
 
+## 2026-10-12: Vercel 서버 API 요청의 국가 차단 해제
+
+- Vercel의 `https://api.near-book.com` 요청에서 403이 발생하고, Cloudflare의 한국 외 국가 차단 규칙에 미국 `node` 요청이 차단되는 것을 확인했다.
+- 사용자의 명시적 승인 후 규칙 `6cc08baadf60473cabf2cd940f156cbb`만 변경했다. API 호스트 전체를 이 국가 차단 규칙에서 제외했으며, 순서·Block action·Active 상태는 유지했다.
+- 적용 식: `(ip.src.country ne "KR" and not cf.client.bot and http.host ne "api.near-book.com")`
+- 해외에서도 API 접근이 가능해지는 영향은 승인 시 설명했다. 기존 API 인증·Nest throttling은 변경하지 않았다. DNS·TLS·Vercel 환경변수도 변경하지 않았다.
+- 19:57:02 KST Vercel의 지도 프록시 `/api/libraries/in-bounds` HTTP 200과 실제 목록을 확인했다. `/libraries` 목록, 홈 인기대출·급상승 도서, 서울도서관 상세도 표시됐다.
+- 특정 책 상세의 not-found와 `/popular`의 준비 중 화면은 남아 있으며 후속 진단이 필요하다. 로컬 주소 정책 수정은 아직 배포하지 않았다.
+- rollback 식과 상세 검증/제약은 [P0-01 기록](p0-01-api-routing.md)에 보관했다.
+
+## 2026-10-12: 운영 HTTPS 복구
+
+- 장애: `https://www.near-book.com/` 접속 시 Cloudflare `526 Invalid SSL certificate` 발생.
+- 실제 운영 Vercel 프로젝트는 `chonghg22s-projects/nearbook-web`. 로컬 CLI 연결도 이 프로젝트로 수정했다.
+- Vercel Domains 화면에서 두 웹 도메인이 `Invalid Configuration`이며 Cloudflare 프록시를 끄도록 안내하는 것을 확인했다.
+- 다음 두 레코드의 CNAME 대상은 유지하고 프록시만 `DNS only`로 변경했다.
+
+| 이름 | 타입 | 대상 | 프록시 |
+|------|------|------|--------|
+| `near-book.com` | CNAME | `09b687c301b1526c.vercel-dns-017.com` | DNS only |
+| `www.near-book.com` | CNAME | `09b687c301b1526c.vercel-dns-017.com` | DNS only |
+
+- `api.near-book.com`의 Oracle Cloud A 레코드와 Cloudflare 프록시는 유지했다. SSL/TLS 모드도 변경하지 않았다.
+- 변경 후 Vercel이 SSL 인증서를 발급했고, 두 웹 도메인 모두 `Valid Configuration`으로 전환됐다.
+- 브라우저에서 인증서 경고 없이 HTTPS 홈페이지 접속을 확인했다. `https://near-book.com/`도 `https://www.near-book.com/`으로 이동한다.
+- 이 확인은 HTTPS와 도메인 연결에 대한 것이며, 검색·도서관 데이터 등 API 기능 전체를 검증한 것은 아니다.
+- 후속 조회: `vercel domains inspect www.near-book.com`, `cf dns records list --zone near-book.com`.
+
 ## 2026-05-07: Vercel 배포 설정
 
 ### 완료된 작업
