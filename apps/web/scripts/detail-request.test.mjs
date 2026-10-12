@@ -89,3 +89,9 @@ test('both detail routes opt out of long-lived page caching and provide retry bo
     assert.doesNotMatch(page, /if \(!res.ok\) return \{ title/)
   }
 })
+
+test('server detail retry forces a new document request, not a stale RSC error rerender', async () => {
+  const errorUi = await readFile(new URL('../components/detail-error.tsx', import.meta.url), 'utf8')
+  assert.match(errorUi, /window.location.reload\(\)/)
+  assert.doesNotMatch(errorUi, /router.refresh|reset\(\)/)
+})
