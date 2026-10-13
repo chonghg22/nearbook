@@ -1,7 +1,7 @@
 # P0-03 지도·지역 목록 복구 — Claude Code 구현 인계
 
 작성일: 2026-10-13  
-상태: **Claude Code 1차 구현 반영 / 독립 검토 보완 및 전체 CI·브라우저 검증 진행 중 / 미완료**
+상태: **Claude Code 구현·보완 반영 / 전체 CI 및 목록·SDK 실패·모바일 프리뷰 검증 통과 / 정상 지도 실동작·운영 반영 대기**
 
 ## 역할
 
@@ -132,3 +132,32 @@ node --test apps/web/scripts/api-config.test.mjs apps/web/scripts/detail-request
 - Claude의 추가 수정: 참조를 먼저 비우고 SDK 정리를 단계별 best-effort로 수행하며, 오류 상태를 정리보다 먼저 설정한다. 목록 전환 안내는 패널 상단으로 이동해 첫 화면에서 보이게 한다.
 - 추가 수정 로컬 검증: Node **103개 통과**, 공통 JS strict 검사 및 diff-check 통과. SDK null/정리 예외 회귀 테스트를 포함한다. 모사 테스트·소스 검사는 실제 React/브라우저 검증의 대체가 아니다.
 - 추가 수정의 전체 CI·프리뷰 재검증은 진행 중이다. 운영은 변경하지 않았다.
+
+### 최종 수정 검증 결과
+
+- 구현 커밋: `6a5f6b116dbb7ff5887fc8bd79b745557995cc89`, [PR #6](https://github.com/chonghg22/nearbook/pull/6) 열림. 병합·운영 배포하지 않았다.
+- [최종 CI](https://github.com/chonghg22/nearbook/actions/runs/38326625297): 의존성 설치·lint·전체 타입 검사·빌드·테스트 모두 성공. Node 103 + Web Vitest 106 + API Jest 11 = **220개 통과**.
+- [Vercel 프리뷰](https://nearbook-aozubo80j-chonghg22s-projects.vercel.app/libraries) 준비 완료. 프리뷰의 Naver SDK 인증 실패에서도 화면이 유지되고 상단에 오류 안내 및 `목록 보기` 버튼이 표시된다.
+- 해당 버튼으로 전환하면 부산·해운대구 선택이 보존되고 관련 도서관 **6개**가 표시된다. 분할에서도 같은 6개 목록이 유지된다. 강원으로 변경하면 시군구가 초기화되고 강원 목록 **51개**가 표시된다.
+- 최종 프리뷰 도메인을 포함한 콘솔 error/warn 조회에서 이전 `Event`/`KVO`/`isArray` 정리 예외 재발을 관찰하지 않았다. 이전 탭 로그에는 수정 전 예외가 남아 있어 도메인으로 구분했다.
+- 이전 viewport 미적용과 달리 최종 검증에서는 390×844 override가 실제 적용됐다(스크롤바 제외 DOM 폭 **384px**). 지역 필터·목록/지도 토글·오류 대체 버튼이 화면 안에 있고 수평 overflow가 없다. 모바일 `목록 보기` 후 같은 해운대구 6개 목록 확인, viewport는 검사 후 복원했다.
+- 증거: [390px 대체 버튼](../../.tools/nearbook-evidence/p0-03-preview-mobile-fallback.jpg), [390px 해운대구 목록](../../.tools/nearbook-evidence/p0-03-preview-mobile-haeundae-list.jpg).
+- 아직 검증하지 않은 것: 인증된 정상 SDK에서의 지도 이동·마커/InfoWindow 실동작, 실제 모바일 기기, React UI의 HTTP 장애 주입/재시도(공통 요청 로직과 프록시는 자동 테스트 통과). 프리뷰 SDK 등록을 위해 클라우드 권한/설정을 변경하지 않았다.
+- backend 주소 선택 보완도 PR에 포함되지만 프리뷰는 현재 운영 API를 사용하므로 주소 없는 구계약 호환으로 검증했다. 전체 완료 기준 충족 전까지 TODO는 미체크로 유지한다.
+- 정상 빈 결과 실동작: 강원·삼척시 선택에서 목록 0개와 `선택한 지역에 등록된 도서관이 없습니다`를 표시했고, 부산·해운대구 재선택으로 목록을 다시 조회했다. 이는 현재 데이터셋의 빈 결과이며 삼척시 자체에 도서관이 없다는 뜻은 아니다.
+
+### 인증된 지도 실동작에서 발견한 배포 차단 결함
+
+- 사용자 승인으로 최초 검증 프리뷰 URL을 Naver Maps `nearbook` 애플리케이션에 추가했다. 정상 지도 타일과 마커가 표시됐으며, 부산·해운대구 목록/마커 각 6개를 확인했다.
+- **F1:** 화면 상단의 성북길빛도서관(`111492`) 마커 클릭 시 InfoWindow의 자동 pan → idle → bounds 재조회로 목록 배열이 변경된다. 기존 effect cleanup이 팝업을 닫아 약 2.5초 후 상세 링크가 사라졌다. [증거](../../.tools/nearbook-evidence/p0-03-preview-edge-popup-disappears.jpg)
+- **F2:** 390×844에서 도서관 상세(`126024`) → 하단 `지역별 도서관` 링크로 클라이언트 재진입하면, 캐시된 SDK가 모바일 보기 전환보다 먼저 초기화돼 좁은 지도 폭이 남고 마커 0개/빈 영역 안내가 나타났다. 실제 브라우저에서 재현했으며 자동 테스트 통과만으로 완료하지 않는다.
+- Claude Code에 같은 조회 범위에서 팝업/마커 identity 유지, 선택 강조만 갱신, 지역 변경 시 닫기, 지도 컨테이너 크기 변경 동기화 및 안전한 observer 정리를 요청했다. 수정·재검증 전에는 PR을 병합하지 않는다.
+- 사용자 승인으로 고정 브랜치 프리뷰 `https://nearbook-web-git-fix-p0-03-map-regio-01093c-chonghg22s-projects.vercel.app`를 추가했다. 기존 URL 6개 유지, 최종 허용 URL 7개와 Dynamic Map/Static Map 체크 상태를 재열어 검증했다. 설정 조작 중 의도치 않은 Reverse Geocoding 활성화를 발견해 사용자 승인 후 원래 해제 상태로 복구했다. [최종 설정 증거](../../.tools/nearbook-evidence/p0-03-naver-stable-preview-url-registered.jpg)
+- 아직 운영에 반영하지 않았다. 정상 지도 회귀 검증·최종 CI 통과 이후 반영한다.
+
+### F1/F2 추가 수정 적용·로컬 검증
+
+- Claude 작성 패치를 검토·적용했다. 마커를 도서관 id로 유지하고 선택 변경에서는 아이콘만 갱신한다. 같은 조회 범위의 재조회는 열린 팝업을 유지하며, 지역 변경·해당 도서관 제거·지도 종료 시 닫는다. HTML escape 및 상세 링크 인코딩을 유지한다.
+- 지도 크기는 SDK가 관리하는 요소가 아닌 React 래퍼의 ResizeObserver로 관찰한다. 양수·변경된 크기만 `setSize`에 반영하고 중심 유지 후 bounds를 알린다. 부모 패널 `min-w-0`로 분할 전환 시 축소를 허용한다. SDK 인증 실패/언마운트 시 observer를 먼저 끊고, `setSize` 중 정리되면 `setCenter`도 호출하지 않는다.
+- 로컬 Node **120개 통과**(기존 103 + 새 회귀 17), 공통 JS strict 및 diff-check 통과. 새 테스트는 팝업/마커 identity·범위 변경·SDK null/예외·리사이즈/observer lifecycle을 모사하며 실제 브라우저 검증을 대체하지 않는다.
+- 전체 CI와 인증된 수정 프리뷰 재검증은 아직 진행 전이며 운영은 미변경이다.

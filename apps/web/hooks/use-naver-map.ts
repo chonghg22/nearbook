@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { teardownNaverMap } from '@/lib/map-libraries.mjs'
+import { createMapResizer, observeElementSize, teardownNaverMap } from '@/lib/map-libraries.mjs'
 
 export interface NaverBounds {
   swLat: number
@@ -46,6 +46,7 @@ export function useNaverMap(
     const prevAuthFailure = authWindow.navermap_authFailure
     let active = true
     let idleListener: unknown = null
+    let stopResizeObserver: (() => void) | null = null
     let script: HTMLScriptElement | null = null
     let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -57,8 +58,12 @@ export function useNaverMap(
       // 참조를 먼저 비운 뒤 정리한다. 인증 실패로 SDK 내부가 비워져 정리가 던져도 오래된 지도가 남지 않는다.
       const map = mapRef.current
       const listener = idleListener
+      const stopObserving = stopResizeObserver
       mapRef.current = null
       idleListener = null
+      stopResizeObserver = null
+      // 크기 관찰은 SDK 정리 결과와 무관하게 항상 끊는다(던지지 않는다).
+      stopObserving?.()
       teardownNaverMap({ map, listeners: [listener], getMaps: () => window.naver?.maps })
     }
     const fail = (message: string) => {
@@ -78,25 +83,42 @@ export function useNaverMap(
       }
       return prevOnError ? prevOnError.call(window, message, source, lineno, colno, err) : false
     }
+    // 정리된 지도·언마운트 뒤의 늦은 이벤트는 bounds를 바꾸지 못한다.
+    const notifyBounds = (map: unknown) => {
+      if (!active || mapRef.current !== map) return
+      try {
+        onBoundsChangeRef.current?.(extractBounds(map))
+      } catch {
+        // SDK 내부가 비워진 뒤의 늦은 이벤트는 무시한다.
+      }
+    }
     const initMap = () => {
       if (!active) return
       const maps = window.naver?.maps
-      if (!containerRef.current || !maps) return fail('지도 초기화 실패')
+      const container = containerRef.current
+      if (!container || !maps) return fail('지도 초기화 실패')
       // 늦은 load 등으로 다시 초기화되면 이전 지도부터 안전하게 정리한다.
       teardownMap()
       try {
-        const map = new maps.Map(containerRef.current, {
+        const map = new maps.Map(container, {
           center: new maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng),
           zoom: DEFAULT_ZOOM,
         })
         mapRef.current = map
-        idleListener = maps.Event.addListener(map, 'idle', () => {
-          if (!active || mapRef.current !== map) return
-          try {
-            onBoundsChangeRef.current?.(extractBounds(map))
-          } catch {
-            // SDK 내부가 비워진 뒤의 늦은 이벤트는 무시한다.
-          }
+        idleListener = maps.Event.addListener(map, 'idle', () => notifyBounds(map))
+        // SDK의 autoResize는 부모 레이아웃 변화(분할↔지도 전환)를 안정적으로 따라가지 못하고, 캐시된 SDK는 부모 effect(모바일 분할→지도 전환)보다
+        // 먼저 동기 초기화된다. setSize는 SDK 컨테이너에 픽셀 크기를 직접 쓸 수 있어 그 요소를 관찰하면 이후 변화가 멈추므로,
+        // 패딩·테두리 없는 React 래퍼를 관찰해 크기 변화를 setSize로 반영하고(중심 유지) 새 bounds를 알린다. 같은 크기·0 크기·정리된 지도는 무시한다.
+        const sizeSource = container.parentElement ?? container
+        stopResizeObserver = observeElementSize({
+          element: sizeSource,
+          onSize: createMapResizer({
+            map,
+            getMaps: () => window.naver?.maps,
+            isCurrent: () => active && mapRef.current === map,
+            initial: { width: sizeSource.clientWidth, height: sizeSource.clientHeight },
+            onResize: () => notifyBounds(map),
+          }),
         })
         stopWaiting()
         // 시간 초과·실패 뒤 SDK가 늦게 로드돼도 초기화에 성공하면 이전 오류를 지운다.

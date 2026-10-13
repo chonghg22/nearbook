@@ -69,6 +69,8 @@ export function useMapLibraries(bounds: NaverBounds | null, region?: LibraryRegi
   const settled = state.key === query.key && state.status !== 'loading'
   const failed = settled && state.status === 'error'
   return {
+    // 지역 선택(또는 지도 bounds) 범위. 지도는 범위가 바뀔 때만 열린 InfoWindow를 닫는다.
+    scope: query.scope,
     // 지도 이동(같은 bounds 범위)에서는 새 응답 전까지 이전 마커를 유지한다.
     libraries: state.scope === query.scope && state.status !== 'error' ? state.libraries : NO_LIBRARIES,
     center: settled && !failed ? state.center : null,

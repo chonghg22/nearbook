@@ -76,7 +76,7 @@ export function LibrariesMapView() {
   // 지역을 선택하면 지도 표시·이동과 무관하게 지역 기준으로 조회한다.
   // '전체 시도'로 돌아왔을 때만 지도 영역(지도가 없으면 서울 기본 영역)을 따른다.
   const region = useMemo(() => (sido ? { sido, sigungu } : undefined), [sido, sigungu])
-  const { libraries, isLoading, isEmpty, error, center, limited, retry } = useMapLibraries(bounds, region)
+  const { libraries, scope, isLoading, isEmpty, error, center, limited, retry } = useMapLibraries(bounds, region)
 
   // 시도 전체는 고정 중심, 시군구는 현재 응답의 중심만 쓴다. 로딩·실패·빈 결과에서는 시도 중심으로 돌아간다.
   const regionCenter = useMemo(
@@ -211,11 +211,13 @@ export function LibrariesMapView() {
 
         {/* 지도 패널 */}
         {(viewMode === 'map' || viewMode === 'split') && (
-          <div className="relative flex-1">
+          // min-w-0: SDK가 지도 요소에 쓴 픽셀 너비가 flex 최소 크기가 되어 분할 전환 때 패널이 줄지 못하는 것을 막는다.
+          <div className="relative flex-1 min-w-0">
             <NaverInteractiveMap
               onBoundsChange={handleBoundsChange}
               onMapErrorChange={setMapError}
               libraries={libraries}
+              scopeKey={scope}
               selectedLibraryId={hoveredLibraryId}
               regionCenter={regionCenter}
               className="h-full"

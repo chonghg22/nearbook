@@ -279,3 +279,232 @@ export function teardownNaverMap({ map, listeners = [], getMaps }) {
     () => map?.destroy?.(),
   )
 }
+
+/**
+ * @typedef {{ id: number, name: string, lat: number, lng: number }} MarkerLibrary
+ * @typedef {{ width: number, height: number }} PixelSize
+ */
+
+/**
+ * InfoWindow content for a marker. The name is escaped and the id encoded, so library data is never parsed as HTML.
+ * @param {MarkerLibrary} library @returns {string}
+ */
+export function libraryPopupHtml(library) {
+  return [
+    '<div style="background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);padding:10px 14px;min-width:140px;text-align:center;">',
+    `<p style="font-size:13px;font-weight:600;color:#111;margin:0 0 6px">${escapeHtml(library.name)}</p>`,
+    `<a href="/library/${encodeURIComponent(String(library.id))}" style="font-size:12px;color:#2f704f;text-decoration:none;">상세보기 →</a>`,
+    '</div>',
+  ].join('')
+}
+
+/**
+ * SDK operations used by the marker layer. Any of them may throw (the SDK nulls its internals on auth failure).
+ * @template H
+ * @typedef {{
+ *   createMarker: (library: MarkerLibrary, selected: boolean, open: () => void) => H,
+ *   setPosition: (handle: H, library: MarkerLibrary) => void,
+ *   setSelected: (handle: H, selected: boolean) => void,
+ *   removeMarker: (handle: H) => void,
+ *   openPopup: (handle: H, html: string) => void,
+ *   updatePopup: (handle: H, html: string, moved: boolean) => void,
+ *   closePopup: () => void,
+ * }} MarkerLayerAdapter
+ */
+
+/**
+ * @typedef {{
+ *   sync: (libraries: readonly MarkerLibrary[], selectedId: number | null | undefined, scope: string) => void,
+ *   open: (id: number) => boolean,
+ *   close: () => void,
+ *   openId: () => number | null,
+ *   ids: () => number[],
+ *   destroy: () => void,
+ * }} MarkerLayer
+ */
+
+/**
+ * One marker per library id. A same-scope list refresh (e.g. InfoWindow auto-pan → idle → bounds refetch) or a
+ * selection change never recreates markers or closes the open InfoWindow; its content is re-rendered only if it changed.
+ * The InfoWindow closes when the scope changes, its library leaves the list, close() is called or the layer is destroyed.
+ * sync/close/destroy never throw; a marker that fails to be created is reported and retried on the next sync.
+ * @template H
+ * @param {MarkerLayerAdapter<H>} adapter
+ * @param {{ onCreateError?: ((id: number, error: unknown) => void) | undefined }} [options]
+ * @returns {MarkerLayer}
+ */
+export function createMarkerLayer(adapter, { onCreateError } = {}) {
+  /** @type {Map<number, { handle: H, library: MarkerLibrary, selected: boolean }>} */
+  const entries = new Map()
+  /** @type {string | undefined} */
+  let scope
+  /** @type {{ id: number, html: string } | null} */
+  let popup = null
+  let destroyed = false
+
+  const close = () => {
+    if (!popup) return
+    popup = null
+    runCleanup(() => adapter.closePopup())
+  }
+  /** @param {number} id */
+  const remove = (id) => {
+    const entry = entries.get(id)
+    if (!entry) return
+    entries.delete(id)
+    if (popup?.id === id) close()
+    runCleanup(() => adapter.removeMarker(entry.handle))
+  }
+
+  /** @type {MarkerLayer} */
+  const layer = {
+    sync(libraries, selectedId, nextScope) {
+      if (destroyed) return
+      if (scope !== nextScope) {
+        close()
+        scope = nextScope
+      }
+      /** @type {Map<number, MarkerLibrary>} */
+      const next = new Map()
+      for (const library of libraries) if (!next.has(library.id)) next.set(library.id, library)
+      for (const id of [...entries.keys()]) if (!next.has(id)) remove(id)
+      for (const library of next.values()) {
+        const id = library.id
+        const selected = id === selectedId
+        const entry = entries.get(id)
+        if (!entry) {
+          try {
+            entries.set(id, { handle: adapter.createMarker(library, selected, () => layer.open(id)), library, selected })
+          } catch (error) {
+            runCleanup(() => onCreateError?.(id, error))
+          }
+          continue
+        }
+        const moved = entry.library.lat !== library.lat || entry.library.lng !== library.lng
+        if (moved) runCleanup(() => adapter.setPosition(entry.handle, library))
+        if (entry.selected !== selected) runCleanup(() => adapter.setSelected(entry.handle, selected))
+        entry.library = library
+        entry.selected = selected
+        const current = popup
+        if (current && current.id === id) {
+          const html = libraryPopupHtml(library)
+          if (moved || html !== current.html) {
+            current.html = html
+            runCleanup(() => adapter.updatePopup(entry.handle, html, moved))
+          }
+        }
+      }
+    },
+    open(id) {
+      const entry = destroyed ? undefined : entries.get(id)
+      if (!entry) return false
+      const html = libraryPopupHtml(entry.library)
+      popup = { id, html }
+      try {
+        adapter.openPopup(entry.handle, html)
+      } catch {
+        popup = null
+        runCleanup(() => adapter.closePopup())
+        return false
+      }
+      return popup?.id === id
+    },
+    close,
+    openId: () => popup?.id ?? null,
+    ids: () => [...entries.keys()],
+    destroy() {
+      if (destroyed) return
+      destroyed = true
+      popup = null
+      runCleanup(() => adapter.closePopup())
+      for (const id of [...entries.keys()]) remove(id)
+    },
+  }
+  return layer
+}
+
+/** @param {PixelSize | undefined} size @returns {PixelSize | null} */
+function toPixelSize(size) {
+  if (!size) return null
+  const width = Math.round(size.width)
+  const height = Math.round(size.height)
+  return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0 ? { width, height } : null
+}
+
+/**
+ * The SDK's own autoResize does not reliably follow parent layout changes (split ↔ map, mobile re-entry), and setSize
+ * does not guarantee an idle event. Applies later positive, changed sizes with map.setSize while keeping the center, then
+ * calls onResize once. Ignores unchanged/zero sizes, a map that is no longer current (checked again after each SDK call,
+ * since setSize may synchronously trigger auth failure/teardown), and re-entry while setSize runs (it may emit idle
+ * synchronously). Never throws; a failed attempt is retried.
+ * @param {{ map: any, getMaps: () => any, isCurrent: () => boolean, onResize: () => void, initial?: PixelSize | undefined }} input
+ * @returns {(size: PixelSize) => boolean} true when the map was resized
+ */
+export function createMapResizer({ map, getMaps, isCurrent, onResize, initial }) {
+  let applied = toPixelSize(initial)
+  let resizing = false
+  return (size) => {
+    const next = toPixelSize(size)
+    if (!next || resizing || !isCurrent()) return false
+    if (applied && applied.width === next.width && applied.height === next.height) return false
+    resizing = true
+    try {
+      const maps = getMaps()
+      if (typeof maps?.Size !== 'function' || typeof map?.setSize !== 'function') return false
+      const center = (() => {
+        try {
+          return map.getCenter?.() ?? null
+        } catch {
+          return null
+        }
+      })()
+      map.setSize(new maps.Size(next.width, next.height))
+      applied = next
+      if (!isCurrent()) return false
+      if (center) runCleanup(() => map.setCenter(center))
+    } catch {
+      return false
+    } finally {
+      resizing = false
+    }
+    if (!isCurrent()) return false
+    runCleanup(onResize)
+    return true
+  }
+}
+
+/**
+ * Reports the element's latest content size. Never throws; deliveries after disconnect are dropped.
+ * Without ResizeObserver this is a no-op.
+ * @param {{ element: Element, onSize: (size: PixelSize) => void, ResizeObserverImpl?: (typeof ResizeObserver) | undefined }} input
+ * @returns {() => void} idempotent disconnect
+ */
+export function observeElementSize({ element, onSize, ResizeObserverImpl = globalThis.ResizeObserver }) {
+  const noop = () => {}
+  if (typeof ResizeObserverImpl !== 'function') return noop
+  let connected = true
+  /** @param {ResizeObserverEntry[]} entries */
+  const onEntries = (entries) => {
+    const entry = entries[entries.length - 1]
+    if (connected && entry) runCleanup(() => onSize({ width: entry.contentRect.width, height: entry.contentRect.height }))
+  }
+  /** @type {ResizeObserver} */
+  let observer
+  try {
+    observer = new ResizeObserverImpl(onEntries)
+  } catch {
+    return noop
+  }
+  const disconnect = () => {
+    if (!connected) return
+    connected = false
+    runCleanup(() => observer.disconnect())
+  }
+  try {
+    observer.observe(element)
+  } catch {
+    disconnect()
+    return noop
+  }
+  return disconnect
+}

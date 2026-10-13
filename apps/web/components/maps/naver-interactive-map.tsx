@@ -3,7 +3,7 @@
 import { useRef, useEffect } from 'react'
 import { MapErrorBoundary } from './map-error-boundary'
 import { useNaverMap, type NaverBounds } from '@/hooks/use-naver-map'
-import { escapeHtml, runCleanup } from '@/lib/map-libraries.mjs'
+import { createMarkerLayer, runCleanup } from '@/lib/map-libraries.mjs'
 
 interface Library {
   id: number
@@ -19,6 +19,8 @@ interface Props {
   onMarkerClick?: (id: number) => void
   onMapErrorChange?: ((error: string | null) => void) | undefined
   regionCenter?: { lat: number; lng: number; zoom?: number } | undefined
+  /** 목록 조회 범위(선택 지역 또는 지도 bounds). 바뀌면 열린 InfoWindow를 닫는다. */
+  scopeKey?: string | undefined
   className?: string
 }
 
@@ -39,6 +41,18 @@ const PIN_SELECTED = `
 
 const NO_LIBRARIES: Library[] = []
 
+const PINS = {
+  normal: { content: PIN_NORMAL, width: 28, height: 36, zIndex: 1 },
+  selected: { content: PIN_SELECTED, width: 34, height: 44, zIndex: 10 },
+}
+
+type MarkerLayer = ReturnType<typeof createMarkerLayer>
+
+interface MarkerHandle {
+  marker: any
+  listener: unknown
+}
+
 function MapInner({
   onBoundsChange,
   libraries = NO_LIBRARIES,
@@ -46,10 +60,11 @@ function MapInner({
   onMarkerClick,
   onMapErrorChange,
   regionCenter,
+  scopeKey = '',
   className,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const infoWindowRef = useRef<any>(null)
+  const layerRef = useRef<MarkerLayer | null>(null)
   const onMarkerClickRef = useRef(onMarkerClick)
   onMarkerClickRef.current = onMarkerClick
   const onMapErrorChangeRef = useRef(onMapErrorChange)
@@ -70,92 +85,80 @@ function MapInner({
     }
   }, [isLoaded, centerLat, centerLng, centerZoom, moveTo])
 
-  // 지도 클릭 시 InfoWindow 닫기 (지도당 한 번만 등록)
+  // 지도마다 마커 레이어 하나를 둔다. 마커는 도서관 id로 유지해 같은 범위의 목록 갱신·선택 변경에서 다시 만들지 않는다.
+  // 가장자리 마커의 InfoWindow 자동 이동은 idle → bounds 재조회를 일으키므로, 목록이 바뀔 때마다 닫으면 팝업이 사라진다.
   useEffect(() => {
-    const maps = window.naver?.maps
+    const maps: any = window.naver?.maps
     if (!isLoaded || !map || !maps) return
-    const listener = maps.Event.addListener(map, 'click', () => runCleanup(() => infoWindowRef.current?.close()))
+
+    const infoWindow = new maps.InfoWindow({
+      borderWidth: 0,
+      backgroundColor: 'transparent',
+      disableAnchor: true,
+    })
+    const pinIcon = (selected: boolean) => {
+      const pin = selected ? PINS.selected : PINS.normal
+      return {
+        content: pin.content,
+        size: new maps.Size(pin.width, pin.height),
+        anchor: new maps.Point(pin.width / 2, pin.height),
+      }
+    }
+    const layer = createMarkerLayer<MarkerHandle>({
+      createMarker(library, selected, open) {
+        const marker = new maps.Marker({
+          position: new maps.LatLng(library.lat, library.lng),
+          map,
+          icon: pinIcon(selected),
+          zIndex: (selected ? PINS.selected : PINS.normal).zIndex,
+        })
+        try {
+          // 클릭: InfoWindow 표시. 내용은 레이어가 escape된 HTML(libraryPopupHtml)로 만든다.
+          const listener = maps.Event.addListener(marker, 'click', () => {
+            open()
+            onMarkerClickRef.current?.(library.id)
+          })
+          return { marker, listener }
+        } catch (error) {
+          runCleanup(() => marker.setMap(null))
+          throw error
+        }
+      },
+      setPosition: ({ marker }, library) => marker.setPosition(new maps.LatLng(library.lat, library.lng)),
+      setSelected: ({ marker }, selected) => {
+        marker.setIcon(pinIcon(selected))
+        marker.setZIndex((selected ? PINS.selected : PINS.normal).zIndex)
+      },
+      removeMarker: ({ marker, listener }) => {
+        runCleanup(() => maps.Event?.removeListener(listener), () => marker.setMap(null))
+      },
+      openPopup: ({ marker }, html) => {
+        infoWindow.setContent(html)
+        infoWindow.open(map, marker)
+      },
+      updatePopup: ({ marker }, html, moved) => {
+        infoWindow.setContent(html)
+        if (moved) infoWindow.open(map, marker)
+      },
+      closePopup: () => infoWindow.close(),
+    }, {
+      onCreateError: (id, error) => console.warn(`마커 생성 실패 (id=${id}):`, error),
+    })
+    layerRef.current = layer
+    // 지도 클릭 시 InfoWindow 닫기 (지도당 한 번만 등록)
+    const clickListener = maps.Event.addListener(map, 'click', () => layer.close())
     return () => {
-      // 지도가 사라지면(인증 실패 포함) InfoWindow도 버린다. 다음 지도는 새 InfoWindow를 만든다.
-      const infoWindow = infoWindowRef.current
-      infoWindowRef.current = null
-      runCleanup(() => maps.Event?.removeListener(listener), () => infoWindow?.close())
+      // 지도가 사라지면(인증 실패 포함) 마커와 InfoWindow를 모두 버린다. 다음 지도는 새 레이어를 만든다.
+      if (layerRef.current === layer) layerRef.current = null
+      runCleanup(() => maps.Event?.removeListener(clickListener), () => layer.destroy())
     }
   }, [isLoaded, map])
 
-  // 마커 목록이 바뀌거나 언마운트되면 이전 지역의 InfoWindow를 닫는다.
-  useEffect(() => () => {
-    runCleanup(() => infoWindowRef.current?.close())
-  }, [libraries, map])
-
+  // 같은 범위의 목록 갱신·로딩 중에는 마커와 열린 InfoWindow를 유지한다.
+  // 범위(지역)가 바뀌거나 열린 도서관이 확정된 목록에서 빠지면 닫는다.
   useEffect(() => {
-    const maps = window.naver?.maps
-    if (!isLoaded || !map || !maps) return
-
-    // InfoWindow 초기화
-    if (!infoWindowRef.current) {
-      infoWindowRef.current = new maps.InfoWindow({
-        borderWidth: 0,
-        backgroundColor: 'transparent',
-        disableAnchor: true,
-      } as any)
-    }
-
-    const markers: any[] = []
-    const listeners: unknown[] = []
-    libraries.forEach((lib) => {
-      try {
-        const isSelected = lib.id === selectedLibraryId
-        const marker = new maps.Marker({
-          position: new maps.LatLng(lib.lat, lib.lng),
-          map,
-          icon: {
-            content: isSelected ? PIN_SELECTED : PIN_NORMAL,
-            size: new (maps as any).Size(isSelected ? 34 : 28, isSelected ? 44 : 36),
-            anchor: new (maps as any).Point(
-              isSelected ? 17 : 14,
-              isSelected ? 44 : 36
-            ),
-          },
-          zIndex: isSelected ? 10 : 1,
-        } as any)
-
-        // 클릭: InfoWindow 표시. 도서관 이름은 HTML로 해석되지 않게 escape한다.
-        listeners.push(maps.Event.addListener(marker, 'click', () => {
-          const iw = infoWindowRef.current
-          iw?.setContent(`
-            <div style="
-              background:white;
-              border-radius:8px;
-              box-shadow:0 2px 8px rgba(0,0,0,.15);
-              padding:10px 14px;
-              min-width:140px;
-              text-align:center;
-            ">
-              <p style="font-size:13px;font-weight:600;color:#111;margin:0 0 6px">${escapeHtml(lib.name)}</p>
-              <a
-                href="/library/${encodeURIComponent(String(lib.id))}"
-                style="font-size:12px;color:#2f704f;text-decoration:none;"
-              >상세보기 →</a>
-            </div>
-          `)
-          iw?.open(map, marker)
-          onMarkerClickRef.current?.(lib.id)
-        }))
-
-        markers.push(marker)
-      } catch (e) {
-        console.warn(`마커 생성 실패 (id=${lib.id}):`, e)
-      }
-    })
-
-    return () => {
-      runCleanup(
-        ...listeners.map((listener) => () => maps.Event?.removeListener(listener)),
-        ...markers.map((m) => () => m.setMap(null)),
-      )
-    }
-  }, [libraries, selectedLibraryId, isLoaded, map])
+    layerRef.current?.sync(libraries, selectedLibraryId, scopeKey)
+  }, [libraries, selectedLibraryId, scopeKey, isLoaded, map])
 
   return (
     <div className={`relative w-full h-full ${className ?? ''}`}>
