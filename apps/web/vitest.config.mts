@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { defineConfig } from 'vitest/config'
+import ts from 'typescript'
 
 export default defineConfig({
   resolve: {
@@ -7,9 +8,21 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './'),
     },
   },
+  // Next needs jsx:preserve; SSR tests need lowered JSX before Vite import analysis.
+  // Use the already-installed compiler without changing the production tsconfig.
+  plugins: [{
+    name: 'test-ssr-jsx',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!/\.tsx(?:$|\?)/.test(id)) return null
+      return ts.transpileModule(code, {
+        fileName: id,
+        compilerOptions: { jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+      }).outputText
+    },
+  }],
   test: {
-    // SEO 로직은 순수 함수와 메타 라우트라 DOM이 필요 없다.
-    // 컴포넌트 렌더 테스트가 필요해지면 jsdom과 JSX 변환 설정을 함께 추가한다.
+    // Pure logic and server-rendered component tests need no browser DOM.
     environment: 'node',
     include: ['{app,lib}/**/*.test.ts'],
   },

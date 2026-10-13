@@ -32,6 +32,8 @@ type BookItem = {
   difference?: number
   baseWeekRank?: number
   pastWeekRank?: number
+  curationPeriod?: string
+  fetchedAt?: string
 }
 
 type NewArrivalBookItem = BookItem & {
@@ -93,6 +95,8 @@ export class HomeCurationsService {
         publisher: row.publisher,
         coverUrl: row.coverUrl,
         loanCount: row.loanCount ?? 0,
+        curationPeriod: row.periodKey,
+        fetchedAt: row.fetchedAt.toISOString(),
       }))
   }
 
@@ -134,6 +138,8 @@ export class HomeCurationsService {
         author: row.author,
         publisher: row.publisher,
         coverUrl: row.coverUrl,
+        curationPeriod: row.periodKey,
+        fetchedAt: row.fetchedAt.toISOString(),
       }))
   }
 
@@ -150,16 +156,18 @@ export class HomeCurationsService {
       .select({
         categoryCode: categoryCurations.categoryCode,
         count: sql<number>`count(*)::int`,
+        fetchedAt: sql<Date>`max(${categoryCurations.fetchedAt})`.mapWith(categoryCurations.fetchedAt),
       })
       .from(categoryCurations)
       .where(eq(categoryCurations.periodKey, latestPeriodKey))
       .groupBy(categoryCurations.categoryCode)
 
-    const countMap = new Map(counts.map((row) => [row.categoryCode, Number(row.count)]))
+    const countMap = new Map(counts.map((row) => [row.categoryCode, row]))
     return BOOK_CATEGORY_GROUPS.map((category) => ({
       ...category,
-      count: countMap.get(category.code) ?? 0,
+      count: Number(countMap.get(category.code)?.count ?? 0),
       periodKey: latestPeriodKey,
+      fetchedAt: countMap.get(category.code)?.fetchedAt?.toISOString(),
     }))
   }
 
@@ -182,6 +190,8 @@ export class HomeCurationsService {
       coverUrl: row.coverUrl,
       category: row.categoryName,
       loanCount: row.loanCount ?? 0,
+      curationPeriod: row.periodKey,
+      fetchedAt: row.fetchedAt.toISOString(),
     }))
   }
 
