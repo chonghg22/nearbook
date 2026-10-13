@@ -221,7 +221,8 @@ export function LibrariesMapView() {
               className="h-full"
             />
             {(showMapDataState && (isLoading || error || isEmpty)) || mapError ? (
-              <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 flex flex-col gap-2 text-sm">
+              // 패널이 페이지 머리말 아래에서 시작해 하단은 첫 화면 밖이므로, 안내와 목록 보기는 상단에 띄운다.
+              <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex flex-col gap-2 text-sm">
                 {showMapDataState && (isLoading ? (
                   <div role="status" className="pointer-events-auto rounded-lg border bg-white/95 p-3 text-gray-600 shadow-sm">
                     {loadingMessage}

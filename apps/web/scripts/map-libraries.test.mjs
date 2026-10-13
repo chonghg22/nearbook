@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import {
   MapLibrariesError, SEOUL_DEFAULT_BOUNDS, computeRegionCenter, createLatestRequest, escapeHtml, fetchJson,
   parseBoundsParams, parseLibraryList, parseLimit, parseRegionParams, parseRegionResponse, proxyError,
-  requestLibraries, resolveLibraryQuery, resolveRegionCenter,
+  requestLibraries, resolveLibraryQuery, resolveRegionCenter, runCleanup, teardownNaverMap,
 } from '../lib/map-libraries.mjs'
 
 const lib = { id: 1, name: '해운대도서관', address: '부산광역시 해운대구', lat: 35.16, lng: 129.16 }
@@ -235,6 +235,54 @@ test('marker info window escapes library names', () => {
   assert.equal(escapeHtml(`<img src=x onerror="alert('1')">&`), '&lt;img src=x onerror=&quot;alert(&#39;1&#39;)&quot;&gt;&amp;')
 })
 
+const hostileMaps = { Event: { removeListener() { throw new TypeError("Cannot read properties of null (reading 'isArray')") } } }
+
+test('cleanup runs every action even when SDK cleanup throws, and never throws', () => {
+  const ran = []
+  let failed
+  assert.doesNotThrow(() => {
+    failed = runCleanup(
+      () => { throw new TypeError("Cannot read properties of null (reading 'KVO')") },
+      () => ran.push('marker'),
+      null,
+      undefined,
+      () => hostileMaps.Event.removeListener({}),
+      () => ran.push('after'),
+    )
+  })
+  assert.equal(failed, 2)
+  assert.deepEqual(ran, ['marker', 'after'])
+})
+
+test('map teardown tolerates a nulled or hostile SDK and still destroys the map', () => {
+  let destroyed = 0
+  const map = { destroy() { destroyed += 1 } }
+  assert.equal(teardownNaverMap({ map, listeners: [{}], getMaps: () => null }), 0)
+  assert.equal(teardownNaverMap({ map, listeners: [{}], getMaps: () => ({ Event: null }) }), 0)
+  assert.equal(teardownNaverMap({ map, listeners: [{}, {}], getMaps: () => hostileMaps }), 2)
+  assert.equal(teardownNaverMap({ map, listeners: [{}], getMaps: () => { throw new TypeError("reading 'Event'") } }), 1)
+  assert.equal(destroyed, 4)
+  const brokenMap = { destroy() { throw new TypeError('null') } }
+  assert.equal(teardownNaverMap({ map: brokenMap, listeners: [null], getMaps: () => hostileMaps }), 1)
+  assert.equal(teardownNaverMap({ map: null, listeners: [null] }), 0)
+})
+
+test('failure state and parent notification survive a throwing teardown (hook order)', () => {
+  const calls = []
+  const refs = { map: { destroy() { throw new TypeError('null') } }, listener: {} }
+  const fail = (message) => {
+    calls.push(['error', message])
+    const { map, listener } = refs
+    refs.map = null
+    refs.listener = null
+    teardownNaverMap({ map, listeners: [listener], getMaps: () => hostileMaps })
+    calls.push(['torn-down'])
+  }
+  assert.doesNotThrow(() => fail('지도 인증 실패'))
+  assert.deepEqual(calls, [['error', '지도 인증 실패'], ['torn-down']])
+  assert.deepEqual(refs, { map: null, listener: null })
+})
+
 test('static wiring guards (supplement, not a replacement for browser verification)', async () => {
   const read = (file) => readFile(new URL(`../${file}`, import.meta.url), 'utf8')
   const view = await read('app/libraries/_components/libraries-map-view.tsx')
@@ -247,14 +295,20 @@ test('static wiring guards (supplement, not a replacement for browser verificati
   assert.doesNotMatch(view, /region-center/)
   assert.match(view, /resolveRegionCenter\(/)
   assert.doesNotMatch(view, /window\.innerWidth/)
+  assert.match(view, /absolute inset-x-3 top-3 z-20/)
+  assert.doesNotMatch(view, /inset-x-3 bottom-3/)
   assert.match(hook, /request\.isCurrent\(\)/)
   assert.match(hook, /latest\.cancel\(\)/)
   assert.doesNotMatch(naver, /SEOUL_DEFAULT_BOUNDS|console\.log/)
   assert.match(naver, /SDK_TIMEOUT_MS/)
-  assert.match(naver, /removeListener\(idleListener\)/)
+  assert.match(naver, /teardownNaverMap\(\{ map, listeners: \[listener\]/)
+  assert.doesNotMatch(naver, /naver\?\.maps\.Event/)
+  assert.match(naver, /setError\(message\)\n\s+setIsLoaded\(false\)\n[^\n]*\n\s+teardownMap\(\)/)
   assert.match(naver, /setError\(null\)/)
   assert.match(naver, /navermap_authFailure === onAuthFailure/)
   assert.match(map, /escapeHtml\(lib\.name\)/)
   assert.doesNotMatch(map, /\$\{lib\.name\}/)
-  assert.match(map, /\(\) => infoWindowRef\.current\?\.close\(\), \[libraries, map\]/)
+  assert.match(map, /runCleanup\(\(\) => infoWindowRef\.current\?\.close\(\)\)\n\s+\}, \[libraries, map\]/)
+  assert.doesNotMatch(map, /return \(\) => maps\.Event\.removeListener/)
+  assert.doesNotMatch(map, /listeners\.forEach\(\(listener\) => maps\.Event\.removeListener/)
 })

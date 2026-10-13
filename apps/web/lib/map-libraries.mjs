@@ -248,3 +248,34 @@ const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'
 export function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char)
 }
+
+/**
+ * Best-effort third-party cleanup: every action runs even if an earlier one throws, and this never throws.
+ * The Naver SDK nulls naver.maps and its internals on auth failure, so removeListener/close/setMap/destroy can throw.
+ * @param {...((() => unknown) | null | undefined)} actions @returns {number} number of actions that threw
+ */
+export function runCleanup(...actions) {
+  let failed = 0
+  for (const action of actions) {
+    try {
+      action?.()
+    } catch {
+      failed += 1
+    }
+  }
+  return failed
+}
+
+/**
+ * Callers capture and clear their refs before calling, so a hostile SDK can never leave a stale map behind.
+ * maps is read lazily (it may be null or its getter may throw) and the map is destroyed even if listener removal fails.
+ * @param {{ map?: any, listeners?: unknown[] | undefined, getMaps?: (() => any) | undefined }} input @returns {number}
+ */
+export function teardownNaverMap({ map, listeners = [], getMaps }) {
+  return runCleanup(
+    ...listeners.map((listener) => () => {
+      if (listener) getMaps?.()?.Event?.removeListener?.(listener)
+    }),
+    () => map?.destroy?.(),
+  )
+}

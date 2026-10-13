@@ -123,3 +123,12 @@ node --test apps/web/scripts/api-config.test.mjs apps/web/scripts/detail-request
 - 마커 목록 변경/언마운트 시 이전 InfoWindow를 닫고, SSR/최초 클라이언트 렌더 모드를 일치시켰다.
 - Node 테스트 **100개 통과**(기존 54 + 지도 관련 46), 공통 JS strict 검사 및 diff-check 재통과.
 - [PR #6](https://github.com/chonghg22/nearbook/pull/6)으로 전체 CI와 Vercel 프리뷰를 검증한다. 최종 보완 커밋 검증 전에는 병합하지 않는다.
+
+### 프리뷰 실동작 검증과 추가 보완
+
+- `e4b9ea4`의 전체 CI 통과: Node 100 + Web Vitest 106 + API Jest 11 = **217개**, 의존성 설치·lint·전체 타입 검사·빌드 통과. [CI 실행](https://github.com/chonghg22/nearbook/actions/runs/38326092905)
+- 프리뷰 목록 모드에서 부산 → 해운대구 **6개** 조회, 빠른 서울 → 부산 → 해운대구 변경 및 전체 시군구 복귀를 확인했다. 이전 서울 목록은 새 지역 로딩 중 제거된다.
+- 지도 모드에서 프리뷰 도메인의 SDK 인증 실패를 이용해 대체 UI를 검증하던 중, Naver SDK가 내부 객체를 null로 바꾸어 정리 함수가 예외를 던지고 목록 전환 안내를 막는 실제 결함을 발견했다. CI 통과만으로 완료 처리하지 않았다.
+- Claude의 추가 수정: 참조를 먼저 비우고 SDK 정리를 단계별 best-effort로 수행하며, 오류 상태를 정리보다 먼저 설정한다. 목록 전환 안내는 패널 상단으로 이동해 첫 화면에서 보이게 한다.
+- 추가 수정 로컬 검증: Node **103개 통과**, 공통 JS strict 검사 및 diff-check 통과. SDK null/정리 예외 회귀 테스트를 포함한다. 모사 테스트·소스 검사는 실제 React/브라우저 검증의 대체가 아니다.
+- 추가 수정의 전체 CI·프리뷰 재검증은 진행 중이다. 운영은 변경하지 않았다.

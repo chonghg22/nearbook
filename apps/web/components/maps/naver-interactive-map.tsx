@@ -3,7 +3,7 @@
 import { useRef, useEffect } from 'react'
 import { MapErrorBoundary } from './map-error-boundary'
 import { useNaverMap, type NaverBounds } from '@/hooks/use-naver-map'
-import { escapeHtml } from '@/lib/map-libraries.mjs'
+import { escapeHtml, runCleanup } from '@/lib/map-libraries.mjs'
 
 interface Library {
   id: number
@@ -74,12 +74,19 @@ function MapInner({
   useEffect(() => {
     const maps = window.naver?.maps
     if (!isLoaded || !map || !maps) return
-    const listener = maps.Event.addListener(map, 'click', () => infoWindowRef.current?.close())
-    return () => maps.Event.removeListener(listener)
+    const listener = maps.Event.addListener(map, 'click', () => runCleanup(() => infoWindowRef.current?.close()))
+    return () => {
+      // 지도가 사라지면(인증 실패 포함) InfoWindow도 버린다. 다음 지도는 새 InfoWindow를 만든다.
+      const infoWindow = infoWindowRef.current
+      infoWindowRef.current = null
+      runCleanup(() => maps.Event?.removeListener(listener), () => infoWindow?.close())
+    }
   }, [isLoaded, map])
 
   // 마커 목록이 바뀌거나 언마운트되면 이전 지역의 InfoWindow를 닫는다.
-  useEffect(() => () => infoWindowRef.current?.close(), [libraries, map])
+  useEffect(() => () => {
+    runCleanup(() => infoWindowRef.current?.close())
+  }, [libraries, map])
 
   useEffect(() => {
     const maps = window.naver?.maps
@@ -116,7 +123,7 @@ function MapInner({
         // 클릭: InfoWindow 표시. 도서관 이름은 HTML로 해석되지 않게 escape한다.
         listeners.push(maps.Event.addListener(marker, 'click', () => {
           const iw = infoWindowRef.current
-          iw.setContent(`
+          iw?.setContent(`
             <div style="
               background:white;
               border-radius:8px;
@@ -132,7 +139,7 @@ function MapInner({
               >상세보기 →</a>
             </div>
           `)
-          iw.open(map, marker)
+          iw?.open(map, marker)
           onMarkerClickRef.current?.(lib.id)
         }))
 
@@ -143,17 +150,18 @@ function MapInner({
     })
 
     return () => {
-      listeners.forEach((listener) => maps.Event.removeListener(listener))
-      markers.forEach((m) => {
-        try { m.setMap(null) } catch (_) {}
-      })
+      runCleanup(
+        ...listeners.map((listener) => () => maps.Event?.removeListener(listener)),
+        ...markers.map((m) => () => m.setMap(null)),
+      )
     }
   }, [libraries, selectedLibraryId, isLoaded, map])
 
   return (
     <div className={`relative w-full h-full ${className ?? ''}`}>
       <div ref={containerRef} className="w-full h-full" />
-      {error && (
+      {/* 오류를 받는 부모가 있으면 부모가 대체 안내를 띄우므로 중복 표시하지 않는다. */}
+      {error && !onMapErrorChange && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-1.5 rounded-full z-10 pointer-events-none whitespace-nowrap">
           ⚠️ 지도를 불러오지 못했습니다
         </div>

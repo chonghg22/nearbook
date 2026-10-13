@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { teardownNaverMap } from '@/lib/map-libraries.mjs'
 
 export interface NaverBounds {
   swLat: number
@@ -53,18 +54,21 @@ export function useNaverMap(
       if (window.onerror === onSdkError) window.onerror = prevOnError
     }
     const teardownMap = () => {
-      if (idleListener) window.naver?.maps.Event.removeListener(idleListener)
-      idleListener = null
-      mapRef.current?.destroy?.()
+      // 참조를 먼저 비운 뒤 정리한다. 인증 실패로 SDK 내부가 비워져 정리가 던져도 오래된 지도가 남지 않는다.
+      const map = mapRef.current
+      const listener = idleListener
       mapRef.current = null
+      idleListener = null
+      teardownNaverMap({ map, listeners: [listener], getMaps: () => window.naver?.maps })
     }
     const fail = (message: string) => {
       if (!active) return
       stopWaiting()
-      // 초기화 뒤의 실패(인증 실패 등)에서도 남은 idle 이벤트가 bounds를 바꾸지 못하게 지도를 정리한다.
-      teardownMap()
+      // 실패 상태를 먼저 기록해 정리 결과와 무관하게 부모가 오류를 받게 한다.
       setError(message)
       setIsLoaded(false)
+      // 초기화 뒤의 실패(인증 실패 등)에서도 남은 idle 이벤트가 bounds를 바꾸지 못하게 지도를 정리한다.
+      teardownMap()
     }
     // Naver SDK 내부 크래시(null.capitalize 등)를 가로채 React 크래시를 막는다.
     const onSdkError: OnErrorEventHandlerNonNull = (message, source, lineno, colno, err) => {
@@ -78,6 +82,8 @@ export function useNaverMap(
       if (!active) return
       const maps = window.naver?.maps
       if (!containerRef.current || !maps) return fail('지도 초기화 실패')
+      // 늦은 load 등으로 다시 초기화되면 이전 지도부터 안전하게 정리한다.
+      teardownMap()
       try {
         const map = new maps.Map(containerRef.current, {
           center: new maps.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng),
@@ -85,7 +91,12 @@ export function useNaverMap(
         })
         mapRef.current = map
         idleListener = maps.Event.addListener(map, 'idle', () => {
-          if (active && mapRef.current === map) onBoundsChangeRef.current?.(extractBounds(map))
+          if (!active || mapRef.current !== map) return
+          try {
+            onBoundsChangeRef.current?.(extractBounds(map))
+          } catch {
+            // SDK 내부가 비워진 뒤의 늦은 이벤트는 무시한다.
+          }
         })
         stopWaiting()
         // 시간 초과·실패 뒤 SDK가 늦게 로드돼도 초기화에 성공하면 이전 오류를 지운다.
