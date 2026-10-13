@@ -1,19 +1,10 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useMapLibraries } from '@/hooks/use-map-libraries'
 import { NaverInteractiveMap } from '@/components/maps/naver-interactive-map'
 import type { NaverBounds } from '@/hooks/use-naver-map'
-
-interface LibraryItem {
-  id: number
-  name: string
-  address: string
-  lat: number
-  lng: number
-  region?: string
-}
 
 // 시도 → 시군구 매핑
 const REGION_MAP: Record<string, string[]> = {
@@ -62,9 +53,9 @@ const SIDO_CENTER: Record<string, { lat: number; lng: number; zoom: number }> = 
 export function LibrariesMapView() {
   const [sido, setSido] = useState<string>('')
   const [sigungu, setSigungu] = useState<string>('')
-  const [regionCenter, setRegionCenter] = useState<{ lat: number; lng: number; zoom?: number } | undefined>(undefined)
   const [bounds, setBounds] = useState<NaverBounds | null>(null)
   const [hoveredLibraryId, setHoveredLibraryId] = useState<number | null>(null)
+  const [mapError, setMapError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'list' | 'map' | 'split'>(() =>
     typeof window !== 'undefined' && window.innerWidth < 768 ? 'map' : 'split'
   )
@@ -72,36 +63,22 @@ export function LibrariesMapView() {
   // 시군구 목록 (시도 선택 시 동적)
   const sigunguList = sido ? REGION_MAP[sido] ?? [] : []
 
-  // bounds 기반 도서관 목록 (지도 인증 실패 시에도 서울 기본값으로 동작)
-  const { libraries, isLoading, error } = useMapLibraries(bounds)
+  // 지역을 선택하면 지도 표시·이동과 무관하게 지역 기준으로 조회한다.
+  // '전체 시도'로 돌아왔을 때만 지도 영역(지도가 없으면 서울 기본 영역)을 따른다.
+  const region = useMemo(() => (sido ? { sido, sigungu } : undefined), [sido, sigungu])
+  const { libraries, isLoading, isEmpty, error, center, limited, retry } = useMapLibraries(bounds, region)
+
+  // 시도 전체는 고정 중심, 시군구는 현재 지역 응답의 중심만 쓴다. 로딩·실패 중에는 이전 지역 중심을 쓰지 않는다.
+  const regionCenter = useMemo(() => {
+    if (!sido) return undefined
+    if (!sigungu && SIDO_CENTER[sido]) return SIDO_CENTER[sido]
+    return center ?? undefined
+  }, [sido, sigungu, center])
 
   const handleSidoChange = useCallback((value: string) => {
     setSido(value)
     setSigungu('')
-    if (value && SIDO_CENTER[value]) {
-      setRegionCenter(SIDO_CENTER[value])
-    } else {
-      setRegionCenter(undefined)
-    }
   }, [])
-
-  const handleSigunguChange = useCallback(async (value: string) => {
-    setSigungu(value)
-    if (!sido) return
-
-    const params = new URLSearchParams({ sido })
-    if (value) params.append('sigungu', value)
-
-    try {
-      const res = await fetch(`/api/libraries/region-center?${params}`)
-      const { lat, lng, zoom } = await res.json()
-      if (lat && lng) {
-        setRegionCenter({ lat, lng, zoom: zoom ?? 13 })
-      }
-    } catch (e) {
-      console.warn('region-center fetch failed', e)
-    }
-  }, [sido])
 
   const handleBoundsChange = useCallback((newBounds: NaverBounds) => {
     setBounds(newBounds)
@@ -110,14 +87,15 @@ export function LibrariesMapView() {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* 상단 필터 바 */}
-      <div className="flex items-center gap-2 p-3 border-b bg-white z-10 flex-shrink-0">
+      <div className="flex flex-wrap items-center gap-2 p-3 border-b bg-white z-10 flex-shrink-0">
         {/* 지역 필터 */}
         <div className="flex gap-2">
           {/* 시도 */}
           <select
             value={sido}
             onChange={(e) => handleSidoChange(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[130px]"
+            aria-label="시도"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[120px]"
           >
             <option value="">전체 시도</option>
             {SIDO_LIST.map((s) => (
@@ -128,9 +106,10 @@ export function LibrariesMapView() {
           {/* 시군구 — 시도 선택 후 활성화 */}
           <select
             value={sigungu}
-            onChange={(e) => handleSigunguChange(e.target.value)}
+            onChange={(e) => setSigungu(e.target.value)}
             disabled={!sido || sigunguList.length === 0}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[130px] disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label="시군구"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[120px] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <option value="">전체 시군구</option>
             {sigunguList.map((s) => (
@@ -142,18 +121,21 @@ export function LibrariesMapView() {
         {/* 뷰 모드 토글 */}
         <div className="ml-auto flex gap-1">
           <button
+            type="button"
             onClick={() => setViewMode('list')}
             className={`px-3 py-1 rounded text-sm ${viewMode === 'list' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             목록
           </button>
           <button
+            type="button"
             onClick={() => setViewMode('map')}
             className={`px-3 py-1 rounded text-sm ${viewMode === 'map' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             지도
           </button>
           <button
+            type="button"
             onClick={() => setViewMode('split')}
             className={`px-3 py-1 rounded text-sm hidden md:block ${viewMode === 'split' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
@@ -170,44 +152,78 @@ export function LibrariesMapView() {
             className={`overflow-y-auto ${viewMode === 'split' ? 'w-[400px] min-w-[320px]' : 'w-full'} border-r`}
           >
             {isLoading ? (
-              <div className="p-4 text-center text-gray-500 text-sm">불러오는 중...</div>
+              <div className="p-4 text-center text-gray-500 text-sm" role="status">불러오는 중...</div>
             ) : error ? (
-              <div className="p-4 text-center text-red-400 text-sm">{error}</div>
-            ) : libraries.length === 0 ? (
+              <div className="p-4 text-center text-sm" role="alert">
+                <p className="text-red-500">{error}</p>
+                <button
+                  type="button"
+                  onClick={retry}
+                  className="mt-2 rounded border border-gray-300 px-3 py-1 text-gray-700 hover:bg-gray-50"
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : isEmpty ? (
               <div className="p-4 text-center text-gray-400 text-sm">
                 {sido
-                  ? '해당 지역에 도서관이 없습니다'
-                  : '지역을 선택하거나 지도를 이동해 보세요'}
+                  ? '선택한 지역에 등록된 도서관이 없습니다'
+                  : '현재 지도 영역에 도서관이 없습니다. 지도를 이동하거나 지역을 선택해 보세요'}
               </div>
             ) : (
-              libraries.map((lib) => (
-                <Link
-                  key={lib.id}
-                  href={`/library/${lib.id}`}
-                  className={`block p-3 border-b hover:bg-primary-50 transition-colors ${
-                    hoveredLibraryId === lib.id ? 'bg-primary-50' : ''
-                  }`}
-                  onMouseEnter={() => setHoveredLibraryId(lib.id)}
-                  onMouseLeave={() => setHoveredLibraryId(null)}
-                >
-                  <p className="font-medium text-sm">{lib.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{lib.address}</p>
-                </Link>
-              ))
+              <>
+                {limited && (
+                  <p className="p-3 border-b text-xs text-gray-500">
+                    최대 200곳까지 표시합니다. 시군구를 선택하면 범위를 좁힐 수 있습니다.
+                  </p>
+                )}
+                {libraries.map((lib) => (
+                  <Link
+                    key={lib.id}
+                    href={`/library/${lib.id}`}
+                    className={`block p-3 border-b hover:bg-primary-50 transition-colors ${
+                      hoveredLibraryId === lib.id ? 'bg-primary-50' : ''
+                    }`}
+                    onMouseEnter={() => setHoveredLibraryId(lib.id)}
+                    onMouseLeave={() => setHoveredLibraryId(null)}
+                  >
+                    <p className="font-medium text-sm">{lib.name}</p>
+                    {lib.address && <p className="text-xs text-gray-500 mt-0.5">{lib.address}</p>}
+                  </Link>
+                ))}
+              </>
             )}
           </div>
         )}
 
         {/* 지도 패널 */}
         {(viewMode === 'map' || viewMode === 'split') && (
-          <div className="flex-1">
+          <div className="relative flex-1">
             <NaverInteractiveMap
               onBoundsChange={handleBoundsChange}
+              onMapErrorChange={setMapError}
               libraries={libraries}
               selectedLibraryId={hoveredLibraryId}
               regionCenter={regionCenter}
               className="h-full"
             />
+            {mapError && (
+              <div
+                role="alert"
+                className="absolute inset-x-3 bottom-3 z-20 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+              >
+                <span>지도를 불러오지 못했습니다. 목록에서 같은 지역의 도서관을 볼 수 있습니다.</span>
+                {viewMode === 'map' && (
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className="shrink-0 rounded border border-amber-300 bg-white px-3 py-1 font-medium text-amber-900"
+                  >
+                    목록 보기
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

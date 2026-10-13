@@ -1,0 +1,237 @@
+/**
+ * Dependency-free core for the /libraries list and map, shared by the browser hook and the proxy routes.
+ * Malformed upstream data is an error, never an empty result. Errors never carry URLs or response bodies.
+ */
+
+export const MAX_LIBRARY_ROWS = 200
+export const MAX_BODY_CHARS = 1_000_000
+export const SEOUL_DEFAULT_BOUNDS = Object.freeze({ swLat: 37.4979, swLng: 126.8625, neLat: 37.6351, neLng: 127.0937 })
+
+/**
+ * @typedef {{ id: number, name: string, address: string, lat: number, lng: number }} MapLibrary
+ * @typedef {{ lat: number, lng: number, zoom: number }} MapCenter
+ * @typedef {{ swLat: number, swLng: number, neLat: number, neLng: number }} Bounds
+ * @typedef {{ type: 'region' | 'bounds', url: string, key: string, scope: string, debounceMs: number }} LibraryQuery
+ * @typedef {{ timeoutMs?: number | undefined, fetchImpl?: typeof fetch | undefined, signal?: AbortSignal | undefined, maxChars?: number | undefined }} FetchOptions
+ */
+
+export class MapLibrariesError extends Error {
+  /** @param {'http' | 'timeout' | 'network' | 'invalid-response' | 'aborted'} kind @param {number | undefined} [status] */
+  constructor(kind, status) {
+    super(`Library request failed: ${kind}${status === undefined ? '' : ` (${status})`}`)
+    this.name = 'MapLibrariesError'
+    this.kind = kind
+    this.status = status
+  }
+}
+
+const invalid = () => new MapLibrariesError('invalid-response')
+/** @param {unknown} value */
+const isLat = (value) => typeof value === 'number' && Number.isFinite(value) && value >= -90 && value <= 90
+/** @param {unknown} value */
+const isLng = (value) => typeof value === 'number' && Number.isFinite(value) && value >= -180 && value <= 180
+
+/** @param {any} row @returns {MapLibrary | null} */
+function parseLibraryRow(row) {
+  if (!row || typeof row !== 'object') return null
+  const { id, name, address, lat, lng } = row
+  if (!Number.isSafeInteger(id) || id <= 0) return null
+  if (typeof name !== 'string' || !name.trim()) return null
+  if (address != null && typeof address !== 'string') return null
+  if (!isLat(lat) || !isLng(lng)) return null
+  return { id, name: name.trim(), address: typeof address === 'string' ? address.trim() : '', lat, lng }
+}
+
+/**
+ * Strict: one bad row rejects the whole list, so a broken upstream is never shown as "no libraries".
+ * Coordinates must already be numbers; null or '' are never coerced to 0.
+ * @param {any} json @returns {MapLibrary[]}
+ */
+export function parseLibraryList(json) {
+  const rows = json && typeof json === 'object' ? json.data : undefined
+  if (!Array.isArray(rows) || rows.length > MAX_LIBRARY_ROWS) throw invalid()
+  return rows.map((row) => {
+    const library = parseLibraryRow(row)
+    if (!library) throw invalid()
+    return library
+  })
+}
+
+/** @param {any} value @returns {MapCenter | null} */
+function parseCenter(value) {
+  if (!value || typeof value !== 'object') return null
+  const { lat, lng, zoom } = value
+  if (!isLat(lat) || !isLng(lng) || !Number.isInteger(zoom) || zoom < 1 || zoom > 21) return null
+  return { lat, lng, zoom }
+}
+
+/** @param {MapLibrary[]} libraries @param {string} [sigungu] @returns {MapCenter | null} */
+export function computeRegionCenter(libraries, sigungu) {
+  if (libraries.length === 0) return null
+  const lat = libraries.reduce((sum, library) => sum + library.lat, 0) / libraries.length
+  const lng = libraries.reduce((sum, library) => sum + library.lng, 0) / libraries.length
+  return { lat, lng, zoom: sigungu ? 13 : 11 }
+}
+
+/**
+ * A non-empty region must come with a valid center; a valid empty region has center null.
+ * @param {any} json @returns {{ libraries: MapLibrary[], center: MapCenter | null, limited: boolean }}
+ */
+export function parseRegionResponse(json) {
+  const libraries = parseLibraryList(json)
+  const center = parseCenter(json.center)
+  if (libraries.length > 0 ? !center : json.center !== null) throw invalid()
+  if (typeof json.limited !== 'boolean') throw invalid()
+  return { libraries, center, limited: json.limited }
+}
+
+const COORDINATE_TEXT = /^-?\d{1,3}(?:\.\d{1,20})?$/
+
+/** @param {URLSearchParams} params @returns {Bounds | null} */
+export function parseBoundsParams(params) {
+  /** @type {Record<string, number>} */
+  const values = {}
+  for (const key of ['swLat', 'swLng', 'neLat', 'neLng']) {
+    const raw = params.get(key)
+    if (raw === null || !COORDINATE_TEXT.test(raw)) return null
+    values[key] = Number(raw)
+  }
+  const { swLat, swLng, neLat, neLng } = values
+  if (!isLat(swLat) || !isLat(neLat) || !isLng(swLng) || !isLng(neLng)) return null
+  if (swLat > neLat || swLng > neLng) return null
+  return { swLat, swLng, neLat, neLng }
+}
+
+/** @param {string | null | undefined} raw @returns {number | null} */
+export function parseLimit(raw, fallback = 100) {
+  if (raw === null || raw === undefined) return fallback
+  if (!/^\d{1,3}$/.test(raw)) return null
+  const limit = Number(raw)
+  return limit >= 1 && limit <= MAX_LIBRARY_ROWS ? limit : null
+}
+
+// LIKE 와일드카드(%, _)와 제어 문자는 허용하지 않는다.
+const REGION_TEXT = /^[가-힣A-Za-z0-9 ]{1,20}$/
+
+/** @param {string | null | undefined} sido @param {string | null | undefined} sigungu @returns {{ sido: string, sigungu: string } | null} */
+export function parseRegionParams(sido, sigungu) {
+  const s = (sido ?? '').trim()
+  const g = (sigungu ?? '').trim()
+  if (!REGION_TEXT.test(s) || (g && !REGION_TEXT.test(g))) return null
+  return { sido: s, sigungu: g }
+}
+
+/**
+ * Bound the whole request including the body. A caller abort is reported as 'aborted' so it is
+ * never shown as a failure or an empty list.
+ * @param {string} url @param {FetchOptions} [options] @returns {Promise<unknown>}
+ */
+export async function fetchJson(url, { timeoutMs = 8000, fetchImpl = fetch, signal, maxChars = MAX_BODY_CHARS } = {}) {
+  if (signal?.aborted) throw new MapLibrariesError('aborted')
+  const controller = new AbortController()
+  const abort = () => controller.abort()
+  signal?.addEventListener('abort', abort, { once: true })
+  let timedOut = false
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer
+  const stopped = new Promise((_, reject) => {
+    controller.signal.addEventListener('abort', () => reject(new MapLibrariesError(timedOut ? 'timeout' : 'aborted')), { once: true })
+    timer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, timeoutMs)
+  })
+  const request = async () => {
+    const response = await fetchImpl(url, { cache: 'no-store', signal: controller.signal })
+    if (!response.ok) throw new MapLibrariesError('http', response.status)
+    const declared = Number(response.headers?.get?.('content-length') ?? 0)
+    if (declared > maxChars) throw invalid()
+    const text = await response.text()
+    if (text.length > maxChars) throw invalid()
+    try {
+      return JSON.parse(text)
+    } catch {
+      throw invalid()
+    }
+  }
+  try {
+    return await Promise.race([request(), stopped])
+  } catch (error) {
+    if (controller.signal.aborted) throw new MapLibrariesError(timedOut ? 'timeout' : 'aborted')
+    if (error instanceof MapLibrariesError) throw error
+    throw new MapLibrariesError('network')
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', abort)
+  }
+}
+
+/**
+ * Fixed, sanitized proxy failure. 429 is kept so clients can back off; everything else is a gateway error.
+ * @param {unknown} error @returns {{ status: number, body: { error: string, kind: string } }}
+ */
+export function proxyError(error) {
+  const kind = error instanceof MapLibrariesError ? error.kind : 'network'
+  const status = kind === 'timeout' ? 504 : error instanceof MapLibrariesError && error.status === 429 ? 429 : 502
+  return { status, body: { error: 'upstream_unavailable', kind } }
+}
+
+/**
+ * A selected region wins over map bounds until "전체 시도" is chosen, so map idle events cannot replace
+ * the selected region. Without bounds (list mode, SDK failure) the Seoul default area is used.
+ * @param {{ bounds?: Bounds | null | undefined, sido?: string | undefined, sigungu?: string | undefined }} [input]
+ * @returns {LibraryQuery}
+ */
+export function resolveLibraryQuery({ bounds, sido, sigungu } = {}) {
+  if (sido) {
+    const params = new URLSearchParams({ sido })
+    if (sigungu) params.set('sigungu', sigungu)
+    const url = `/api/libraries/by-region?${params}`
+    return { type: 'region', url, key: url, scope: url, debounceMs: 0 }
+  }
+  const b = bounds && [bounds.swLat, bounds.swLng, bounds.neLat, bounds.neLng].every(Number.isFinite) ? bounds : SEOUL_DEFAULT_BOUNDS
+  const params = new URLSearchParams({
+    swLat: String(b.swLat), swLng: String(b.swLng), neLat: String(b.neLat), neLng: String(b.neLng),
+  })
+  const url = `/api/libraries/in-bounds?${params}`
+  return { type: 'bounds', url, key: url, scope: 'bounds', debounceMs: 300 }
+}
+
+/**
+ * @param {LibraryQuery} query @param {FetchOptions} [options]
+ * @returns {Promise<{ libraries: MapLibrary[], center: MapCenter | null, limited: boolean }>}
+ */
+export async function requestLibraries(query, options = {}) {
+  const json = await fetchJson(query.url, { timeoutMs: 10000, ...options })
+  if (query.type === 'region') return parseRegionResponse(json)
+  return { libraries: parseLibraryList(json), center: null, limited: false }
+}
+
+/**
+ * Only the most recent request may update state: starting a new one aborts the previous.
+ * @returns {{ begin(): { signal: AbortSignal, isCurrent(): boolean }, cancel(): void }}
+ */
+export function createLatestRequest() {
+  /** @type {AbortController | null} */
+  let current = null
+  return {
+    begin() {
+      current?.abort()
+      const controller = new AbortController()
+      current = controller
+      return { signal: controller.signal, isCurrent: () => current === controller && !controller.signal.aborted }
+    },
+    cancel() {
+      current?.abort()
+      current = null
+    },
+  }
+}
+
+/** @type {Record<string, string>} */
+const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
+
+/** @param {unknown} value */
+export function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char)
+}

@@ -1,53 +1,81 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NaverBounds } from './use-naver-map'
+import { createLatestRequest, requestLibraries, resolveLibraryQuery } from '@/lib/map-libraries.mjs'
 
-interface Library {
-  id: number; name: string; address: string; lat: number; lng: number; phone?: string
+export interface MapLibrary {
+  id: number; name: string; address: string; lat: number; lng: number
 }
 
-const SEOUL_DEFAULT_BOUNDS: NaverBounds = {
-  swLat: 37.4979, swLng: 126.8625, neLat: 37.6351, neLng: 127.0937,
+export interface MapCenter {
+  lat: number; lng: number; zoom: number
 }
 
-export function useMapLibraries(bounds: NaverBounds | null) {
-  const [libraries, setLibraries] = useState<Library[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+export interface LibraryRegion {
+  sido: string
+  sigungu?: string | undefined
+}
 
-  const fetchLibraries = useCallback(async (b: NaverBounds) => {
-    abortRef.current?.abort()
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-    setIsLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams({
-        swLat: b.swLat.toString(), swLng: b.swLng.toString(),
-        neLat: b.neLat.toString(), neLng: b.neLng.toString(),
-      })
-      const res = await fetch(`/api/libraries/in-bounds?${params}`, { signal: ctrl.signal })
-      if (!res.ok) throw new Error(`${res.status}`)
-      const json = await res.json()
-      setLibraries(json.data ?? [])
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') return
-      setError('도서관 목록을 불러오지 못했습니다')
-      setLibraries([])
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+interface State {
+  key: string
+  scope: string
+  status: 'loading' | 'success' | 'error'
+  libraries: MapLibrary[]
+  center: MapCenter | null
+  limited: boolean
+}
+
+const NO_LIBRARIES: MapLibrary[] = []
+
+/**
+ * 지역을 넘기면 지도 bounds보다 지역 조회가 우선한다. bounds가 없으면(목록 모드, SDK 실패) 서울 기본 영역을 쓴다.
+ * 최신 요청만 상태를 바꾸고, 지역이 바뀌면 로딩·실패 중에도 이전 지역 목록을 보여주지 않는다.
+ */
+export function useMapLibraries(bounds: NaverBounds | null, region?: LibraryRegion) {
+  const query = resolveLibraryQuery({ bounds, sido: region?.sido, sigungu: region?.sigungu })
+  const queryRef = useRef(query)
+  queryRef.current = query
+  const [latest] = useState(createLatestRequest)
+  const [retryCount, setRetryCount] = useState(0)
+  const [state, setState] = useState<State>(() => ({
+    key: query.key, scope: query.scope, status: 'loading', libraries: NO_LIBRARIES, center: null, limited: false,
+  }))
 
   useEffect(() => {
-    const target = bounds ?? SEOUL_DEFAULT_BOUNDS
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => fetchLibraries(target), 300)
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [bounds, fetchLibraries])
+    const current = queryRef.current
+    const request = latest.begin()
+    const timer = setTimeout(async () => {
+      try {
+        const result = await requestLibraries(current, { signal: request.signal })
+        if (request.isCurrent()) setState({ key: current.key, scope: current.scope, status: 'success', ...result })
+      } catch {
+        if (request.isCurrent()) {
+          setState({ key: current.key, scope: current.scope, status: 'error', libraries: NO_LIBRARIES, center: null, limited: false })
+        }
+      }
+    }, current.debounceMs)
+    return () => {
+      clearTimeout(timer)
+      latest.cancel()
+    }
+  }, [query.key, retryCount, latest])
 
-  return { libraries, isLoading, error }
+  const retry = useCallback(() => {
+    setState((s) => ({ ...s, status: 'loading' }))
+    setRetryCount((n) => n + 1)
+  }, [])
+
+  const settled = state.key === query.key && state.status !== 'loading'
+  const failed = settled && state.status === 'error'
+  return {
+    // 지도 이동(같은 bounds 범위)에서는 새 응답 전까지 이전 마커를 유지한다.
+    libraries: state.scope === query.scope && state.status !== 'error' ? state.libraries : NO_LIBRARIES,
+    center: settled && !failed ? state.center : null,
+    limited: settled && !failed && state.limited,
+    isLoading: !settled,
+    isEmpty: settled && !failed && state.libraries.length === 0,
+    error: failed ? '도서관 목록을 불러오지 못했습니다' : null,
+    retry,
+  }
 }

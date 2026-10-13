@@ -310,6 +310,7 @@ export class LibrariesService {
         .select({
           id: libraries.id,
           name: libraries.name,
+          address: libraries.address,
           lat: libraries.lat,
           lng: libraries.lng,
         })
@@ -322,6 +323,7 @@ export class LibrariesService {
             sql`${libraries.lng} IS NOT NULL`,
           ),
         )
+        .orderBy(asc(libraries.name))
         .limit(200)
       return { data }
     }
@@ -329,6 +331,7 @@ export class LibrariesService {
       .select({
         id: libraries.id,
         name: libraries.name,
+        address: libraries.address,
         lat: libraries.lat,
         lng: libraries.lng,
       })
@@ -340,6 +343,7 @@ export class LibrariesService {
           sql`${libraries.lng} IS NOT NULL`,
         ),
       )
+      .orderBy(asc(libraries.name))
       .limit(200)
     return { data }
   }

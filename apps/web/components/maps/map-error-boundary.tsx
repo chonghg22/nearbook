@@ -5,6 +5,7 @@ import { Component, type ReactNode } from 'react'
 interface Props {
   children: ReactNode
   fallback?: ReactNode
+  onError?: ((message: string) => void) | undefined
 }
 interface State {
   hasError: boolean
@@ -16,6 +17,10 @@ export class MapErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, message: error.message }
+  }
+
+  componentDidCatch() {
+    this.props.onError?.('지도를 표시하지 못했습니다')
   }
 
   render() {

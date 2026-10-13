@@ -1,8 +1,9 @@
 'use client'
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect } from 'react'
 import { MapErrorBoundary } from './map-error-boundary'
 import { useNaverMap, type NaverBounds } from '@/hooks/use-naver-map'
+import { escapeHtml } from '@/lib/map-libraries.mjs'
 
 interface Library {
   id: number
@@ -16,6 +17,7 @@ interface Props {
   libraries?: Library[]
   selectedLibraryId?: number | null
   onMarkerClick?: (id: number) => void
+  onMapErrorChange?: ((error: string | null) => void) | undefined
   regionCenter?: { lat: number; lng: number; zoom?: number } | undefined
   className?: string
 }
@@ -40,48 +42,65 @@ function MapInner({
   libraries = [],
   selectedLibraryId,
   onMarkerClick,
+  onMapErrorChange,
   regionCenter,
   className,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const markersRef = useRef<Map<number, any>>(new Map())
   const infoWindowRef = useRef<any>(null)
+  const onMarkerClickRef = useRef(onMarkerClick)
+  onMarkerClickRef.current = onMarkerClick
+  const onMapErrorChangeRef = useRef(onMapErrorChange)
+  onMapErrorChangeRef.current = onMapErrorChange
   const { map, isLoaded, error, moveTo } = useNaverMap(containerRef, { onBoundsChange })
 
   useEffect(() => {
-    if (regionCenter && isLoaded) {
-      moveTo(regionCenter.lat, regionCenter.lng, regionCenter.zoom ?? 13)
+    onMapErrorChangeRef.current?.(error)
+  }, [error])
+
+  // 객체 동일성이 아니라 좌표 값이 바뀔 때만 이동한다.
+  const centerLat = regionCenter?.lat
+  const centerLng = regionCenter?.lng
+  const centerZoom = regionCenter?.zoom
+  useEffect(() => {
+    if (isLoaded && centerLat !== undefined && centerLng !== undefined) {
+      moveTo(centerLat, centerLng, centerZoom ?? 13)
     }
-  }, [regionCenter, isLoaded])
+  }, [isLoaded, centerLat, centerLng, centerZoom, moveTo])
+
+  // 지도 클릭 시 InfoWindow 닫기 (지도당 한 번만 등록)
+  useEffect(() => {
+    const maps = window.naver?.maps
+    if (!isLoaded || !map || !maps) return
+    const listener = maps.Event.addListener(map, 'click', () => infoWindowRef.current?.close())
+    return () => maps.Event.removeListener(listener)
+  }, [isLoaded, map])
 
   useEffect(() => {
-    if (!isLoaded || !map) return
-
-    // 기존 마커 제거
-    markersRef.current.forEach((m) => {
-      try { m.setMap(null) } catch (_) {}
-    })
-    markersRef.current.clear()
+    const maps = window.naver?.maps
+    if (!isLoaded || !map || !maps) return
 
     // InfoWindow 초기화
     if (!infoWindowRef.current) {
-      infoWindowRef.current = new window.naver.maps.InfoWindow({
+      infoWindowRef.current = new maps.InfoWindow({
         borderWidth: 0,
         backgroundColor: 'transparent',
         disableAnchor: true,
       } as any)
     }
 
+    const markers: any[] = []
+    const listeners: unknown[] = []
     libraries.forEach((lib) => {
       try {
         const isSelected = lib.id === selectedLibraryId
-        const marker = new window.naver.maps.Marker({
-          position: new window.naver.maps.LatLng(lib.lat, lib.lng),
+        const marker = new maps.Marker({
+          position: new maps.LatLng(lib.lat, lib.lng),
           map,
           icon: {
             content: isSelected ? PIN_SELECTED : PIN_NORMAL,
-            size: new (window.naver.maps as any).Size(isSelected ? 34 : 28, isSelected ? 44 : 36),
-            anchor: new (window.naver.maps as any).Point(
+            size: new (maps as any).Size(isSelected ? 34 : 28, isSelected ? 44 : 36),
+            anchor: new (maps as any).Point(
               isSelected ? 17 : 14,
               isSelected ? 44 : 36
             ),
@@ -89,8 +108,8 @@ function MapInner({
           zIndex: isSelected ? 10 : 1,
         } as any)
 
-        // 클릭: InfoWindow 표시
-        window.naver.maps.Event.addListener(marker, 'click', () => {
+        // 클릭: InfoWindow 표시. 도서관 이름은 HTML로 해석되지 않게 escape한다.
+        listeners.push(maps.Event.addListener(marker, 'click', () => {
           const iw = infoWindowRef.current
           iw.setContent(`
             <div style="
@@ -101,27 +120,29 @@ function MapInner({
               min-width:140px;
               text-align:center;
             ">
-              <p style="font-size:13px;font-weight:600;color:#111;margin:0 0 6px">${lib.name}</p>
+              <p style="font-size:13px;font-weight:600;color:#111;margin:0 0 6px">${escapeHtml(lib.name)}</p>
               <a
-                href="/library/${lib.id}"
+                href="/library/${encodeURIComponent(String(lib.id))}"
                 style="font-size:12px;color:#2f704f;text-decoration:none;"
               >상세보기 →</a>
             </div>
           `)
           iw.open(map, marker)
-          onMarkerClick?.(lib.id)
-        })
+          onMarkerClickRef.current?.(lib.id)
+        }))
 
-        markersRef.current.set(lib.id, marker)
+        markers.push(marker)
       } catch (e) {
         console.warn(`마커 생성 실패 (id=${lib.id}):`, e)
       }
     })
 
-    // 지도 클릭 시 InfoWindow 닫기
-    window.naver.maps.Event.addListener(map, 'click', () => {
-      infoWindowRef.current?.close()
-    })
+    return () => {
+      listeners.forEach((listener) => maps.Event.removeListener(listener))
+      markers.forEach((m) => {
+        try { m.setMap(null) } catch (_) {}
+      })
+    }
   }, [libraries, selectedLibraryId, isLoaded, map])
 
   return (
@@ -129,7 +150,7 @@ function MapInner({
       <div ref={containerRef} className="w-full h-full" />
       {error && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-1.5 rounded-full z-10 pointer-events-none whitespace-nowrap">
-          ⚠️ 지도 인증 실패
+          ⚠️ 지도를 불러오지 못했습니다
         </div>
       )}
     </div>
@@ -138,7 +159,7 @@ function MapInner({
 
 export function NaverInteractiveMap(props: Props) {
   return (
-    <MapErrorBoundary>
+    <MapErrorBoundary onError={props.onMapErrorChange}>
       <MapInner {...props} />
     </MapErrorBoundary>
   )

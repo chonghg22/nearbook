@@ -38,7 +38,7 @@ declare namespace naver {
         target: Map | Marker,
         eventName: string,
         listener: (...args: unknown[]) => void
-      ): void
+      ): unknown
       function removeListener(listener: unknown): void
     }
 
