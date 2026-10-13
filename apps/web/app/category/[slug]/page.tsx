@@ -2,15 +2,14 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { CATEGORIES, CATEGORY_BY_SLUG } from '@/lib/category-config'
-import { BookGrid, ExploreShell, SourceNote, type ExploreBook } from '../../explore/_components/explore-ui'
-import { SERVER_API_BASE_URL } from '@/lib/server-api'
+import { BookGrid, ExploreShell } from '../../explore/_components/explore-ui'
+import { CurationNote, ExploreFeedback } from '../../explore/_components/explore-feedback'
+import { exploreBooks, exploreCategories } from '@/lib/explore-data'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buildBookListJsonLd } from '@/lib/seo/json-ld'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 
-const API_URL = SERVER_API_BASE_URL
-
-export const revalidate = 3600 // 1시간
+export const revalidate = 0
 export const dynamicParams = false
 
 export function generateStaticParams() {
@@ -32,51 +31,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   })
 }
 
-type CategoryApiItem = {
-  code: string
-  count: number
-}
-
-async function fetchCategoryCounts(): Promise<Map<string, number>> {
-  try {
-    const res = await fetch(`${API_URL}/books/categories?limit=40`, { next: { revalidate: 21600 } })
-    if (!res.ok) return new Map()
-    const json = await res.json()
-    const rows = Array.isArray(json.data) ? json.data : []
-    return new Map(
-      rows.map((item: Record<string, unknown>) => [
-        String(item.code ?? item.categoryCode ?? ''),
-        Number(item.count ?? 0),
-      ]),
-    )
-  } catch {
-    return new Map()
-  }
-}
-
-async function fetchBooks(kdcCode: string): Promise<ExploreBook[]> {
-  try {
-    const res = await fetch(
-      `${API_URL}/books/by-category?categoryCode=${encodeURIComponent(kdcCode)}&limit=40`,
-      { next: { revalidate } },
-    )
-    if (!res.ok) return []
-    const json = await res.json()
-    return json.data ?? []
-  } catch {
-    return []
-  }
-}
-
 export default async function CategoryDetailPage({ params }: Props) {
   const { slug } = await params
   const category = CATEGORY_BY_SLUG.get(slug)
   if (!category) notFound()
 
-  const [books, countMap] = await Promise.all([
-    fetchBooks(category.kdcCode),
-    fetchCategoryCounts(),
+  const [result, categories] = await Promise.all([
+    exploreBooks(`/books/by-category?categoryCode=${encodeURIComponent(category.kdcCode)}&limit=40`),
+    exploreCategories(),
   ])
+  const books = result.items
+  const countMap = new Map(categories.items.map((item) => [item.code, item.count]))
 
   // 집계 API의 코드 체계가 달라 매칭되지 않아도 카테고리 링크는 모두 노출한다.
   const displayCategories = CATEGORIES
@@ -127,14 +92,17 @@ export default async function CategoryDetailPage({ params }: Props) {
         })}
       </nav>
 
+      {categories.status === 'error' && <p role="status" className="mb-4 text-sm text-gray-600">분야별 집계 정보를 불러오지 못했습니다. 도서 목록과 다른 분야 링크는 계속 이용할 수 있습니다.</p>}
+
       <div className="mb-8 rounded-2xl bg-white px-5 py-4 text-sm leading-relaxed text-gray-600 shadow-sm ring-1 ring-gray-100">
         {category.introduction}
       </div>
 
-      <BookGrid
+      <ExploreFeedback status={result.status} retryHref={pagePath} emptyMessage={`${category.label} 분야에 저장된 도서 목록이 없습니다. 다른 분야를 둘러보세요.`} />
+      {result.status === 'ready' && <BookGrid
         books={books}
-        emptyMessage={`${category.label} 분야 추천 도서를 준비하고 있습니다. 다른 분야를 먼저 둘러보세요.`}
-      />
+        emptyMessage={`${category.label} 분야에 저장된 도서 목록이 없습니다.`}
+      />}
 
       <nav className="mt-8 flex flex-wrap gap-3 text-sm" aria-label="관련 탐색">
         <Link href="/category" className="rounded-full bg-gray-900 px-4 py-2 font-semibold text-white">
@@ -148,7 +116,7 @@ export default async function CategoryDetailPage({ params }: Props) {
         </Link>
       </nav>
 
-      <SourceNote>데이터 출처: 도서관 정보나루 인기대출도서 · KDC {category.kdcCode} · 매일 갱신</SourceNote>
+      <CurationNote items={books} fallback={categories.items.find((item) => item.code === category.kdcCode)} source={`데이터 출처: 도서관 정보나루 인기대출도서 · KDC ${category.kdcCode} · 매일 수집을 시도합니다`} />
     </ExploreShell>
   )
 }

@@ -80,7 +80,7 @@ export class BooksService {
     const hit = this.cache.get<unknown[]>(cacheKey)
     if (hit) return hit
     const rows = await this.homeCurations.getCategories()
-    this.cache.set(cacheKey, rows, 6 * 60 * 60 * 1000)
+    if (rows.some((row) => row.count > 0)) this.cache.set(cacheKey, rows, 6 * 60 * 60 * 1000)
     return rows
   }
 
@@ -89,7 +89,7 @@ export class BooksService {
     const hit = this.cache.get<unknown[]>(cacheKey)
     if (hit) return hit
     const rows = await this.homeCurations.getCategoryBooks(categoryCode, limit)
-    this.cache.set(cacheKey, rows, 6 * 60 * 60 * 1000)
+    if (rows.length > 0) this.cache.set(cacheKey, rows, 6 * 60 * 60 * 1000)
     return rows
   }
 
