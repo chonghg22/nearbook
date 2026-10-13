@@ -1,34 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { SERVER_API_BASE_URL } from '@/lib/server-api'
+import { fetchJson, parseBoundsParams, parseLibraryList, parseLimit, proxyError } from '@/lib/map-libraries.mjs'
 
 const API_URL = SERVER_API_BASE_URL
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
-  const swLat = searchParams.get('swLat')
-  const swLng = searchParams.get('swLng')
-  const neLat = searchParams.get('neLat')
-  const neLng = searchParams.get('neLng')
-  const limit = searchParams.get('limit') ?? '100'
+  const bounds = parseBoundsParams(searchParams)
+  const limit = parseLimit(searchParams.get('limit'))
 
-  if (!swLat || !swLng || !neLat || !neLng) {
-    return NextResponse.json({ error: 'bounds 파라미터 필요' }, { status: 400 })
+  if (!bounds || limit === null) {
+    return NextResponse.json({ error: 'invalid_bounds' }, { status: 400 })
   }
 
+  const params = new URLSearchParams({
+    swLat: String(bounds.swLat),
+    swLng: String(bounds.swLng),
+    neLat: String(bounds.neLat),
+    neLng: String(bounds.neLng),
+    limit: String(limit),
+  })
+
   try {
-    const upstream = await fetch(
-      `${API_URL}/libraries/in-bounds?swLat=${swLat}&swLng=${swLng}&neLat=${neLat}&neLng=${neLng}&limit=${limit}`,
-      { cache: 'no-store' }
-    )
-
-    if (!upstream.ok) {
-      return NextResponse.json({ error: 'upstream 오류' }, { status: upstream.status })
-    }
-
-    const data = await upstream.json()
-    return NextResponse.json(data)
-  } catch (err) {
-    console.error('[in-bounds proxy]', err)
-    return NextResponse.json({ error: '서버 오류' }, { status: 500 })
+    const data = parseLibraryList(await fetchJson(`${API_URL}/libraries/in-bounds?${params}`))
+    return NextResponse.json({ data })
+  } catch (error) {
+    const { status, body } = proxyError(error)
+    console.error('[in-bounds proxy]', body.kind)
+    return NextResponse.json(body, { status })
   }
 }

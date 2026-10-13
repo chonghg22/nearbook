@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "build": "npm run test:api-config && npm run test:detail-request && next build",
+    "build": "npm run test:api-config && npm run test:detail-request && npm run test:map-libraries && next build",
     "test:api-config": "node --test scripts/api-config.test.mjs",
     "test:detail-request": "node --test scripts/detail-request.test.mjs",
+    "test:map-libraries": "node --test scripts/map-libraries.test.mjs",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run --passWithNoTests",
