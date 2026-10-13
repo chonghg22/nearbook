@@ -3,9 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CategoryPage from '@/app/category/page'
 import NewBooksPage, { metadata as newBooksMetadata } from '@/app/new-books/page'
-import { exploreBooks, exploreCategories, exploreLibraries } from '@/lib/explore-data'
+import { exploreBooks, exploreCategories, exploreLibraries } from '@/lib/explore-server'
 
-vi.mock('@/lib/explore-data', () => ({ exploreBooks: vi.fn(), exploreCategories: vi.fn(), exploreLibraries: vi.fn() }))
+vi.mock('@/lib/explore-server', () => ({ exploreBooks: vi.fn(), exploreCategories: vi.fn(), exploreLibraries: vi.fn() }))
 vi.mock('next/link', async () => {
   const { createElement } = await import('react')
   return { default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => createElement('a', props, children) }

@@ -1,6 +1,6 @@
 import React from 'react'
 import { curationTiming } from '@/lib/explore-data.mjs'
-import type { Timing } from '@/lib/explore-data'
+import type { Timing } from '@/lib/explore-server'
 
 export function ExploreFeedback({ status, emptyMessage, retryHref }: {
   status: 'ready' | 'empty' | 'error'; emptyMessage: string; retryHref: string

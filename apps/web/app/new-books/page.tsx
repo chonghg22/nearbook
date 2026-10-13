@@ -2,7 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { BookGrid, ExploreShell } from '../explore/_components/explore-ui'
 import { CurationNote, ExploreFeedback } from '../explore/_components/explore-feedback'
-import { exploreBooks, exploreLibraries } from '@/lib/explore-data'
+import { exploreBooks, exploreLibraries } from '@/lib/explore-server'
 import { validLibraryId } from '@/lib/explore-data.mjs'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 

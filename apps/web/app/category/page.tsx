@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { CATEGORIES } from '@/lib/category-config'
 import { BookGrid, ExploreShell } from '../explore/_components/explore-ui'
 import { CurationNote, ExploreFeedback } from '../explore/_components/explore-feedback'
-import { exploreBooks, exploreCategories } from '@/lib/explore-data'
+import { exploreBooks, exploreCategories } from '@/lib/explore-server'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 
 export const revalidate = 0

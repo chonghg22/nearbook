@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { BookGrid, ExploreShell } from '../explore/_components/explore-ui'
 import { CurationNote, ExploreFeedback } from '../explore/_components/explore-feedback'
-import { exploreBooks } from '@/lib/explore-data'
+import { exploreBooks } from '@/lib/explore-server'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buildBookListJsonLd } from '@/lib/seo/json-ld'
 import { buildPageMetadata } from '@/lib/seo/metadata'
