@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useMapLibraries } from '@/hooks/use-map-libraries'
 import { NaverInteractiveMap } from '@/components/maps/naver-interactive-map'
 import type { NaverBounds } from '@/hooks/use-naver-map'
+import { resolveRegionCenter } from '@/lib/map-libraries.mjs'
 
 // 시도 → 시군구 매핑
 const REGION_MAP: Record<string, string[]> = {
@@ -50,15 +51,24 @@ const SIDO_CENTER: Record<string, { lat: number; lng: number; zoom: number }> = 
   '제주특별자치도': { lat: 33.4890, lng: 126.4983, zoom: 11 },
 }
 
+type ViewMode = 'list' | 'map' | 'split'
+
 export function LibrariesMapView() {
   const [sido, setSido] = useState<string>('')
   const [sigungu, setSigungu] = useState<string>('')
   const [bounds, setBounds] = useState<NaverBounds | null>(null)
   const [hoveredLibraryId, setHoveredLibraryId] = useState<number | null>(null)
   const [mapError, setMapError] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'list' | 'map' | 'split'>(() =>
-    typeof window !== 'undefined' && window.innerWidth < 768 ? 'map' : 'split'
-  )
+  // SSR과 첫 클라이언트 렌더는 항상 분할로 같게 두고, 마운트 후 모바일이면 사용자가 고르지 않은 경우에만 지도로 바꾼다.
+  const [viewMode, setViewMode] = useState<ViewMode>('split')
+  const userChoseViewRef = useRef(false)
+  const chooseView = useCallback((mode: ViewMode) => {
+    userChoseViewRef.current = true
+    setViewMode(mode)
+  }, [])
+  useEffect(() => {
+    if (!userChoseViewRef.current && window.matchMedia('(max-width: 767px)').matches) setViewMode('map')
+  }, [])
 
   // 시군구 목록 (시도 선택 시 동적)
   const sigunguList = sido ? REGION_MAP[sido] ?? [] : []
@@ -68,12 +78,19 @@ export function LibrariesMapView() {
   const region = useMemo(() => (sido ? { sido, sigungu } : undefined), [sido, sigungu])
   const { libraries, isLoading, isEmpty, error, center, limited, retry } = useMapLibraries(bounds, region)
 
-  // 시도 전체는 고정 중심, 시군구는 현재 지역 응답의 중심만 쓴다. 로딩·실패 중에는 이전 지역 중심을 쓰지 않는다.
-  const regionCenter = useMemo(() => {
-    if (!sido) return undefined
-    if (!sigungu && SIDO_CENTER[sido]) return SIDO_CENTER[sido]
-    return center ?? undefined
-  }, [sido, sigungu, center])
+  // 시도 전체는 고정 중심, 시군구는 현재 응답의 중심만 쓴다. 로딩·실패·빈 결과에서는 시도 중심으로 돌아간다.
+  const regionCenter = useMemo(
+    () => resolveRegionCenter({ sido, sigungu, provinceCenter: SIDO_CENTER[sido], responseCenter: center }),
+    [sido, sigungu, center],
+  )
+
+  const regionLabel = sigungu ? `${sido} ${sigungu}` : sido
+  const loadingMessage = regionLabel ? `${regionLabel} 도서관을 불러오는 중...` : '불러오는 중...'
+  const emptyMessage = sido
+    ? '선택한 지역에 등록된 도서관이 없습니다'
+    : '현재 지도 영역에 도서관이 없습니다. 지도를 이동하거나 지역을 선택해 보세요'
+  // 목록이 보이지 않는 지도 단독 보기에서만 데이터 상태를 지도 위에 띄워 분할 보기와 알림이 겹치지 않게 한다.
+  const showMapDataState = viewMode === 'map'
 
   const handleSidoChange = useCallback((value: string) => {
     setSido(value)
@@ -122,21 +139,21 @@ export function LibrariesMapView() {
         <div className="ml-auto flex gap-1">
           <button
             type="button"
-            onClick={() => setViewMode('list')}
+            onClick={() => chooseView('list')}
             className={`px-3 py-1 rounded text-sm ${viewMode === 'list' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             목록
           </button>
           <button
             type="button"
-            onClick={() => setViewMode('map')}
+            onClick={() => chooseView('map')}
             className={`px-3 py-1 rounded text-sm ${viewMode === 'map' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             지도
           </button>
           <button
             type="button"
-            onClick={() => setViewMode('split')}
+            onClick={() => chooseView('split')}
             className={`px-3 py-1 rounded text-sm hidden md:block ${viewMode === 'split' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             분할
@@ -152,7 +169,7 @@ export function LibrariesMapView() {
             className={`overflow-y-auto ${viewMode === 'split' ? 'w-[400px] min-w-[320px]' : 'w-full'} border-r`}
           >
             {isLoading ? (
-              <div className="p-4 text-center text-gray-500 text-sm" role="status">불러오는 중...</div>
+              <div className="p-4 text-center text-gray-500 text-sm" role="status">{loadingMessage}</div>
             ) : error ? (
               <div className="p-4 text-center text-sm" role="alert">
                 <p className="text-red-500">{error}</p>
@@ -165,11 +182,7 @@ export function LibrariesMapView() {
                 </button>
               </div>
             ) : isEmpty ? (
-              <div className="p-4 text-center text-gray-400 text-sm">
-                {sido
-                  ? '선택한 지역에 등록된 도서관이 없습니다'
-                  : '현재 지도 영역에 도서관이 없습니다. 지도를 이동하거나 지역을 선택해 보세요'}
-              </div>
+              <div className="p-4 text-center text-gray-400 text-sm">{emptyMessage}</div>
             ) : (
               <>
                 {limited && (
@@ -207,23 +220,60 @@ export function LibrariesMapView() {
               regionCenter={regionCenter}
               className="h-full"
             />
-            {mapError && (
-              <div
-                role="alert"
-                className="absolute inset-x-3 bottom-3 z-20 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
-              >
-                <span>지도를 불러오지 못했습니다. 목록에서 같은 지역의 도서관을 볼 수 있습니다.</span>
-                {viewMode === 'map' && (
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className="shrink-0 rounded border border-amber-300 bg-white px-3 py-1 font-medium text-amber-900"
+            {(showMapDataState && (isLoading || error || isEmpty)) || mapError ? (
+              <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 flex flex-col gap-2 text-sm">
+                {showMapDataState && (isLoading ? (
+                  <div role="status" className="pointer-events-auto rounded-lg border bg-white/95 p-3 text-gray-600 shadow-sm">
+                    {loadingMessage}
+                  </div>
+                ) : error ? (
+                  <div
+                    role="alert"
+                    className="pointer-events-auto flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-white/95 p-3 shadow-sm"
                   >
-                    목록 보기
-                  </button>
+                    <span className="text-red-600">{error}</span>
+                    <span className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        onClick={retry}
+                        className="rounded border border-gray-300 bg-white px-3 py-1 text-gray-700 hover:bg-gray-50"
+                      >
+                        다시 시도
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => chooseView('list')}
+                        className="rounded border border-gray-300 bg-white px-3 py-1 text-gray-700 hover:bg-gray-50"
+                      >
+                        목록 보기
+                      </button>
+                    </span>
+                  </div>
+                ) : isEmpty ? (
+                  <div role="status" className="pointer-events-auto rounded-lg border bg-white/95 p-3 text-gray-500 shadow-sm">
+                    {emptyMessage}
+                  </div>
+                ) : null)}
+                {mapError && (
+                  <div
+                    role="alert"
+                    className="pointer-events-auto flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800"
+                  >
+                    <span>지도를 불러오지 못했습니다. 목록에서 같은 지역의 도서관을 볼 수 있습니다.</span>
+                    {/* 데이터 오류 알림에 이미 목록 보기가 있으면 중복 버튼을 두지 않는다. */}
+                    {viewMode === 'map' && !error && (
+                      <button
+                        type="button"
+                        onClick={() => chooseView('list')}
+                        className="shrink-0 rounded border border-amber-300 bg-white px-3 py-1 font-medium text-amber-900"
+                      >
+                        목록 보기
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+            ) : null}
           </div>
         )}
       </div>

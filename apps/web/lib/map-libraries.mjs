@@ -74,6 +74,19 @@ export function computeRegionCenter(libraries, sigungu) {
 }
 
 /**
+ * Map center for the selected region. A district uses only the current response's center; while it is loading,
+ * failed or empty (center null) the province's fixed center is used, so a previous district never stays centered.
+ * Without a region the map keeps following its own bounds (undefined).
+ * @param {{ sido?: string | undefined, sigungu?: string | undefined, provinceCenter?: MapCenter | undefined, responseCenter?: MapCenter | null | undefined }} input
+ * @returns {MapCenter | undefined}
+ */
+export function resolveRegionCenter({ sido, sigungu, provinceCenter, responseCenter }) {
+  if (!sido) return undefined
+  if (sigungu && responseCenter) return responseCenter
+  return provinceCenter ?? responseCenter ?? undefined
+}
+
+/**
  * A non-empty region must come with a valid center; a valid empty region has center null.
  * @param {any} json @returns {{ libraries: MapLibrary[], center: MapCenter | null, limited: boolean }}
  */

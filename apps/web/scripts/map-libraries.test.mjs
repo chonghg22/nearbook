@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import {
   MapLibrariesError, SEOUL_DEFAULT_BOUNDS, computeRegionCenter, createLatestRequest, escapeHtml, fetchJson,
   parseBoundsParams, parseLibraryList, parseLimit, parseRegionParams, parseRegionResponse, proxyError,
-  requestLibraries, resolveLibraryQuery,
+  requestLibraries, resolveLibraryQuery, resolveRegionCenter,
 } from '../lib/map-libraries.mjs'
 
 const lib = { id: 1, name: '해운대도서관', address: '부산광역시 해운대구', lat: 35.16, lng: 129.16 }
@@ -63,6 +63,16 @@ test('region center averages coordinates and is null without libraries', () => {
     { lat: 35.25, lng: 129.25, zoom: 13 })
   assert.equal(computeRegionCenter([], '해운대구'), null)
   assert.equal(computeRegionCenter([lib])?.zoom, 11)
+})
+
+test('district without a current center falls back to its province, never a previous district', () => {
+  const province = { lat: 35.1796, lng: 129.0756, zoom: 12 }
+  // 지역 미선택: 지도 bounds 정책을 유지한다.
+  assert.equal(resolveRegionCenter({ sido: '', provinceCenter: province, responseCenter: center }), undefined)
+  assert.deepEqual(resolveRegionCenter({ sido: '부산광역시', provinceCenter: province, responseCenter: null }), province)
+  assert.deepEqual(resolveRegionCenter({ sido: '부산광역시', sigungu: '해운대구', provinceCenter: province, responseCenter: center }), center)
+  // 로딩·실패·빈 결과는 모두 현재 시군구 center가 null이다.
+  assert.deepEqual(resolveRegionCenter({ sido: '부산광역시', sigungu: '기장군', provinceCenter: province, responseCenter: null }), province)
 })
 
 test('bounds params are parsed strictly', () => {
@@ -235,11 +245,16 @@ test('static wiring guards (supplement, not a replacement for browser verificati
   assert.match(view, /onClick=\{retry\}/)
   assert.match(view, /목록 보기/)
   assert.doesNotMatch(view, /region-center/)
+  assert.match(view, /resolveRegionCenter\(/)
+  assert.doesNotMatch(view, /window\.innerWidth/)
   assert.match(hook, /request\.isCurrent\(\)/)
   assert.match(hook, /latest\.cancel\(\)/)
   assert.doesNotMatch(naver, /SEOUL_DEFAULT_BOUNDS|console\.log/)
   assert.match(naver, /SDK_TIMEOUT_MS/)
   assert.match(naver, /removeListener\(idleListener\)/)
+  assert.match(naver, /setError\(null\)/)
+  assert.match(naver, /navermap_authFailure === onAuthFailure/)
   assert.match(map, /escapeHtml\(lib\.name\)/)
   assert.doesNotMatch(map, /\$\{lib\.name\}/)
+  assert.match(map, /\(\) => infoWindowRef\.current\?\.close\(\), \[libraries, map\]/)
 })

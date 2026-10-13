@@ -115,3 +115,11 @@ node --test apps/web/scripts/api-config.test.mjs apps/web/scripts/detail-request
 - 검토 보완 요청: 지도 단독 모드의 목록 요청 오류/빈 결과/로딩 UI, 시군구 중심 미확정 시 이전 지역 중심 표시, SDK 늦은 복구의 오류 초기화·리스너 정리, 이전 InfoWindow 닫기, 모바일 최초 렌더 hydration 불일치.
 - 390px viewport 설정을 요청했지만 실제 DOM 폭이 1914px로 남았다. 설정을 복원했고 모바일 브라우저 검증은 미완료로 남긴다.
 - 현재 전체 CI/프리뷰/운영 배포 및 변경 후 브라우저 검증은 미완료다.
+
+### 검토 보완 반영
+
+- Claude가 보완 패치를 작성하고 Codex가 검토·적용했다. 지도 단독 모드에도 데이터 로딩/오류/빈 결과와 재시도·목록 전환을 표시한다.
+- 시군구 중심이 아직 없으면 현재 시도 중심으로 이동한다. SDK 늦은 초기화 성공 시 오류를 해제하고, 실패 시 이전 지도/idle 리스너를 정리하며 글로벌 인증 콜백 소유권을 확인한다.
+- 마커 목록 변경/언마운트 시 이전 InfoWindow를 닫고, SSR/최초 클라이언트 렌더 모드를 일치시켰다.
+- Node 테스트 **100개 통과**(기존 54 + 지도 관련 46), 공통 JS strict 검사 및 diff-check 재통과.
+- [PR #6](https://github.com/chonghg22/nearbook/pull/6)으로 전체 CI와 Vercel 프리뷰를 검증한다. 최종 보완 커밋 검증 전에는 병합하지 않는다.

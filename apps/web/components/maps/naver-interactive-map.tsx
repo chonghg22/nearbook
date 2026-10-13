@@ -37,9 +37,11 @@ const PIN_SELECTED = `
 </svg>
 `
 
+const NO_LIBRARIES: Library[] = []
+
 function MapInner({
   onBoundsChange,
-  libraries = [],
+  libraries = NO_LIBRARIES,
   selectedLibraryId,
   onMarkerClick,
   onMapErrorChange,
@@ -75,6 +77,9 @@ function MapInner({
     const listener = maps.Event.addListener(map, 'click', () => infoWindowRef.current?.close())
     return () => maps.Event.removeListener(listener)
   }, [isLoaded, map])
+
+  // 마커 목록이 바뀌거나 언마운트되면 이전 지역의 InfoWindow를 닫는다.
+  useEffect(() => () => infoWindowRef.current?.close(), [libraries, map])
 
   useEffect(() => {
     const maps = window.naver?.maps

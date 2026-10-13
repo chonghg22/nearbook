@@ -52,9 +52,17 @@ export function useNaverMap(
       clearTimeout(timer)
       if (window.onerror === onSdkError) window.onerror = prevOnError
     }
+    const teardownMap = () => {
+      if (idleListener) window.naver?.maps.Event.removeListener(idleListener)
+      idleListener = null
+      mapRef.current?.destroy?.()
+      mapRef.current = null
+    }
     const fail = (message: string) => {
       if (!active) return
       stopWaiting()
+      // 초기화 뒤의 실패(인증 실패 등)에서도 남은 idle 이벤트가 bounds를 바꾸지 못하게 지도를 정리한다.
+      teardownMap()
       setError(message)
       setIsLoaded(false)
     }
@@ -76,8 +84,12 @@ export function useNaverMap(
           zoom: DEFAULT_ZOOM,
         })
         mapRef.current = map
-        idleListener = maps.Event.addListener(map, 'idle', () => onBoundsChangeRef.current?.(extractBounds(map)))
+        idleListener = maps.Event.addListener(map, 'idle', () => {
+          if (active && mapRef.current === map) onBoundsChangeRef.current?.(extractBounds(map))
+        })
         stopWaiting()
+        // 시간 초과·실패 뒤 SDK가 늦게 로드돼도 초기화에 성공하면 이전 오류를 지운다.
+        setError(null)
         setIsLoaded(true)
         onBoundsChangeRef.current?.(extractBounds(map))
       } catch {
@@ -90,8 +102,9 @@ export function useNaverMap(
       fail('지도 SDK 로드 실패')
     }
 
+    const onAuthFailure = () => fail('지도 인증 실패')
     window.onerror = onSdkError
-    authWindow.navermap_authFailure = () => fail('지도 인증 실패')
+    authWindow.navermap_authFailure = onAuthFailure
     timer = setTimeout(() => fail('지도 로딩 시간 초과'), SDK_TIMEOUT_MS)
 
     if (!clientId) {
@@ -114,12 +127,11 @@ export function useNaverMap(
     return () => {
       active = false
       stopWaiting()
-      authWindow.navermap_authFailure = prevAuthFailure
+      // 그 사이 다른 지도가 콜백을 바꿨다면 덮어쓰지 않는다.
+      if (authWindow.navermap_authFailure === onAuthFailure) authWindow.navermap_authFailure = prevAuthFailure
       script?.removeEventListener('load', initMap)
       script?.removeEventListener('error', onScriptError)
-      if (idleListener) window.naver?.maps.Event.removeListener(idleListener)
-      mapRef.current?.destroy?.()
-      mapRef.current = null
+      teardownMap()
     }
   }, [containerRef])
 
