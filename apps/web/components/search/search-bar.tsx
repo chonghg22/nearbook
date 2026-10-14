@@ -8,7 +8,8 @@ import { Camera, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import Image from 'next/image'
-import { PUBLIC_API_BASE_URL } from '@/lib/constants'
+import { publicApiJson } from '@/lib/public-api-client'
+import { parseSuggestions } from '@/lib/api-contracts'
 
 interface Props {
   defaultValue?: string
@@ -16,13 +17,6 @@ interface Props {
   placeholder?: string
   onSubmitted?: () => void
   className?: string
-}
-
-interface Suggestion {
-  isbn: string
-  title: string
-  author: string
-  coverUrl?: string
 }
 
 export function SearchBar({
@@ -38,11 +32,12 @@ export function SearchBar({
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const { data: suggestions, isLoading } = useSWR<{ data: Suggestion[] }>(
+  const { data: suggestions, error: suggestionError } = useSWR(
     debounced.length >= 2
-      ? `${PUBLIC_API_BASE_URL}/search/suggest?q=${encodeURIComponent(debounced)}`
+      ? `/search/suggest?q=${encodeURIComponent(debounced)}`
       : null,
-    (url: string) => fetch(url).then((r) => r.json())
+    (path: string) => publicApiJson(path, parseSuggestions),
+    { shouldRetryOnError: false },
   )
 
   useEffect(() => {
@@ -106,7 +101,8 @@ export function SearchBar({
         </button>
       </form>
 
-      {isOpen && suggestions?.data && suggestions.data.length > 0 && (
+      {isOpen && suggestionError && <p role="status" className="absolute top-full z-50 mt-2 w-full rounded-xl border bg-white p-3 text-sm text-gray-500">자동완성을 불러오지 못했습니다. 입력한 검색어로 검색할 수 있습니다.</p>}
+      {isOpen && !suggestionError && suggestions?.data && suggestions.data.length > 0 && (
         <ul
           role="listbox"
           className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200"

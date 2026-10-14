@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Heart } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { apiFetch } from '@/lib/api-client'
+import { authenticatedApiFetch as apiFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import { trackEvent } from '@/lib/analytics'
 
@@ -48,6 +48,7 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
           trackEvent('wishlist_remove', { isbn })
           showToast('위시리스트에서 제거됨')
         }
+        else throw new Error('request-failed')
       } else {
         const res = await apiFetch('/wishlists', {
           method: 'POST',
@@ -64,6 +65,7 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
           showToast('위시리스트 10권 초과 — Pro 업그레이드 필요')
           return
         }
+        if (!res.ok) throw new Error('request-failed')
         if (res.ok) {
           setAdded(true)
           trackEvent('wishlist_add', { isbn })
@@ -75,6 +77,8 @@ export function WishlistButton({ isbn, initialAdded = false }: Props) {
           }, 3500)
         }
       }
+    } catch {
+      showToast('요청을 완료하지 못했습니다. 상태를 확인한 뒤 다시 시도해 주세요.')
     } finally {
       setLoading(false)
     }

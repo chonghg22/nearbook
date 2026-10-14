@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { apiFetch } from '@/lib/api-client'
+import { authenticatedApiFetch as apiFetch } from '@/lib/api-client'
 import { urlBase64ToUint8Array } from '@/lib/push'
 
 interface Props {
@@ -38,14 +38,13 @@ export function NotificationSettingsForm({
   const [pushSaving, setPushSaving] = useState(false)
 
   useEffect(() => {
-    const supported = (
+    const supported =
       typeof window !== 'undefined' &&
       process.env.NODE_ENV === 'production' &&
       window.isSecureContext &&
       'Notification' in window &&
       'serviceWorker' in navigator &&
       'PushManager' in window
-    )
 
     setPushSupported(supported)
     if (!supported) return
@@ -56,50 +55,61 @@ export function NotificationSettingsForm({
       .catch(() => {})
   }, [])
 
-  async function updatePref(patch: { emailOnAvailable?: boolean; digestFrequency?: 'daily' | 'weekly' }) {
+  async function updatePref(patch: {
+    emailOnAvailable?: boolean
+    digestFrequency?: 'daily' | 'weekly'
+  }) {
     setSaving(true)
     setMessage(null)
 
-    const res = await apiFetch('/me/notification-preferences', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    })
+    try {
+      const res = await apiFetch('/me/notification-preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
 
-    if (res.ok) {
-      const json = await res.json()
-      const nextEnabled = Boolean(json.data?.emailOnAvailable ?? enabled)
-      const nextFrequency = (json.data?.digestFrequency ?? frequency) as 'daily' | 'weekly'
-      setEnabled(nextEnabled)
-      setFrequency(nextFrequency)
-      setStatus((json.data?.emailStatus ?? status) as typeof status)
-      setSoftBounceCount(Number(json.data?.softBounceCount ?? softBounceCount))
-      setMessage('알림 설정을 저장했습니다.')
-    } else {
-      setMessage('설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      if (res.ok) {
+        const json = await res.json()
+        const nextEnabled = Boolean(json.data?.emailOnAvailable ?? enabled)
+        const nextFrequency = (json.data?.digestFrequency ?? frequency) as 'daily' | 'weekly'
+        setEnabled(nextEnabled)
+        setFrequency(nextFrequency)
+        setStatus((json.data?.emailStatus ?? status) as typeof status)
+        setSoftBounceCount(Number(json.data?.softBounceCount ?? softBounceCount))
+        setMessage('알림 설정을 저장했습니다.')
+      } else {
+        setMessage('설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      }
+    } catch {
+      setMessage('요청을 완료하지 못했습니다. 상태를 확인한 뒤 다시 시도해 주세요.')
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
   }
 
   async function reactivate() {
     setSaving(true)
     setMessage(null)
 
-    const res = await apiFetch('/me/notification-preferences/reactivate', {
-      method: 'POST',
-    })
+    try {
+      const res = await apiFetch('/me/notification-preferences/reactivate', {
+        method: 'POST',
+      })
 
-    if (res.ok) {
-      setEnabled(true)
-      setStatus('active')
-      setSoftBounceCount(0)
-      setMessage('이메일 알림을 다시 켰습니다.')
-    } else {
-      setMessage('재활성화하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      if (res.ok) {
+        setEnabled(true)
+        setStatus('active')
+        setSoftBounceCount(0)
+        setMessage('이메일 알림을 다시 켰습니다.')
+      } else {
+        setMessage('재활성화하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+      }
+    } catch {
+      setMessage('요청을 완료하지 못했습니다. 상태를 확인한 뒤 다시 시도해 주세요.')
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
   }
 
   async function togglePush() {
@@ -114,18 +124,20 @@ export function NotificationSettingsForm({
         const subscription = await registration.pushManager.getSubscription()
 
         if (subscription) {
-          await apiFetch('/me/push-subscriptions/delete', {
+          const response = await apiFetch('/me/push-subscriptions/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ endpoint: subscription.endpoint }),
           })
+          if (!response.ok) throw new Error('request-failed')
           await subscription.unsubscribe().catch(() => {})
         } else {
-          await apiFetch('/me/push-subscriptions/delete', {
+          const response = await apiFetch('/me/push-subscriptions/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: '{}',
           })
+          if (!response.ok) throw new Error('request-failed')
         }
 
         setPushEnabled(false)
@@ -168,6 +180,8 @@ export function NotificationSettingsForm({
 
       setPushEnabled(true)
       setMessage('푸시 알림을 켰습니다. 새벽 digest를 더 빠르게 받아볼 수 있어요.')
+    } catch {
+      setMessage('요청을 완료하지 못했습니다. 상태를 확인한 뒤 다시 시도해 주세요.')
     } finally {
       setPushSaving(false)
     }
@@ -179,11 +193,10 @@ export function NotificationSettingsForm({
         <div>
           <h1 className="text-xl font-semibold text-gray-900">알림 설정</h1>
           <p className="mt-2 text-sm leading-6 text-gray-600">
-            위시한 책이 내 기본 도서관에서 대출 가능해지면 매일 새벽 한 번, 묶음 메일로 알려드립니다.
+            위시한 책이 내 기본 도서관에서 대출 가능해지면 매일 새벽 한 번, 묶음 메일로
+            알려드립니다.
           </p>
-          <p className="mt-2 text-xs text-gray-500">
-            수신 주소: {email ?? '이메일 없음'}
-          </p>
+          <p className="mt-2 text-xs text-gray-500">수신 주소: {email ?? '이메일 없음'}</p>
         </div>
 
         <button
@@ -204,8 +217,12 @@ export function NotificationSettingsForm({
         <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-semibold">이메일 상태: {status}</p>
           <p className="mt-1">{statusMessages[status as keyof typeof statusMessages]}</p>
-          {lastBounceReason && <p className="mt-1 text-xs text-amber-800">사유: {lastBounceReason}</p>}
-          {softBounceCount > 0 && <p className="mt-1 text-xs text-amber-800">누적 soft bounce: {softBounceCount}회</p>}
+          {lastBounceReason && (
+            <p className="mt-1 text-xs text-amber-800">사유: {lastBounceReason}</p>
+          )}
+          {softBounceCount > 0 && (
+            <p className="mt-1 text-xs text-amber-800">누적 soft bounce: {softBounceCount}회</p>
+          )}
           <button
             type="button"
             disabled={saving}
@@ -227,10 +244,13 @@ export function NotificationSettingsForm({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-900">푸시 알림 받기</p>
-            <p className="mt-1 text-sm text-gray-600">즉시 알림, 이메일보다 빠름. 홈 화면 설치 후 쓰면 앱처럼 동작합니다.</p>
+            <p className="mt-1 text-sm text-gray-600">
+              즉시 알림, 이메일보다 빠름. 홈 화면 설치 후 쓰면 앱처럼 동작합니다.
+            </p>
             {!pushSupported && (
               <p className="mt-2 text-xs text-amber-700">
-                현재 환경에서는 사용할 수 없어요. HTTPS 배포 환경의 iOS 16.4+/Android Chrome에서 지원됩니다.
+                현재 환경에서는 사용할 수 없어요. HTTPS 배포 환경의 iOS 16.4+/Android Chrome에서
+                지원됩니다.
               </p>
             )}
           </div>
@@ -264,7 +284,9 @@ export function NotificationSettingsForm({
               <span>
                 <strong>매일 아침</strong>
                 <br />
-                <span className="text-xs text-gray-500">새벽 4시에 그날 도착한 책을 바로 알려드려요.</span>
+                <span className="text-xs text-gray-500">
+                  새벽 4시에 그날 도착한 책을 바로 알려드려요.
+                </span>
               </span>
             </label>
             <label className="flex items-start gap-3">
@@ -277,7 +299,9 @@ export function NotificationSettingsForm({
               <span>
                 <strong>주 1회 월요일 아침</strong>
                 <br />
-                <span className="text-xs text-gray-500">지난 한 주 동안 들어온 책을 모아서 보내드려요.</span>
+                <span className="text-xs text-gray-500">
+                  지난 한 주 동안 들어온 책을 모아서 보내드려요.
+                </span>
               </span>
             </label>
           </div>

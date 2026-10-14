@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { apiFetch } from '@/lib/api-client'
+import { authenticatedApiFetch as apiFetch } from '@/lib/api-client'
 import { EmailStatusBanner } from './email-status-banner'
 
 export function EmailStatusBannerGate() {

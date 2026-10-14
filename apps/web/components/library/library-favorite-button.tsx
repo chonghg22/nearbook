@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Star } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { apiFetch } from '@/lib/api-client'
+import { authenticatedApiFetch as apiFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -42,6 +42,7 @@ export function LibraryFavoriteButton({
           setAdded(false)
           showToast('즐겨찾기 도서관에서 제거됨')
         }
+        else throw new Error('request-failed')
         return
       }
 
@@ -61,11 +62,14 @@ export function LibraryFavoriteButton({
         showToast('무료 플랜은 도서관 1개만 등록할 수 있습니다')
         return
       }
+      if (!res.ok) throw new Error('request-failed')
 
       if (res.ok) {
         setAdded(true)
         showToast('즐겨찾기 도서관에 추가됨')
       }
+    } catch {
+      showToast('요청을 완료하지 못했습니다. 상태를 확인한 뒤 다시 시도해 주세요.')
     } finally {
       setLoading(false)
     }

@@ -1,4 +1,4 @@
-import { requestDetail } from './detail-request.mjs'
+import { ApiRequestError, requestApiJson } from './api-request.mjs'
 
 const statuses = new Set(['available', 'borrowed', 'not_held', 'unknown'])
 /** @type {'jeongbonaru:bookExist'} */
@@ -71,24 +71,6 @@ export function holdingsMessage(result) {
  * @returns {Promise<import('@nearbook/shared-types').HoldingsResult>}
  */
 export async function loadHoldings(url, { timeoutMs = 15000, fetchImpl = fetch, signal } = {}) {
-  // Merge lifecycle cancellation with requestDetail's timeout signal without browser-specific AbortSignal.any.
-  /** @type {Array<() => void>} */
-  const cleanups = []
-  try {
-    const payload = await requestDetail(url, { timeoutMs, fetchImpl: async (input, init) => {
-    const combined = new AbortController()
-    const abort = () => combined.abort()
-    const timeoutSignal = init?.signal
-    for (const parent of [signal, timeoutSignal]) {
-      if (parent?.aborted) abort()
-      parent?.addEventListener('abort', abort, { once: true })
-      cleanups.push(() => parent?.removeEventListener('abort', abort))
-    }
-      if (combined.signal.aborted) throw new Error('Holdings request cancelled')
-      return fetchImpl(input, { ...init, signal: combined.signal })
-    } })
-    return parseHoldings(payload)
-  } finally {
-    for (const cleanup of cleanups) cleanup()
-  }
+  const payload = await requestApiJson(url, { timeoutMs, fetchImpl, signal })
+  try { return parseHoldings(payload) } catch { throw new ApiRequestError('invalid-response') }
 }

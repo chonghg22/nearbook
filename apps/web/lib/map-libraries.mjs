@@ -3,6 +3,9 @@
  * Malformed upstream data is an error, never an empty result. Errors never carry URLs or response bodies.
  */
 
+import { ApiRequestError as MapLibrariesError, requestApiJson } from './api-request.mjs'
+export { ApiRequestError as MapLibrariesError } from './api-request.mjs'
+
 export const MAX_LIBRARY_ROWS = 200
 export const MAX_BODY_CHARS = 1_000_000
 export const SEOUL_DEFAULT_BOUNDS = Object.freeze({ swLat: 37.4979, swLng: 126.8625, neLat: 37.6351, neLng: 127.0937 })
@@ -14,16 +17,6 @@ export const SEOUL_DEFAULT_BOUNDS = Object.freeze({ swLat: 37.4979, swLng: 126.8
  * @typedef {{ type: 'region' | 'bounds', url: string, key: string, scope: string, debounceMs: number }} LibraryQuery
  * @typedef {{ timeoutMs?: number | undefined, fetchImpl?: typeof fetch | undefined, signal?: AbortSignal | undefined, maxChars?: number | undefined }} FetchOptions
  */
-
-export class MapLibrariesError extends Error {
-  /** @param {'http' | 'timeout' | 'network' | 'invalid-response' | 'aborted'} kind @param {number | undefined} [status] */
-  constructor(kind, status) {
-    super(`Library request failed: ${kind}${status === undefined ? '' : ` (${status})`}`)
-    this.name = 'MapLibrariesError'
-    this.kind = kind
-    this.status = status
-  }
-}
 
 const invalid = () => new MapLibrariesError('invalid-response')
 /** @param {unknown} value */
@@ -140,43 +133,7 @@ export function parseRegionParams(sido, sigungu) {
  * @param {string} url @param {FetchOptions} [options] @returns {Promise<unknown>}
  */
 export async function fetchJson(url, { timeoutMs = 8000, fetchImpl = fetch, signal, maxChars = MAX_BODY_CHARS } = {}) {
-  if (signal?.aborted) throw new MapLibrariesError('aborted')
-  const controller = new AbortController()
-  const abort = () => controller.abort()
-  signal?.addEventListener('abort', abort, { once: true })
-  let timedOut = false
-  /** @type {ReturnType<typeof setTimeout> | undefined} */
-  let timer
-  const stopped = new Promise((_, reject) => {
-    controller.signal.addEventListener('abort', () => reject(new MapLibrariesError(timedOut ? 'timeout' : 'aborted')), { once: true })
-    timer = setTimeout(() => {
-      timedOut = true
-      controller.abort()
-    }, timeoutMs)
-  })
-  const request = async () => {
-    const response = await fetchImpl(url, { cache: 'no-store', signal: controller.signal })
-    if (!response.ok) throw new MapLibrariesError('http', response.status)
-    const declared = Number(response.headers?.get?.('content-length') ?? 0)
-    if (declared > maxChars) throw invalid()
-    const text = await response.text()
-    if (text.length > maxChars) throw invalid()
-    try {
-      return JSON.parse(text)
-    } catch {
-      throw invalid()
-    }
-  }
-  try {
-    return await Promise.race([request(), stopped])
-  } catch (error) {
-    if (controller.signal.aborted) throw new MapLibrariesError(timedOut ? 'timeout' : 'aborted')
-    if (error instanceof MapLibrariesError) throw error
-    throw new MapLibrariesError('network')
-  } finally {
-    clearTimeout(timer)
-    signal?.removeEventListener('abort', abort)
-  }
+  return requestApiJson(url, { timeoutMs, fetchImpl, signal, maxChars })
 }
 
 /**

@@ -1,5 +1,6 @@
 import { cache } from 'react'
-import type { Book } from '@nearbook/shared-types'
+import type { Book, Library } from '@nearbook/shared-types'
+import { parseLibraryDetail } from './api-contracts'
 import { SERVER_API_BASE_URL } from './server-api'
 import { DetailRequestError, requestDetail } from './detail-request.mjs'
 
@@ -16,27 +17,12 @@ export const fetchBookDetail = cache(async (isbn: string): Promise<Book | null> 
   return book as Book
 })
 
-export type LibraryDetail = {
-  id: number
-  name: string
-  address: string
-  region: string
-  lat: number
-  lng: number
-  phone?: string | null
-  homepage?: string | null
-  operatingHours?: { weekday?: string; text?: string; closed?: string } | null
-}
+export type LibraryDetail = Library
 
 export const fetchLibraryDetail = cache(async (id: string): Promise<LibraryDetail | null> => {
   const json = await requestDetail(`${SERVER_API_BASE_URL}/libraries/${encodeURIComponent(id)}`)
   if (json === null) return null
-  if (typeof json !== 'object' || Array.isArray(json)) throw new DetailRequestError('invalid-response')
-  const library = (json as { data?: Partial<LibraryDetail> }).data
-  if (!library || !Number.isInteger(library.id) || typeof library.name !== 'string' || !library.name.trim()) {
-    throw new DetailRequestError('invalid-response')
-  }
-  return library as LibraryDetail
+  return parseLibraryDetail(json)
 })
 
 // Supplementary sections fail independently, including malformed JSON.

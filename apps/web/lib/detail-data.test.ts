@@ -17,7 +17,8 @@ describe('detail data isolation', () => {
   })
 
   it('unwraps library metadata', async () => {
-    const library = { id: 111314, name: '서울도서관' }
+    const library = { id: 111314, name: '서울도서관', address: '서울 중구', region: '서울특별시 중구', lat: 37.56, lng: 126.98,
+      phone: null, homepage: null, operatingHours: null }
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ data: library })))
     expect(await fetchLibraryDetail('111314')).toEqual(library)
   })
