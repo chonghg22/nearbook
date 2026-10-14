@@ -3,11 +3,11 @@
 import { LibraryCard } from '@/components/library/library-card'
 import { holdingsMessage } from '@/lib/holdings-data.mjs'
 import { trackEvent } from '@/lib/analytics'
-import type { HoldingsResult } from '@nearbook/shared-types'
+import { libraryDirectionsUrl, type LinkedHoldingsResult } from '@/lib/library-links.mjs'
 
 interface Props {
   isbn: string
-  result: HoldingsResult | null
+  result: LinkedHoldingsResult | null
   loading: boolean
   error: boolean
   onRetry: () => void
@@ -37,10 +37,12 @@ export function HoldingsView({ isbn, result, loading, error, onRetry }: Props) {
     {rows.length > 0 && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {rows.map((lib) => <LibraryCard key={lib.id} libraryId={String(lib.id)} libraryName={lib.name}
         distanceKm={lib.distanceKm} status={lib.status} hasBook={lib.hasBook} checkedAt={lib.checkedAt} stale={lib.stale}
+        homepageUrl={lib.homepage} directionsUrl={libraryDirectionsUrl(lib.lat, lib.lng, lib.name)}
         onClick={(action) => trackEvent('library_click', { isbn, libraryId: String(lib.id), libraryName: lib.name,
           action, status: lib.status, distanceKm: lib.distanceKm })} />)}
     </div>}
     <p className="text-xs text-muted-foreground">출처: 도서관 정보나루 · 확인 시각은 이 서비스가 조회한 시각이며, 도서관 재고의 실시간 갱신 시각이 아닙니다. 실제 대출 가능 여부는 도서관 공식 사이트에서 확인해 주세요.</p>
+    {rows.length > 0 && <p className="text-xs text-muted-foreground">공식 사이트와 카카오맵 길찾기는 새 탭에서 열립니다. 대출·예약은 도서관 사이트에서 직접 확인해 주세요. 이 서비스에서 예약이 접수되지는 않습니다.</p>}
     {(h.unknownCount > 0 || stale) && <button type="button" onClick={onRetry} className="rounded-lg bg-primary px-5 py-2 text-white">보유 현황 다시 확인</button>}
   </div>
 }

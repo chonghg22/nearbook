@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { MapPin, Navigation } from 'lucide-react'
 import { StatusBadge, type Status } from '@/components/ui/status-badge'
+import { safeLibraryHomepage } from '@/lib/library-links.mjs'
 
 interface LibraryCardProps {
   libraryId: string
@@ -12,16 +13,27 @@ interface LibraryCardProps {
   hasBook?: boolean | null | undefined
   waitingCount?: number | undefined
   status: Status
-  reservationUrl?: string | undefined
-  directionsUrl?: string | undefined
+  homepageUrl?: string | null | undefined
+  directionsUrl?: string | null | undefined
   onClick?: ((action: 'library_site' | 'directions') => void) | undefined
 }
 
 export function LibraryCard({
-  libraryId, libraryName, distanceKm, walkMinutes,
-  checkedAt, stale, hasBook, waitingCount, status,
-  reservationUrl, directionsUrl, onClick,
+  libraryId,
+  libraryName,
+  distanceKm,
+  walkMinutes,
+  checkedAt,
+  stale,
+  hasBook,
+  waitingCount,
+  status,
+  homepageUrl,
+  directionsUrl,
+  onClick,
 }: LibraryCardProps) {
+  const homepage = safeLibraryHomepage(homepageUrl)
+  const directions = safeLibraryHomepage(directionsUrl)
   return (
     <article className="card-base p-4 flex flex-col gap-3">
       {/* 헤더 행 */}
@@ -36,9 +48,8 @@ export function LibraryCard({
           {distanceKm !== undefined && (
             <p className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
               <MapPin className="w-3 h-3 shrink-0" />
-              {distanceKm < 1
-                ? `${Math.round(distanceKm * 1000)}m`
-                : `${distanceKm.toFixed(1)}km`}
+              기준점에서{' '}
+              {distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)}km`}
               {walkMinutes && ` · 도보 ${walkMinutes}분`}
             </p>
           )}
@@ -49,41 +60,51 @@ export function LibraryCard({
       {/* 소장 현황 */}
       <div className="flex items-center gap-2 px-3 py-2 bg-canvas-subtle rounded-md">
         <span className="text-xs text-muted-foreground">소장 여부</span>
-        <span className="text-sm font-medium text-foreground">{hasBook === true ? '소장 확인' : hasBook === false ? '미소장' : '확인하지 못함'}</span>
+        <span className="text-sm font-medium text-foreground">
+          {hasBook === true ? '소장 확인' : hasBook === false ? '미소장' : '확인하지 못함'}
+        </span>
       </div>
       <p className="text-xs text-muted-foreground">
-        정보나루 · {checkedAt ? `확인: ${new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' }).format(new Date(checkedAt))}` : '확인 시각 없음'}
-        {stale && <span className="block text-amber-700">이전 조회 정보입니다. 다시 확인해 주세요.</span>}
+        정보나루 ·{' '}
+        {checkedAt
+          ? `확인: ${new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' }).format(new Date(checkedAt))}`
+          : '확인 시각 없음'}
+        {stale && (
+          <span className="block text-amber-700">이전 조회 정보입니다. 다시 확인해 주세요.</span>
+        )}
       </p>
 
       {/* 액션 버튼 */}
-      <div className="flex gap-2">
-        {reservationUrl && (
+      <div className="flex flex-wrap gap-2">
+        {homepage ? (
           <a
-            href={reservationUrl}
+            href={homepage}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => onClick?.('library_site')}
             className="flex-1 flex items-center justify-center
-                       h-9 rounded-md text-sm font-medium
+                       min-h-11 px-3 rounded-md text-sm font-medium
                        bg-primary text-primary-foreground
                        hover:bg-primary-600 transition-colors"
           >
-            도서관에서 확인
+            공식 사이트에서 확인
+            <span className="sr-only"> — {libraryName}, 새 탭</span>
           </a>
+        ) : (
+          <p className="flex-1 self-center text-xs text-muted-foreground">공식 사이트 정보 없음</p>
         )}
-        {directionsUrl && (
+        {directions && (
           <a
-            href={directionsUrl}
+            href={directions}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => onClick?.('directions')}
             className="flex items-center justify-center gap-1.5
-                       h-9 px-3 rounded-md text-sm font-medium
+                       min-h-11 px-3 rounded-md text-sm font-medium
                        bg-white border border-border text-muted-foreground
                        hover:border-primary/40 hover:text-primary
                        transition-colors"
-            aria-label="길찾기"
+            aria-label={`${libraryName} 길찾기 — 카카오맵, 새 탭`}
           >
             <Navigation className="w-3.5 h-3.5" />
             길찾기

@@ -8,13 +8,13 @@ import { trackEvent } from '@/lib/analytics'
 import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 import { loadHoldings, parseHoldings } from '@/lib/holdings-data.mjs'
 import { HoldingsView } from './holdings-view'
-import type { HoldingsResult } from '@nearbook/shared-types'
+import type { LinkedHoldingsResult } from '@/lib/library-links.mjs'
 
 interface Props { isbn: string }
 
 export function LibraryStatus({ isbn }: Props) {
   const { location, isLoaded } = useLocationContext()
-  const [result, setResult] = useState<HoldingsResult | null>(null)
+  const [result, setResult] = useState<LinkedHoldingsResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
