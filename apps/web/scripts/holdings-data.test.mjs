@@ -96,7 +96,7 @@ test('lifecycle cancellation aborts a previous request', async () => {
 test('PWA does not intercept holdings or replace a slow lookup with cached availability', async () => {
   const code = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8')
   let handler
-  const context = { self: { addEventListener: (type, fn) => { if (type === 'fetch') handler = fn } }, URL }
+  const context = { self: { location: { origin: 'https://www.near-book.com' }, addEventListener: (type, fn) => { if (type === 'fetch') handler = fn } }, URL }
   vm.runInNewContext(code, context)
   let intercepted = false
   handler({ request: { method: 'GET', destination: '', url: 'https://www.near-book.com/api/books/9788936434120/holdings?lat=37&lng=127' },

@@ -84,7 +84,7 @@ export async function apiFetch(
 ): Promise<Response> {
   const requestInit = await withAuthHeaders(options)
 
-  return fetch(`${API_BASE}${path}`, requestInit)
+  return fetch(`${API_BASE}${path}`, { ...requestInit, cache: 'no-store' })
 }
 
 export async function authFetch(
@@ -93,5 +93,5 @@ export async function authFetch(
 ): Promise<Response> {
   const requestInit = await withAuthHeaders(options)
 
-  return fetch(path, { credentials: 'include', ...requestInit })
+  return fetch(path, { credentials: 'include', ...requestInit, cache: 'no-store' })
 }
