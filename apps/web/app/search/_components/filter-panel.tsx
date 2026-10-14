@@ -15,6 +15,7 @@ export function FilterPanel({ searchType, sort, onChange }: Props) {
         className="px-3 py-1.5 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         aria-label="검색 유형"
       >
+        <option value="all">통합</option>
         <option value="title">도서명</option>
         <option value="author">저자명</option>
         <option value="isbn">ISBN</option>

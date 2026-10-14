@@ -1,19 +1,22 @@
 import {
   IsString, IsOptional, IsInt,
-  Min, Max, IsIn,
+  Min, Max, IsIn, MinLength, MaxLength,
 } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { SEARCH_TYPES, type SearchType } from '@nearbook/shared-types'
 
 export class SearchQueryDto {
   @ApiProperty({ description: '검색어' })
   @IsString()
+  @MinLength(1)
+  @MaxLength(200)
   q: string
 
-  @ApiPropertyOptional({ enum: ['title', 'author', 'isbn', 'publisher'], default: 'title' })
+  @ApiPropertyOptional({ enum: SEARCH_TYPES, default: 'all' })
   @IsOptional()
-  @IsIn(['title', 'author', 'isbn', 'publisher'])
-  searchType?: 'title' | 'author' | 'isbn' | 'publisher' = 'title'
+  @IsIn(SEARCH_TYPES)
+  searchType?: SearchType = 'all'
 
   @ApiPropertyOptional()
   @IsOptional()

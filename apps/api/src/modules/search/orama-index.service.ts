@@ -7,6 +7,8 @@ import { koreanTokenizer } from './korean-tokenizer'
 import { db, bookCache } from '@nearbook/db'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import { resolveSearchInput, searchIsbnAliases, type SearchType } from '@nearbook/shared-types'
+import { bookMatchRank } from './search-ranking'
 
 const SCHEMA = {
   isbn: 'string',
@@ -110,8 +112,10 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
     offset: number
     category?: string
     sort?: 'relevance' | 'popular' | 'recent'
-    searchType?: 'title' | 'author' | 'isbn' | 'publisher'
+    searchType?: SearchType
   }) {
+    const input = resolveSearchInput(args.q, args.searchType)
+    if (!input.q || input.invalidIsbn) return { hits: [], total: 0, elapsedMs: '0ms' }
     const sortBy =
       args.sort === 'recent' ? { property: 'publishedYear' as const, order: 'DESC' as const } :
       args.sort === 'popular' ? { property: 'popularityScore' as const, order: 'DESC' as const } :
@@ -121,35 +125,48 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
     if (args.category) where.category = args.category
 
     // ISBN 검색은 exact match로 처리
-    if (args.searchType === 'isbn') {
-      where.isbn = args.q.replace(/[^0-9X]/gi, '')
+    if (input.searchType === 'isbn') {
+      where.isbn = searchIsbnAliases(input.q)
     }
 
     // searchType에 따라 검색 대상 필드 결정
-    const searchProps = args.searchType === 'isbn'
+    const searchProps = input.searchType === 'isbn'
       ? ['isbn'] as const
-      : args.searchType === 'author'
+      : input.searchType === 'author'
         ? ['author'] as const
-        : args.searchType === 'publisher'
+        : input.searchType === 'publisher'
           ? ['publisher'] as const
-          : ['title', 'author', 'publisher'] as const
+          : input.searchType === 'title' ? ['title'] as const : ['title', 'author', 'publisher'] as const
 
-    const boost = args.searchType === 'author'
+    const boost = input.searchType === 'author'
       ? { author: 2.0 }
-      : args.searchType === 'publisher'
+      : input.searchType === 'publisher'
         ? { publisher: 2.0 }
         : { title: 2.0, author: 1.5 }
 
     // 한글은 bigram 토크나이저 특성상 fuzzy 매칭 시 무관한 결과 다수 발생 — 전면 비활성화
-    const isKorean = /[가-힣]/.test(args.q)
+    const isKorean = /[가-힣]/.test(input.q)
     const tolerance = isKorean ? 0 : 1
+    const ranks = new Map<string, number>()
+    const rank = (book: { isbn: string; title: string; author: string; publisher: string }) => {
+      const cached = ranks.get(book.isbn)
+      if (cached !== undefined) return cached
+      const value = bookMatchRank(book, input.q, input.searchType)
+      ranks.set(book.isbn, value)
+      return value
+    }
 
     const result = await search(this.index, {
-      term: args.searchType === 'isbn' ? '' : args.q,
+      term: input.searchType === 'isbn' ? '' : input.q,
       limit: args.limit,
       offset: args.offset,
       ...(Object.keys(where).length > 0 && { where }),
-      ...(sortBy && { sortBy }),
+      sortBy: sortBy ?? ((a, b) => {
+        const first = a[2] as unknown as { isbn: string; title: string; author: string; publisher: string }
+        const second = b[2] as unknown as typeof first
+        return rank(first) - rank(second)
+          || b[1] - a[1] || first.isbn.localeCompare(second.isbn)
+      }),
       tolerance,
       properties: searchProps as any,
       boost,
