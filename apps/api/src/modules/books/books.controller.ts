@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common'
+import { Controller, Get, Param, Query, DefaultValuePipe, ParseIntPipe, BadRequestException } from '@nestjs/common'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { BooksService } from './books.service'
 
@@ -83,6 +83,23 @@ export class BooksController {
     const defaultLat = parseFloat(lat) || 37.5665
     const defaultLng = parseFloat(lng) || 126.978
     return this.service.getWithLibraries(isbn, defaultLat, defaultLng, radius)
+  }
+
+  @Get(':isbn/holdings')
+  @ApiOperation({ summary: '주변 도서관 보유 상태·확인 범위 (메타데이터/제휴 요청과 독립)' })
+  getHoldings(
+    @Param('isbn') isbn: string,
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('radius', new DefaultValuePipe(5), ParseIntPipe) radius: number,
+  ) {
+    const latitude = lat === undefined ? 37.5665 : Number(lat)
+    const longitude = lng === undefined ? 126.978 : Number(lng)
+    if (!/^(?:\d{13}|\d{9}[\dXx])$/.test(isbn) || !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+        latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 || radius < 1 || radius > 20) {
+      throw new BadRequestException('유효한 ISBN, 위치, 반경(1~20km)이 필요합니다.')
+    }
+    return this.service.getHoldings(isbn, latitude, longitude, radius)
   }
 
   @Get(':isbn')

@@ -137,15 +137,19 @@ export class BooksService {
   async getWithLibraries(isbn: string, lat: number, lng: number, radiusKm = 5) {
     const [book, libsWithAvail, affiliateLinks] = await Promise.all([
       this.getByIsbn(isbn),
-      this.libraries.findNearWithBook(lat, lng, isbn, radiusKm),
+      this.libraries.getNearbyHoldings(lat, lng, isbn, radiusKm),
       this.affiliates.getAffiliateOptions(isbn),
     ])
 
     return {
       book,
-      libraries: libsWithAvail,
+      ...libsWithAvail,
       affiliates: affiliateLinks,
       cachedAt: new Date().toISOString(),
     }
+  }
+
+  getHoldings(isbn: string, lat: number, lng: number, radiusKm = 5) {
+    return this.libraries.getNearbyHoldings(lat, lng, isbn, radiusKm)
   }
 }

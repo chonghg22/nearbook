@@ -7,7 +7,9 @@ interface LibraryCardProps {
   libraryName: string
   distanceKm?: number | undefined
   walkMinutes?: number | undefined
-  availableCount: number
+  checkedAt?: string | null | undefined
+  stale?: boolean | undefined
+  hasBook?: boolean | null | undefined
   waitingCount?: number | undefined
   status: Status
   reservationUrl?: string | undefined
@@ -17,7 +19,7 @@ interface LibraryCardProps {
 
 export function LibraryCard({
   libraryId, libraryName, distanceKm, walkMinutes,
-  availableCount, waitingCount, status,
+  checkedAt, stale, hasBook, waitingCount, status,
   reservationUrl, directionsUrl, onClick,
 }: LibraryCardProps) {
   return (
@@ -46,9 +48,13 @@ export function LibraryCard({
 
       {/* 소장 현황 */}
       <div className="flex items-center gap-2 px-3 py-2 bg-canvas-subtle rounded-md">
-        <span className="text-xs text-muted-foreground">소장</span>
-        <span className="text-sm font-medium text-foreground">{availableCount}권 대출 가능</span>
+        <span className="text-xs text-muted-foreground">소장 여부</span>
+        <span className="text-sm font-medium text-foreground">{hasBook === true ? '소장 확인' : hasBook === false ? '미소장' : '확인하지 못함'}</span>
       </div>
+      <p className="text-xs text-muted-foreground">
+        정보나루 · {checkedAt ? `확인: ${new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', dateStyle: 'short', timeStyle: 'short' }).format(new Date(checkedAt))}` : '확인 시각 없음'}
+        {stale && <span className="block text-amber-700">이전 조회 정보입니다. 다시 확인해 주세요.</span>}
+      </p>
 
       {/* 액션 버튼 */}
       <div className="flex gap-2">
