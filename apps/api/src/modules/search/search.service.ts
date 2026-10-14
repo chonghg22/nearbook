@@ -1,4 +1,4 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { db, bookCache, searchLogs, sql, ilike, searchStats, and, eq } from '@nearbook/db'
 import { OramaIndexService } from './orama-index.service'
 import { AladdinFallbackService } from './aladdin-fallback.service'
@@ -6,6 +6,7 @@ import { SearchQueryDto } from './dto/search-query.dto'
 import { SearchResultDto } from './dto/search-result.dto'
 import { isProfane } from '../../common/profanity/ko-profanity'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
+import { resolveSearchInput } from '@nearbook/shared-types'
 
 const POPULAR_QUERIES_FALLBACK = [
   '한강', '김호연', '베르나르 베르베르', '무라카미 하루키',
@@ -66,6 +67,9 @@ export class SearchService {
 
   async search(query: SearchQueryDto): Promise<SearchResultDto> {
     const start = Date.now()
+    const input = resolveSearchInput(query.q, query.searchType)
+    if (!input.q || input.q.length > 200 || input.invalidIsbn) throw new BadRequestException('Enter a valid search query or ISBN')
+    query = { ...query, q: input.q, searchType: input.searchType }
 
     const page = typeof query.page === 'number' && !isNaN(query.page) ? query.page : 1
     const pageSize = typeof query.pageSize === 'number' && !isNaN(query.pageSize) ? query.pageSize : 10
@@ -87,7 +91,7 @@ export class SearchService {
       })
 
       // [정보나루 지능형 동기 보충]
-      const lastSyncKey = `${query.q}:${page}`
+      const lastSyncKey = `${query.searchType}:${query.q}:${page}`
       const lastSync = this.naruSyncCache.get(lastSyncKey) || 0
       const isExpired = Date.now() - lastSync > 3600_000 // 1시간 경과
 
@@ -95,11 +99,11 @@ export class SearchService {
       const stats = await db.query.searchStats.findFirst({
         where: and(
           eq(searchStats.query, query.q),
-          eq(searchStats.searchType, query.searchType || 'title')
+          eq(searchStats.searchType, query.searchType || 'all')
         )
       })
 
-      let remoteTotal = Math.max(stats?.remoteTotal ?? 0, r.total)
+      let remoteTotal = query.searchType === 'isbn' ? r.total : Math.max(stats?.remoteTotal ?? 0, r.total)
 
       // 1. 첫 검색인데 로컬 결과가 너무 적거나
       // 2. 페이지를 넘겼는데 로컬 결과가 없거나
@@ -109,7 +113,14 @@ export class SearchService {
       const isTargetPageEmpty = r.hits.length < pageSize && r.total < remoteTotal
       const isStatsInconsistent = r.total > (stats?.remoteTotal ?? 0)
 
-      if (query.q.length >= 2 && (isExpired || isStatsInconsistent) && (isFirstPageUnderpopulated || isTargetPageEmpty || isStatsInconsistent)) {
+      if (query.searchType === 'isbn' && r.total === 0) {
+        const book = await this.jeongbonaru.getBookByIsbn(query.q)
+        if (book?.isbn === query.q) {
+          await this.orama.upsertMany([book])
+          r = await this.orama.query({ q: query.q, searchType: 'isbn', limit: pageSize, offset: (page - 1) * pageSize, category: query.category, sort: query.sort })
+        }
+        remoteTotal = r.total
+      } else if (query.searchType !== 'isbn' && query.q.length >= 2 && (isExpired || isStatsInconsistent) && (isFirstPageUnderpopulated || isTargetPageEmpty || isStatsInconsistent)) {
         this.logger.log(`[Search] Naru Deep Sync for "${query.q}" P${page} (local: ${r.total}, remote: ${remoteTotal}, inconsistent: ${isStatsInconsistent})`)
         this.naruSyncCache.set(lastSyncKey, Date.now())
         
@@ -137,9 +148,9 @@ export class SearchService {
       const items = r.hits as any[]
 
       // 알라딘은 항상 백그라운드로 캐시만 채움 (응답 블로킹 없음)
-      const shouldFetchAladdin = page === 1 && query.q.length >= 2
+      const shouldFetchAladdin = page === 1 && query.q.length >= 2 && query.searchType !== 'isbn'
       if (shouldFetchAladdin) {
-        this.aladdin.searchAndCache(query.q)
+        this.aladdin.searchAndCache(query.q, query.searchType)
           .then((h) => { if (h.length > 0) return this.orama.upsertMany(h) })
           .catch(() => {})
       }
@@ -182,7 +193,8 @@ export class SearchService {
 
   async suggest(q: string) {
     if (q.length < 2) return []
-    const r = await this.orama.query({ q, limit: 8, offset: 0 })
+    const input = resolveSearchInput(q)
+    const r = await this.orama.query({ q: input.q, searchType: input.searchType, limit: 8, offset: 0 })
     return r.hits
   }
 

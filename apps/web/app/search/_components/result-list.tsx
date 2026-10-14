@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { trackEvent } from '@/lib/analytics'
-import type { SearchBook } from '@nearbook/shared-types'
+import { authorNames, searchEditionLabels, type SearchBook } from '@nearbook/shared-types'
 
 type Item = SearchBook
 
@@ -63,13 +63,17 @@ export function ResultList({ isLoading, items = [], error, query }: Props) {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-gray-900 truncate text-lg">
+              <h3 className="font-bold text-gray-900 line-clamp-2 text-lg">
                 {item.title}
               </h3>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {item.author}
+              {searchEditionLabels(item.title).length > 0 && <p className="mt-1 flex flex-wrap gap-1">
+                {searchEditionLabels(item.title).map(label => <span key={label} className="rounded border border-primary-200 bg-primary-50 px-2 py-0.5 text-xs text-primary-700">{label}</span>)}
+              </p>}
+              <p className="text-sm text-gray-500 mt-0.5" title={item.author ?? undefined}>
+                {item.author ? authorNames(item.author) : '저자 정보 없음'}
                 {item.publisher && ` · ${item.publisher}`}
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">ISBN <span className="font-mono">{item.isbn}</span></p>
               <p className="text-xs text-gray-400 mt-2">
                 소장 정보는 상세 페이지에서 확인
               </p>

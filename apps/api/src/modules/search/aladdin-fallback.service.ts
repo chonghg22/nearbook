@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { db, bookCache, apiUsage } from '@nearbook/db'
+import type { SearchType } from '@nearbook/shared-types'
 
 @Injectable()
 export class AladdinFallbackService {
@@ -13,7 +14,8 @@ export class AladdinFallbackService {
     this.key = this.config.get<string>('ALADIN_TTB_KEY') ?? ''
   }
 
-  async searchAndCache(query: string): Promise<any[]> {
+  async searchAndCache(query: string, searchType: SearchType = 'title'): Promise<any[]> {
+    if (searchType === 'isbn') return [] // ISBN uses exact metadata lookup, not a title fallback.
     if (!this.key) {
       this.logger.warn('ALADIN_TTB_KEY not set — skipping fallback')
       return []
@@ -32,7 +34,9 @@ export class AladdinFallbackService {
     const url = new URL('http://www.aladin.co.kr/ttb/api/ItemSearch.aspx')
     url.searchParams.set('ttbkey', this.key)
     url.searchParams.set('Query', query)
-    url.searchParams.set('QueryType', 'Title')
+    // The documented Title/Author/Publisher modes are used. Title enrichment
+    // is a valid subset of all-search; Naru's keyword search covers all fields.
+    url.searchParams.set('QueryType', { all: 'Title', title: 'Title', author: 'Author', publisher: 'Publisher' }[searchType])
     url.searchParams.set('MaxResults', '10')
     url.searchParams.set('SearchTarget', 'Book')
     url.searchParams.set('Output', 'JS')

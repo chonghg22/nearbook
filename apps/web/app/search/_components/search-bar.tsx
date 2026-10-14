@@ -29,7 +29,7 @@ export function SearchBar({ defaultValue, onSubmit }: Props) {
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="책 제목, 저자 검색"
+        placeholder="책 제목, 저자, ISBN, 출판사 검색"
         className="flex-1 px-4 h-14 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         aria-label="검색어"
       />
