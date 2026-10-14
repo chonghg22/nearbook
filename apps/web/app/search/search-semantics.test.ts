@@ -127,6 +127,17 @@ it('filter navigation preserves query/type and resets the page before the next r
   expect(target.searchParams.get('searchType')).toBe('author')
   expect(target.searchParams.get('page')).toBe('1')
 })
+it('automatic ISBN mode does not stick when submitting a new title query', async () => {
+  mount('q=8936434128')
+  await screen.findByRole('link', { name: /ISBN 9788936434120/ })
+  fireEvent.change(screen.getByRole('textbox', { name: '검색어' }), {
+    target: { value: '소년이 온다' },
+  })
+  fireEvent.submit(screen.getByRole('search'))
+  const target = new URL(navigation.push.mock.calls[0]?.[0], 'https://example.test')
+  expect(target.searchParams.get('q')).toBe('소년이 온다')
+  expect(target.searchParams.has('searchType')).toBe(false)
+})
 it('new API failures are still errors, not a normal empty search', async () => {
   fetchMock.mockImplementation(async () => new Response('unavailable', { status: 503 }))
   mount('q=소년이+온다')

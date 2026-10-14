@@ -23,7 +23,8 @@ export function SearchPageInner() {
 
   const q = params.get('q') || ''
   const sort = params.get('sort') || 'relevance'
-  const input = resolveSearchInput(q, params.get('searchType') || 'all')
+  const requestedSearchType = params.get('searchType') || 'all'
+  const input = resolveSearchInput(q, requestedSearchType)
   const searchType = input.searchType
   const page = Number(params.get('page') || '1')
 
@@ -87,13 +88,15 @@ export function SearchPageInner() {
 
     trackEvent('search_submit', {
       query: nextQuery,
-      searchType,
+      searchType: resolveSearchInput(nextQuery, requestedSearchType).searchType,
       source: 'search_page',
     })
 
-    const next = new URLSearchParams({ q: nextQuery, searchType })
+    // Automatic ISBN detection is query-specific, not a sticky user-selected mode.
+    const next = new URLSearchParams({ q: nextQuery,
+      ...(requestedSearchType !== 'all' && { searchType: requestedSearchType }) })
     router.push(`/search?${next.toString()}`)
-  }, [router, searchType])
+  }, [router, requestedSearchType])
 
   const handleFilterChange = useCallback((key: string, value: string | null) => {
     if (value === null) return
