@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import vm from 'node:vm'
 import { holdingsMessage, loadHoldings, parseHoldings } from '../lib/holdings-data.mjs'
 
 const now = Date.parse('2026-10-14T00:00:00Z')
@@ -89,4 +91,15 @@ test('lifecycle cancellation aborts a previous request', async () => {
   lifecycle.abort()
   await assert.rejects(result)
   assert.equal(signal.aborted, true)
+})
+
+test('PWA does not intercept holdings or replace a slow lookup with cached availability', async () => {
+  const code = await readFile(new URL('../public/sw.js', import.meta.url), 'utf8')
+  let handler
+  const context = { self: { addEventListener: (type, fn) => { if (type === 'fetch') handler = fn } }, URL }
+  vm.runInNewContext(code, context)
+  let intercepted = false
+  handler({ request: { method: 'GET', destination: '', url: 'https://www.near-book.com/api/books/9788936434120/holdings?lat=37&lng=127' },
+    respondWith: () => { intercepted = true } })
+  assert.equal(intercepted, false)
 })

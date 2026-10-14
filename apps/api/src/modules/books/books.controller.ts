@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, DefaultValuePipe, ParseIntPipe, BadRequestException } from '@nestjs/common'
+import { Controller, Get, Param, Query, DefaultValuePipe, ParseIntPipe, BadRequestException, Header } from '@nestjs/common'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { BooksService } from './books.service'
 
@@ -86,6 +86,7 @@ export class BooksController {
   }
 
   @Get(':isbn/holdings')
+  @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: '주변 도서관 보유 상태·확인 범위 (메타데이터/제휴 요청과 독립)' })
   getHoldings(
     @Param('isbn') isbn: string,

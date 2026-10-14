@@ -27,6 +27,7 @@ export function HoldingsView({ isbn, result, loading, error, onRetry }: Props) {
     return priority[a.status] - priority[b.status]
   })
   return <div className="space-y-4">
+    {stale && <p className="text-sm text-amber-700" role="status">이전 조회 결과입니다. 대출 가능 상태가 달라졌을 수 있습니다.</p>}
     <p className="text-sm text-muted-foreground" role="status">
       주변 후보 {h.nearbyCount}곳 · 상태 확인 {h.checkedCount}곳 · 소장 확인 {h.heldCount}곳 · 대출 가능 {h.availableCount}곳
       {h.unknownCount > 0 && <span className="block">확인 불가 {h.unknownCount}곳 — 미소장으로 판단하지 않습니다.</span>}

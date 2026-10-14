@@ -50,6 +50,7 @@ describe('holding UI semantics', () => {
   it('labels old observation and offers refresh', () => {
     const output = html(result([{ ...row('available'), stale: true }]))
     expect(output).toContain('이전 조회 정보')
+    expect(output).toContain('대출 가능 상태가 달라졌을 수 있습니다')
     expect(output).toContain('보유 현황 다시 확인')
   })
 })

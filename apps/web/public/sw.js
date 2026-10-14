@@ -36,6 +36,10 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return
 
+  // Location-dependent availability owns its timeout and freshness UI.
+  // Do not replace a slow live lookup with an older API-cache snapshot after five seconds.
+  if (/^\/api\/books\/[^/]+\/holdings\/?$/.test(url.pathname)) return
+
   if (request.destination === 'image') {
     event.respondWith(
       caches.open(IMAGE_CACHE).then(async (cache) => {
