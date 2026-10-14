@@ -88,6 +88,25 @@ test('install precaches only cookie-free public assets, not pages or API', async
   assert.equal(h.stores.get(current).size, 3)
   for (const req of h.requests) { assert.equal(req.credentials, 'omit'); assert.equal(req.cache, 'no-store') }
 })
+for (const failure of ['401', '403', 'redirect', 'html', 'cors']) {
+  test(`protected static asset ${failure}: preserves normal authentication without caching it`, async () => {
+    const h = harness()
+    h.reply = (req) => {
+      if (req.credentials !== 'omit') return response('AUTHENTICATED_BUILD_ASSET')
+      if (failure === 'cors') throw Error('CORS blocked login redirect')
+      if (failure === '401' || failure === '403') return new Response('login required', { status: Number(failure) })
+      const login = response('<html>login</html>', { 'content-type': 'text/html' })
+      return failure === 'redirect' ? Object.defineProperty(login, 'redirected', { value: true }) : login
+    }
+    const out = await h.dispatch('/_next/static/build/app.js')
+    assert.equal(await out.text(), 'AUTHENTICATED_BUILD_ASSET')
+    assert.equal(h.requests.length, 2)
+    assert.equal(h.requests[0].credentials, 'omit')
+    assert.equal(h.requests[1].credentials, 'same-origin')
+    assert.equal(h.requests[1].cache, 'no-store')
+    assert.equal(h.stores.get(current).size, 0)
+  })
+}
 test('migration deletes legacy personal data but preserves unrelated caches', async () => {
   const h = harness()
   for (const name of [...legacy, 'nearbook-public-old', 'other-app-v1']) await h.seed(name, '/me', 'secret')

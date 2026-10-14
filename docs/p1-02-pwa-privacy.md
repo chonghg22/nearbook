@@ -14,6 +14,7 @@
 4. 초기 화면에서 legacy 캐시 삭제, 계정 전환/로그아웃에서 앱 캐시 삭제. 개인정보 화면을 즉시 숨기고 전체 document navigation으로 Next Router Cache 및 mounted state 폐기. 토큰 갱신에는 reload하지 않는다. 명시적 로그아웃은 브라우저·서버 쿠키 처리 완료를 기다린다. BFCache 복원도 서버로 다시 확인한다.
 5. 인증 API client는 HTTP cache도 no-store 강제. storage/설치 중 네트워크 장애에도 privacy worker가 활성화되고 안전한 합성 오프라인 안내를 반환한다.
 6. 기존 push/notification click 동작 유지. 프로필·표지 이미지와 `/_next/image`는 PWA 캐시에서 제외.
+7. 보호된 배포의 정적 자산은 익명 요청이 401/403/로그인 HTML·redirect/CORS 오류를 반환하면 원래 요청의 credentials를 유지해 재요청한다. 인증으로 받은 파일은 반환만 하고 캐시에는 저장하지 않는다. 프리뷰 보호 설정은 변경하지 않는다.
 
 Cache API는 HTTP 캐시 헤더를 자동 준수하지 않으므로 worker에서 별도로 확인한다: [MDN Cache](https://developer.mozilla.org/en-US/docs/Web/API/Cache), [Request cache](https://developer.mozilla.org/en-US/docs/Web/API/Request/cache).
 
@@ -24,6 +25,7 @@ Cache API는 HTTP 캐시 헤더를 자동 준수하지 않으므로 worker에서
 - 실제 Chromium 격리 프로필/로컬 fixture: 구 worker가 A 개인 데이터를 캐시한 상태를 재현 → 신 worker migration/legacy 삭제/기존 탭 refresh → 공개 자산만 캐시 → A→B document navigation → 오프라인 개인정보 미노출 및 390px overflow 없음 → 연결 복구 B 표시.
 - 테스트용 A/B만 사용했으며 실제 OAuth 계정 로그인/변경은 하지 않았다. Supabase callback wiring/초기 세션/동일 계정·토큰 갱신/타 계정·로그아웃/저장소 오류는 자동 테스트로 검증한다.
 - PR 전체 CI와 프리뷰 검증을 통과한 뒤 승인된 운영 웹 배포를 진행한다. 운영 기록은 별도 검증 문서에 남긴다.
+- 프리뷰 화면 깨짐 제보 후 보호 배포 static 요청 충돌을 로컬 회귀 테스트로 재현(5개 실패)하고 보완함. 수정 후 PWA 44개, 전체 Node 216 + 웹 122 + API 54 = 392개 테스트. 실제 제보 화면과의 동일성은 화면 확인 전까지 확정하지 않음.
 
 ### 재현 명령
 

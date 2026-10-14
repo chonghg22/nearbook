@@ -28,20 +28,23 @@ async function freshMatch(request) {
   return response
 }
 
+function assetMime(request, response) {
+  const mime = response.headers.get('content-type') || ''
+  const path = new URL(request.url).pathname
+  return path === OFFLINE_URL ? /^text\/html\b/i.test(mime)
+    : path.endsWith('.js') ? /^(?:text|application)\/(?:java|ecma)script\b/i.test(mime)
+      : path.endsWith('.css') ? /^text\/css\b/i.test(mime)
+        : /\.woff2?$/.test(path) ? /^(?:font\/|application\/(?:font|octet-stream))/i.test(mime)
+          : /^image\/png\b/i.test(mime)
+}
+
 async function storePublic(request, response) {
   // A cache hit must not reset its original TTL.
   if (response.headers.has(STORED_AT)) return
   if (!publicAsset(request) || response.status !== 200 || response.redirected || response.type === 'opaque') return
   if (/\b(?:private|no-store|no-cache)\b/i.test(response.headers.get('cache-control') || '')) return
   if (/\b(?:cookie|authorization)\b|\*/i.test(response.headers.get('vary') || '') || response.headers.has('set-cookie')) return
-  const mime = response.headers.get('content-type') || ''
-  const path = new URL(request.url).pathname
-  const validMime = path === OFFLINE_URL ? /^text\/html\b/i.test(mime)
-    : path.endsWith('.js') ? /^(?:text|application)\/(?:java|ecma)script\b/i.test(mime)
-      : path.endsWith('.css') ? /^text\/css\b/i.test(mime)
-        : /\.woff2?$/.test(path) ? /^(?:font\/|application\/(?:font|octet-stream))/i.test(mime)
-          : /^image\/png\b/i.test(mime)
-  if (!validMime || Number(response.headers.get('content-length')) > MAX_BYTES) return
+  if (!assetMime(request, response) || Number(response.headers.get('content-length')) > MAX_BYTES) return
   const body = await response.clone().arrayBuffer()
   if (body.byteLength > MAX_BYTES) return
   const headers = new Headers(response.headers)
@@ -122,11 +125,21 @@ self.addEventListener('fetch', (event) => {
   // its own timeout, retry and freshness UI, not an older cached snapshot.
   if (!publicAsset(request)) return
   const network = (async () => {
-    try { const cached = await freshMatch(request); if (cached) return cached } catch { /* keep network working */ }
-    return fetch(assetRequest(request))
+    try {
+      const cached = await freshMatch(request)
+      if (cached) return { response: cached, cacheable: false }
+    } catch { /* keep network working */ }
+    try {
+      const response = await fetch(assetRequest(request))
+      if (response.ok && !response.redirected && assetMime(request, response)) return { response, cacheable: true }
+    } catch { /* A protection login redirect may fail CORS. */ }
+    // Protected deployments need their existing browser authentication cookie.
+    // Preserve the ORIGINAL credential mode; do not widen access or persist the
+    // authenticated response. CSS/JS must not receive a login HTML substitute.
+    return { response: await fetch(new Request(request, { cache: 'no-store' })), cacheable: false }
   })()
-  event.respondWith(network)
-  event.waitUntil(network.then((response) => storePublic(request, response)).catch(() => {}))
+  event.respondWith(network.then((result) => result.response))
+  event.waitUntil(network.then((result) => result.cacheable ? storePublic(request, result.response) : undefined).catch(() => {}))
 })
 
 self.addEventListener('push', (event) => {
