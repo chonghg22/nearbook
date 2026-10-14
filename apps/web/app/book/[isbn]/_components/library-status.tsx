@@ -5,8 +5,8 @@ import { useLocationContext } from '@/lib/use-location-context'
 import { LocationBar } from '@/components/location-bar'
 import { Loader2 } from 'lucide-react'
 import { trackEvent } from '@/lib/analytics'
-import { PUBLIC_API_BASE_URL } from '@/lib/constants'
-import { loadHoldings, parseHoldings } from '@/lib/holdings-data.mjs'
+import { publicApiJson } from '@/lib/public-api-client'
+import { parseHoldings } from '@/lib/holdings-data.mjs'
 import { HoldingsView } from './holdings-view'
 import type { LinkedHoldingsResult } from '@/lib/library-links.mjs'
 
@@ -34,7 +34,7 @@ export function LibraryStatus({ isbn }: Props) {
     setIsLoading(true)
     setHasError(false)
     setResult(null)
-    void loadHoldings(`${PUBLIC_API_BASE_URL}/books/${encodeURIComponent(isbn)}/holdings?lat=${location.lat}&lng=${location.lng}`, { signal: controller.signal })
+    void publicApiJson(`/books/${encodeURIComponent(isbn)}/holdings?lat=${location.lat}&lng=${location.lng}`, parseHoldings, { timeoutMs: 15000, signal: controller.signal })
       .then((next) => {
         if (!active) return
         setResult(next)
