@@ -1,4 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
+import { HOLDING_TTL_MS, observeHolding } from '../libraries/holding-observation'
 import { db, bookCache, eq, sql, searchStats } from '@nearbook/db'
 import { CacheService } from '../../common/cache/cache.service'
 import { JeongbonaruClient } from './jeongbonaru.client'
@@ -184,16 +185,21 @@ export class JeongbonaruService {
 
   /** 도서관 보유 정보 (5분 캐시) */
   async getBookOwnership(isbn: string, libCode: string | number): Promise<any> {
-    const cacheKey = `loan:${isbn}:${libCode}`
+    // Versioned key avoids treating old untimestamped/raw snapshots as current.
+    const cacheKey = `loan:v2:${isbn}:${libCode}`
     const cached = this.cache.get<any>(cacheKey)
     if (cached) return cached
 
     const result = await this.client.get<any>('/bookExist', {
       isbn13: isbn,
       libCode,
-    })
-    this.cache.set(cacheKey, result, 5 * 60 * 1000)
-    return result
+    }, { timeoutMs: 5000 })
+    const availability = observeHolding(result)
+    if (availability.checkedAt === null) throw new Error('INVALID_OWNERSHIP_RESULT')
+    const snapshot = { ...result, availability }
+    // Keep the raw envelope for existing consumers, but never cache invalid/unknown results.
+    if (availability.status !== 'unknown') this.cache.set(cacheKey, snapshot, HOLDING_TTL_MS)
+    return snapshot
   }
 
   async getLibrariesByBook(isbn: string, region: string | number, limit = 100) {
@@ -206,7 +212,9 @@ export class JeongbonaruService {
       region,
       pageNo: 1,
       pageSize: limit,
-    })
+    }, { timeoutMs: 5000 })
+
+    if (!Array.isArray(response?.response?.libs)) throw new Error('INVALID_HOLDING_INDEX')
 
     const rows = (response.response?.libs ?? []).map((entry: any) => {
       const lib = entry.lib ?? entry

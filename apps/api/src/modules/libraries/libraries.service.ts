@@ -5,6 +5,8 @@ import { JeongbonaruClient } from '../jeongbonaru/jeongbonaru.client'
 import { CacheService } from '../../common/cache.service'
 import { HomeCurationsService } from '../home-curations/home-curations.service'
 import { featuredNewArrivalsQuery } from './featured-new-arrivals.query'
+import { holdingFailure, holdingSummary, unknownHolding } from './holding-observation'
+import type { HoldingObservation, HoldingsResult, NearbyHolding } from '@nearbook/shared-types'
 
 @Injectable()
 export class LibrariesService {
@@ -32,75 +34,42 @@ export class LibrariesService {
   }
 
   async findNearWithBookUsingLibs(nearLibs: any[], isbn: string) {
-    if (!nearLibs.length) return []
-
-    const optimized = await this.findNearWithBookFromHoldingIndex(nearLibs, isbn)
-    if (optimized.length > 0) return optimized.slice(0, 10)
-
-    const results = await Promise.allSettled(
-      nearLibs.slice(0, 10).map(async (lib: Record<string, unknown>) => {
-        const cacheKey = `exist:${isbn}:${lib['id']}`
-        const cached = this.cache.get<Record<string, unknown>>(cacheKey)
-        if (cached) return { ...lib, ...cached }
-
-        try {
-          const res = await this.jeongbonaru.getBookOwnership(isbn, String(lib['id']))
-          const exist = res?.response?.result
-          const availability = {
-            holdingCount: exist?.hasBook === 'Y' ? 1 : 0,
-            loanAvailable: exist?.loanAvailable === 'Y' ? 1 : 0,
-          }
-          this.cache.set(cacheKey, availability, 5 * 60 * 1000)
-          return { ...lib, ...availability }
-        } catch {
-          return { ...lib, holdingCount: 0, loanAvailable: 0 }
-        }
-      }),
-    )
-
-    return results
-      .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-      .map((r) => r.value)
-      .filter((lib) => lib.holdingCount > 0)
+    return (await this.getHoldingsUsingLibs(nearLibs, isbn)).libraries
   }
 
   async findNearWithBook(lat: number, lng: number, isbn: string, radiusKm = 5) {
+    return (await this.getNearbyHoldings(lat, lng, isbn, radiusKm)).libraries
+  }
+
+  async getNearbyHoldings(lat: number, lng: number, isbn: string, radiusKm = 5): Promise<HoldingsResult> {
     const nearLibs = await this.findNear(lat, lng, radiusKm, 30)
-    if (!nearLibs.length) return []
+    return this.getHoldingsUsingLibs(nearLibs, isbn)
+  }
 
-    const optimized = await this.findNearWithBookFromHoldingIndex(nearLibs, isbn)
-    if (optimized.length > 0) return optimized.slice(0, 10)
-
-    // 병렬로 소장 여부 조회 (정보나루 bookExist)
-    const results = await Promise.allSettled(
-      nearLibs.slice(0, 10).map(async (lib: Record<string, unknown>) => {
-        const cacheKey = `exist:${isbn}:${lib['id']}`
-        const cached = this.cache.get<Record<string, unknown>>(cacheKey)
-        if (cached) return { ...lib, ...cached }
-
-        try {
-          // lib_code가 없는 경우 id를 대신 사용 (또는 스키마에 따라 조정 필요)
-          const res = await this.jeongbonaru.getBookOwnership(
-            isbn,
-            String(lib['id']),
-          )
-          const exist = res?.response?.result
-          const availability = {
-            holdingCount: exist?.hasBook === 'Y' ? 1 : 0,
-            loanAvailable: exist?.loanAvailable === 'Y' ? 1 : 0,
-          }
-          this.cache.set(cacheKey, availability, 5 * 60 * 1000)
-          return { ...lib, ...availability }
-        } catch {
-          return { ...lib, holdingCount: 0, loanAvailable: 0 }
-        }
-      }),
-    )
-
-    return results
-      .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-      .map((r) => r.value)
-      .filter((lib) => lib.holdingCount > 0)
+  private async getHoldingsUsingLibs(nearLibs: any[], isbn: string): Promise<HoldingsResult> {
+    if (!nearLibs.length) return { libraries: [], holdings: holdingSummary([], 0) }
+    // The monthly holding index only prioritizes candidates; absence is not proof of nonownership.
+    let prioritized = nearLibs
+    const regionCode = this.getRegionCode(String(nearLibs[0]?.region ?? nearLibs[0]?.address ?? ''))
+    if (regionCode) {
+      try {
+        const indexed = await this.jeongbonaru.getLibrariesByBook(isbn, regionCode, 200)
+        const ids = new Set(indexed.map((lib: { id: number }) => Number(lib.id)))
+        prioritized = [...nearLibs.filter((lib) => ids.has(Number(lib.id))), ...nearLibs.filter((lib) => !ids.has(Number(lib.id)))]
+      } catch { /* fall back to nearby candidates, never synthesize not_held */ }
+    }
+    // Maximum ten bookExist calls; unknown candidates are not retried again within the same request.
+    const result: NearbyHolding[] = await Promise.all(prioritized.slice(0, 10).map(async (lib) => {
+      let observation: HoldingObservation
+      try {
+        const response = await this.jeongbonaru.getBookOwnership(isbn, String(lib.id))
+        observation = response?.availability ?? unknownHolding('invalid-response')
+      } catch (error) {
+        observation = holdingFailure(error)
+      }
+      return { ...lib, ...observation }
+    }))
+    return { libraries: result, holdings: holdingSummary(result, nearLibs.length) }
   }
 
   async findInBounds(bounds: {
@@ -133,12 +102,12 @@ export class LibrariesService {
     return { data }
   }
 
-  async checkOwnership(isbn: string, libraryId: number): Promise<boolean> {
+  async checkOwnership(isbn: string, libraryId: number): Promise<boolean | null> {
     try {
       const res = await this.jeongbonaru.getBookOwnership(isbn, String(libraryId))
-      return res?.response?.result?.hasBook === 'Y'
+      return res?.availability?.hasBook ?? null
     } catch {
-      return false
+      return null
     }
   }
 
@@ -315,41 +284,6 @@ export class LibrariesService {
       .orderBy(asc(libraries.name))
       .limit(200)
     return { data }
-  }
-
-  private async findNearWithBookFromHoldingIndex(nearLibs: any[], isbn: string) {
-    const regionCode = this.getRegionCode(String(nearLibs[0]?.region ?? nearLibs[0]?.address ?? ''))
-    if (!regionCode) return []
-
-    try {
-      const holdingLibraries = await this.jeongbonaru.getLibrariesByBook(isbn, regionCode, 200)
-      const holdingIds = new Set(holdingLibraries.map((lib: any) => Number(lib.id)))
-      const candidates = nearLibs.filter((lib) => holdingIds.has(Number(lib.id))).slice(0, 10)
-
-      const results = await Promise.allSettled(
-        candidates.map(async (lib) => {
-          const cacheKey = `exist:${isbn}:${lib.id}`
-          const cached = this.cache.get<Record<string, unknown>>(cacheKey)
-          if (cached) return { ...lib, ...cached }
-
-          const res = await this.jeongbonaru.getBookOwnership(isbn, String(lib.id))
-          const exist = res?.response?.result
-          const availability = {
-            holdingCount: exist?.hasBook === 'Y' ? 1 : 0,
-            loanAvailable: exist?.loanAvailable === 'Y' ? 1 : 0,
-          }
-          this.cache.set(cacheKey, availability, 5 * 60 * 1000)
-          return { ...lib, ...availability }
-        }),
-      )
-
-      return results
-        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-        .map((r) => r.value)
-        .filter((lib) => lib.holdingCount > 0)
-    } catch {
-      return []
-    }
   }
 
   private getRegionCode(region: string) {

@@ -40,6 +40,7 @@ export class JeongbonaruClient implements OnModuleInit {
   async get<T>(
     endpoint: string,
     params: Record<string, unknown> = {},
+    options: { timeoutMs?: number } = {},
   ): Promise<T> {
     if (this.dailyCallCount >= this.DAILY_LIMIT) {
       this.logger.warn(
@@ -61,7 +62,10 @@ export class JeongbonaruClient implements OnModuleInit {
     this.dailyCallCount++
 
     try {
-      const { data } = await this.client.get<T>(endpoint, { params })
+      const { data } = await this.client.get<T>(endpoint, {
+        params,
+        ...(options.timeoutMs === undefined ? {} : { timeout: Math.min(this.TIMEOUT_MS, options.timeoutMs) }),
+      })
       const apiError = this.extractApiError(data)
 
       if (apiError) {

@@ -31,6 +31,41 @@ export interface LibraryBook {
   updatedAt: string
 }
 
+// bookExist reports yes/no, not copy counts or a reservation guarantee.
+export type HoldingStatus = 'available' | 'borrowed' | 'not_held' | 'unknown'
+export interface HoldingObservation {
+  status: HoldingStatus
+  hasBook: boolean | null
+  loanAvailable: boolean | null
+  checkedAt: string | null
+  lastAttemptAt: string
+  source: 'jeongbonaru:bookExist'
+  stale: boolean
+  reason?: 'timeout' | 'quota' | 'upstream' | 'invalid-response'
+}
+export interface NearbyHolding extends HoldingObservation {
+  id: number
+  name: string
+  distanceKm?: number
+}
+export interface HoldingsSummary {
+  nearbyCount: number
+  attemptedCount: number
+  checkedCount: number
+  heldCount: number
+  availableCount: number
+  borrowedCount: number
+  notHeldCount: number
+  unknownCount: number
+  uncheckedCount: number
+  limited: boolean
+  source: 'jeongbonaru:bookExist'
+}
+export interface HoldingsResult {
+  libraries: NearbyHolding[]
+  holdings: HoldingsSummary
+}
+
 export interface User {
   id: number
   supabaseUserId: string
