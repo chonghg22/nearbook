@@ -5,7 +5,7 @@ import { serverApiJson } from './server-api'
 import { parseSearchResult } from './api-contracts'
 
 const session = vi.hoisted(() => ({ get: vi.fn(), getUser: vi.fn() }))
-vi.mock('./constants', () => ({ PUBLIC_API_BASE_URL: '/api' }))
+vi.mock('./constants', () => ({ PUBLIC_API_BASE_URL: 'https://api.example.test' }))
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ auth: { getSession: session.get, getUser: session.getUser } }) }))
 const fetchMock = vi.fn<typeof fetch>()
 const payload = { data: { items: [], total: 0, page: 1, pageSize: 10 } }
@@ -20,6 +20,15 @@ it('public search never reads/refreshes a session or attaches bearer headers', a
   expect(session.get).not.toHaveBeenCalled(); expect(session.getUser).not.toHaveBeenCalled()
   expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).has('Authorization')).toBe(false)
   expect(fetchMock.mock.calls[0]?.[1]?.credentials).toBe('same-origin')
+})
+it('public requests stay on the same-origin rewrite even with an absolute API configuration', async () => {
+  fetchMock.mockImplementation(async () => Response.json(payload))
+  await publicApiJson('/search?q=test', parseSearchResult)
+  expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/search?q=test')
+  await publicApiJson('/libraries/search?q=test', (value) => value)
+  expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/libraries/search?q=test')
+  await publicApiJson('/search/suggest?q=test', (value) => value)
+  expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/search/suggest?q=test')
 })
 it('auth merges Headers objects and preserves body, method and no-store', async () => {
   await authenticatedApiFetch('/wishlists', { method: 'POST', body: '{}', headers: new Headers({ 'X-Test': 'kept' }) })

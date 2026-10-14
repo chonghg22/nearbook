@@ -7,7 +7,7 @@ P1-02 운영 source `a921b11`을 기반으로 한다. 공개 검색/자동완성
 ## 결정과 변경
 
 - `api-request.mjs`: 단일 typed error `http / timeout / network / aborted / invalid-response`, 전체 요청(인증 준비·전송·body 포함) deadline, caller 취소, body 크기 제한, no-store 강제, 오류 URL/token/body 미노출. 자동 재시도 없음(변경 요청 중복·quota 재호출 방지).
-- `public-api-client.ts`: Supabase/쿠키 파싱 없이 공개 API + runtime parser. Bearer header를 전달하지 않으며 보호 프리뷰용 같은-origin credentials를 유지한다.
+- `public-api-client.ts`: Supabase/쿠키 파싱 없이 공개 API + runtime parser. Bearer header를 전달하지 않으며 보호 프리뷰용 같은-origin credentials를 유지한다. 공개 브라우저 요청은 `/api` rewrite를 사용한다. 절대 API 환경변수 때문에 프리뷰 요청이 upstream CORS에 막히지 않도록 서버에서 검증된 upstream을 사용한다.
 - `api-client.ts`: 인증용 `authenticatedApiFetch`, 세션은 SDK `getSession`으로 가져오고 임의 쿠키/base64 파싱을 제거한다. 비로그인은 getUser/실제 개인 API 요청 없이 401. 기존 UI의 401/403 판단을 위해 Response 인터페이스를 유지하지만 body까지 deadline으로 읽고 민감한 오류 body는 고정 응답으로 치환한다. 서버 AuthGuard/마이페이지 getUser 검증은 유지한다.
 - `server-api.ts`: absolute upstream만 사용하는 `serverApiJson`. 브라우저 인증 SDK 의존 없음. 서버 즐겨찾기 보조 조회·동일 지역 도서관에서 사용한다.
 - 기존 detail/map error 이름은 공통 class alias로 유지. detail은 명시적 HTTP404만 null; 공개 목록/holdings 404/503/비정상 JSON은 오류. 기존 metadata/보유/제휴 데이터의 실패 격리와 map 최신 요청 취소 동작 유지.
@@ -29,10 +29,14 @@ P1-02 운영 source `a921b11`을 기반으로 한다. 공개 검색/자동완성
 ## 검증
 
 - frozen-lockfile 설치; lint/type-check/build 통과.
-- Node237(공통 transport21개 추가), 웹 Vitest151(스키마/클라이언트/SSR29개 추가), API Jest58(검색 장애4개 추가) = **446개**. Header 병합 시 multipart의 자동 Content-Type도 보존한다.
+- Node237(공통 transport21개 추가), 웹 Vitest152(스키마/클라이언트/SSR30개 추가), API Jest58(검색 장애4개 추가) = **447개**. Header 병합 시 multipart의 자동 Content-Type도 보존한다. 절대 API 환경변수에서도 공개 검색·자동완성·도서관 검색이 같은-origin `/api`로 요청되는 회귀 테스트를 포함한다.
 - 정상 빈 결과, HTTP401/403/404/429/503, 잘못된 JSON/스키마/좌표, body deadline, 취소, 늦은 인증 후 API 발송 차단, auth Header 병합/204, 오류 정보 비노출, 검색 복구, 운영시간/휴관일 SSR 표시 검증.
 - PR 전체 CI·프리뷰 검증 후 운영 웹/API 반영을 사용자 승인받음. 실제 배포/화면 검증 결과는 별도 기록에 남긴다.
 
 ## 운영 주의
 
 API 검색 장애 시 HTTP200/빈 목록 대신503으로 바뀌므로 프리뷰의 오류·재시도 화면을 확인한다. 웹은 현재 API의 정상 계약과 호환된다. 기존 CD 방식의 API container 교체 중 짧은 요청 실패 가능성을 사용자에게 고지하고 승인받았다. DB/강제 데이터 갱신은 없다.
+
+## 프리뷰 사용자 검증 후 보완
+
+2026-10-14 사용자 스크린샷에서 서울도서관 운영시간·휴관일 및 CSS 정상 표시 확인. 검색은 오류 안내, 지도는 SDK 실패 안내가 표시되어 운영 반영 보류. 같은 일반 검색 요청의 운영 API 응답은 HTTP200/10건/total415이며 parser 통과. 해당 프리뷰 Origin의 직접 API 응답에 CORS 허용 헤더가 없음을 확인했다. 스크린샷만으로 실제 브라우저 요청 URL/상태를 확인할 수 없어 직접 원인은 확정하지 않지만, 공개 브라우저 요청이 검증된 같은-origin rewrite를 사용하도록 보완했다. 지도 SDK의 허용 도메인 설정은 별도이며 이번 수정으로 해결됐다고 주장하지 않는다. 새 CI/배포와 사용자 화면 재검증 전 merge하지 않는다.
