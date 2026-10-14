@@ -1,4 +1,5 @@
 import { ApiRequestError, requestApiJson } from './api-request.mjs'
+import { parseLibraryLinks } from './library-links.mjs'
 
 const statuses = new Set(['available', 'borrowed', 'not_held', 'unknown'])
 /** @type {'jeongbonaru:bookExist'} */
@@ -17,7 +18,7 @@ function instant(value, now) {
 
 /** Strict contract: reject legacy 0/1 counts rather than invent quantities or absence.
  * @param {unknown} payload @param {number} [now]
- * @returns {import('@nearbook/shared-types').HoldingsResult}
+ * @returns {import('./library-links.mjs').LinkedHoldingsResult}
  */
 export function parseHoldings(payload, now = Date.now()) {
   if (!object(payload) || !Array.isArray(payload.libraries) || payload.libraries.length > 10 || !object(payload.holdings)) throw new Error('Invalid holdings response')
@@ -36,7 +37,7 @@ export function parseHoldings(payload, now = Date.now()) {
         (row.status === 'unknown' && (row.hasBook === false || row.loanAvailable !== null))) throw new Error('Conflicting holdings state')
     ids.add(row.id)
     const stale = row.stale || (row.checkedAt !== null && now - Date.parse(row.checkedAt) >= ttlMs)
-    return { id: row.id, name: row.name.trim(), ...(row.distanceKm === undefined ? {} : { distanceKm: row.distanceKm }),
+    return { id: row.id, name: row.name.trim(), ...parseLibraryLinks(row), ...(row.distanceKm === undefined ? {} : { distanceKm: row.distanceKm }),
       status: row.status, hasBook: row.hasBook, loanAvailable: row.loanAvailable,
       source, checkedAt: row.checkedAt, lastAttemptAt: row.lastAttemptAt, stale }
   })
@@ -68,7 +69,7 @@ export function holdingsMessage(result) {
 }
 
 /** @param {string} url @param {{timeoutMs?: number, fetchImpl?: typeof fetch, signal?: AbortSignal}} [options]
- * @returns {Promise<import('@nearbook/shared-types').HoldingsResult>}
+ * @returns {Promise<import('./library-links.mjs').LinkedHoldingsResult>}
  */
 export async function loadHoldings(url, { timeoutMs = 15000, fetchImpl = fetch, signal } = {}) {
   const payload = await requestApiJson(url, { timeoutMs, fetchImpl, signal })
