@@ -28,7 +28,7 @@ async function authenticatedRequest(url: string, options: Options): Promise<Resp
       if (!session?.access_token)
         return Response.json({ error: 'authentication_required' }, { status: 401 })
       const headers = new Headers(init?.headers)
-      if (init?.body && !headers.has('Content-Type'))
+      if (typeof init?.body === 'string' && !headers.has('Content-Type'))
         headers.set('Content-Type', 'application/json')
       headers.set('Authorization', `Bearer ${session.access_token}`)
       return fetch(input, { ...init, headers })

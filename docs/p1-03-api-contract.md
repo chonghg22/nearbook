@@ -29,7 +29,7 @@ P1-02 운영 source `a921b11`을 기반으로 한다. 공개 검색/자동완성
 ## 검증
 
 - frozen-lockfile 설치; lint/type-check/build 통과.
-- Node237(공통 transport21개 추가), 웹 Vitest150(스키마/클라이언트/SSR28개 추가), API Jest58(검색 장애4개 추가) = **445개**.
+- Node237(공통 transport21개 추가), 웹 Vitest151(스키마/클라이언트/SSR29개 추가), API Jest58(검색 장애4개 추가) = **446개**. Header 병합 시 multipart의 자동 Content-Type도 보존한다.
 - 정상 빈 결과, HTTP401/403/404/429/503, 잘못된 JSON/스키마/좌표, body deadline, 취소, 늦은 인증 후 API 발송 차단, auth Header 병합/204, 오류 정보 비노출, 검색 복구, 운영시간/휴관일 SSR 표시 검증.
 - PR 전체 CI·프리뷰 검증 후 운영 웹/API 반영을 사용자 승인받음. 실제 배포/화면 검증 결과는 별도 기록에 남긴다.
 

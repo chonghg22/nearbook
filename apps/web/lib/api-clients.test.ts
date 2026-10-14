@@ -34,6 +34,12 @@ it('anonymous private request returns 401 with no getUser or API request', async
   expect((await authenticatedApiFetch('/me')).status).toBe(401)
   expect(fetchMock).not.toHaveBeenCalled(); expect(session.getUser).not.toHaveBeenCalled()
 })
+it('does not replace browser multipart Content-Type with JSON', async () => {
+  const body = new FormData()
+  body.set('field', 'test')
+  await authenticatedApiFetch('/test', { method: 'POST', body })
+  expect(new Headers(fetchMock.mock.calls[0]?.[1]?.headers).has('Content-Type')).toBe(false)
+})
 it('auth header acquisition is included in the deadline and cannot launch a late API request', async () => {
   let resolve!: (value: unknown) => void
   session.get.mockReturnValue(new Promise((r) => { resolve = r }))
