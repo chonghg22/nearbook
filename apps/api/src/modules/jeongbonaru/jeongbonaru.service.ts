@@ -111,7 +111,7 @@ export class JeongbonaruService {
 
   /**
    * 키워드로 검색 후 결과를 DB 캐시(book_cache)에 저장.
-   * 검색 결과가 부족할 때 동기적으로 호출하여 로컬 DB를 채우는 용도.
+   * 검색 백그라운드 보충. 실패는 정상 0건과 구분해 호출자에게 전달한다.
    */
   async searchAndCacheBooks(keyword: string, page = 1, pageSize = 40, searchType = 'title'): Promise<{ items: BookCacheRow[], total: number }> {
     try {
@@ -127,6 +127,7 @@ export class JeongbonaruService {
       )
 
       const resp = response.response
+      if (!Array.isArray(resp?.docs)) throw new Error('Invalid search metadata response')
       const total = Number(resp?.numFound ?? resp?.resultNum ?? 0)
       const docs = resp?.docs ?? []
 
@@ -179,7 +180,7 @@ export class JeongbonaruService {
       return { items: books as BookCacheRow[], total }
     } catch (err) {
       this.logger.error(`정보나루 키워드 검색 실패: ${keyword}`, err as Error)
-      return { items: [], total: 0 }
+      throw new ServiceUnavailableException('Search enrichment is temporarily unavailable')
     }
   }
 

@@ -19,6 +19,13 @@ describe('runtime API schemas', () => {
     expect(parseSearchResult(result)).toEqual(result)
     expect(parseSuggestions({ data: [{ isbn: book.isbn, title: book.title }] })).toEqual({ data: [{ ...book, author: null }] })
   })
+  it('preserves optional enrichment state while rejecting truthy non-boolean flags', () => {
+    const pending = { data: { ...result.data, enrichmentPending: true, enrichmentFailed: false } }
+    expect(parseSearchResult(pending)).toEqual(pending)
+    for (const key of ['enrichmentPending', 'enrichmentFailed']) {
+      expect(() => parseSearchResult({ data: { ...result.data, [key]: 'true' } })).toThrow()
+    }
+  })
   for (const invalid of [null, {}, { data: {} }, { data: { ...result.data, total: '1' } },
     { data: { ...result.data, page: 0 } }, { data: { ...result.data, items: [{ ...book, isbn: '../login' }] } },
     { data: { ...result.data, items: [{ ...book, title: '' }] } }, { data: { ...result.data, total: 0 } }]) {

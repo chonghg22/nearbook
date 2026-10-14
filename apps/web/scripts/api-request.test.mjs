@@ -75,7 +75,8 @@ test('auth Response body reads use the same deadline, preserving no-content succ
 })
 test('public search is wired to schemas and an explicit error/retry view', async () => {
   const source = await readFile(new URL('../app/search/_components/search-page-inner.tsx', import.meta.url), 'utf8')
-  assert.match(source, /publicApiJson\(path, parseSearchResult/); assert.match(source, /error=\{error\}/)
+  assert.match(source, /publicApiJson\(path, parseSearchResult/); assert.match(source, /const resultError = error \|\|/)
+  assert.match(source, /error=\{resultError\}/)
   assert.match(source, /keepPreviousData: false/); assert.match(source, /shouldRetryOnError: false/)
   assert.match(source, /mutate\(\)/); assert.doesNotMatch(source, /import.*apiFetch|supabase|getSession|getUser/)
 })

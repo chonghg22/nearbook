@@ -40,10 +40,11 @@ describe('search failures are not normal empty results', () => {
     expect((await service.search({ q: 'x' })).items).toEqual([])
     expect(orama.query).toHaveBeenCalledTimes(2)
   })
-  it('data-store failure also remains an error instead of an absence claim', async () => {
+  it('unavailable optional search statistics do not block a valid index response', async () => {
     orama.query.mockResolvedValue({ hits: [], total: 0 })
-    ;(db.query.searchStats.findFirst as jest.Mock).mockRejectedValueOnce(new Error('database unavailable'))
-    await expect(service.search({ q: 'x' })).rejects.toBeInstanceOf(ServiceUnavailableException)
+    ;(db.query.searchStats.findFirst as jest.Mock).mockImplementation(() => { throw new Error('database unavailable') })
+    expect((await service.search({ q: 'x' })).total).toBe(0)
+    expect(db.query.searchStats.findFirst).not.toHaveBeenCalled()
   })
 })
 
@@ -80,10 +81,12 @@ describe('normalized search routing', () => {
     await service.search({ q: '지은이: 한강', searchType: 'author' })
     expect(naru.searchAndCacheBooks).toHaveBeenCalledWith('한강', 1, 60, 'author')
   })
-  it('missed ISBN uses exact metadata lookup and requery rather than keyword search', async () => {
+  it('missed ISBN returns pending, then exact metadata is available on the next query', async () => {
     orama.query.mockResolvedValueOnce({ hits: [], total: 0 })
     const book = { isbn: '9788936434120', title: '소년이 온다' }
     naru.getBookByIsbn.mockResolvedValue(book)
+    expect(await service.search({ q: 'ISBN-10: 8936434128' })).toMatchObject({ total: 0, enrichmentPending: true })
+    await Promise.all((service as unknown as { enrichmentInFlight: Map<string, Promise<void>> }).enrichmentInFlight.values())
     expect((await service.search({ q: 'ISBN-10: 8936434128' })).total).toBe(1)
     expect(naru.getBookByIsbn).toHaveBeenCalledWith('9788936434120')
     expect(orama.upsertMany).toHaveBeenCalledWith([book])
@@ -105,8 +108,10 @@ describe('normalized search routing', () => {
     await service.search({ q: '한강', searchType: 'author' })
     await service.search({ q: '한강', searchType: 'title' })
     expect(naru.searchAndCacheBooks).toHaveBeenCalledTimes(2)
+    await Promise.all((service as unknown as { enrichmentInFlight: Map<string, Promise<void>> }).enrichmentInFlight.values())
     await service.search({ q: ' 한강 ', searchType: 'title' })
-    expect(orama.query).toHaveBeenCalledTimes(2)
+    await service.search({ q: '한강', searchType: 'title' })
+    expect(orama.query).toHaveBeenCalledTimes(3)
   })
   it('autocomplete shares ISBN detection and normalization', async () => {
     await service.suggest('8936434128')

@@ -15,6 +15,8 @@ export class SearchResultDto {
   @ApiProperty() pageSize: number
   @ApiProperty() source: 'orama' | 'orama+aladdin'
   @ApiProperty() durationMs: number
+  @ApiProperty({ required: false }) enrichmentPending?: boolean
+  @ApiProperty({ required: false }) enrichmentFailed?: boolean
   @ApiProperty({ nullable: true }) suggestions?: string[]
   @ApiProperty({ nullable: true }) trending?: string[]
   @ApiProperty() personalized: boolean

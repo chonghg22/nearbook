@@ -55,4 +55,14 @@ describe('book lookup: absent vs unavailable', () => {
       await expect(service.getBookByIsbn('9791161571195')).rejects.toBeInstanceOf(ServiceUnavailableException)
     })
   }
+  it('keyword enrichment timeout is an error rather than a successful empty result', async () => {
+    get.mockRejectedValue(new Error('timeout'))
+    await expect(service.searchAndCacheBooks('제목')).rejects.toBeInstanceOf(ServiceUnavailableException)
+  })
+  it('keyword enrichment rejects malformed envelopes but accepts a valid empty response', async () => {
+    get.mockResolvedValueOnce({ response: {} })
+    await expect(service.searchAndCacheBooks('제목')).rejects.toBeInstanceOf(ServiceUnavailableException)
+    get.mockResolvedValueOnce({ response: { docs: [], numFound: 0 } })
+    expect(await service.searchAndCacheBooks('제목')).toEqual({ items: [], total: 0 })
+  })
 })
