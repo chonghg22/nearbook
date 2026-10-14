@@ -9,9 +9,13 @@ export interface Book {
   category: string | null
 }
 
+export interface LibraryOperatingHours {
+  text: string | null
+  closed: string | null
+}
+
 export interface Library {
   id: number
-  libCode: string
   name: string
   address: string
   region: string
@@ -19,9 +23,28 @@ export interface Library {
   lng: number
   phone: string | null
   homepage: string | null
-  operatingHours: string | null
-  closed: string | null
+  operatingHours: LibraryOperatingHours | null
 }
+
+export interface SearchBook {
+  isbn: string
+  title: string
+  author: string | null
+  publisher: string | null
+  coverUrl: string | null
+}
+
+export interface SearchResult {
+  items: SearchBook[]
+  total: number
+  page: number
+  pageSize: number
+  durationMs?: number
+  suggestions?: string[]
+  trending?: string[]
+}
+
+export type ApiRequestKind = 'http' | 'timeout' | 'network' | 'aborted' | 'invalid-response'
 
 export interface LibraryBook {
   libraryId: number

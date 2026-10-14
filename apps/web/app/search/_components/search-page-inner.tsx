@@ -8,12 +8,13 @@ import { FilterPanel } from './filter-panel'
 import { ResultList } from './result-list'
 import { Pagination } from './pagination'
 import { PopularQueries } from './popular-queries'
-import { apiFetch } from '@/lib/api-client'
+import { publicApiJson } from '@/lib/public-api-client'
+import { parseSearchResult } from '@/lib/api-contracts'
 import { trackEvent } from '@/lib/analytics'
 
 const PAGE_SIZE = 10
 
-const fetcher = (path: string) => apiFetch(path).then(r => r.json())
+const fetcher = (path: string) => publicApiJson(path, parseSearchResult, { timeoutMs: 15000 })
 
 export function SearchPageInner() {
   const params = useSearchParams()
@@ -36,10 +37,10 @@ export function SearchPageInner() {
     return `/search?${qs.toString()}`
   }
 
-  const { data, isLoading } = useSWR(
+  const { data, error, isLoading, isValidating, mutate } = useSWR(
     buildSearchUrl(),
     fetcher,
-    { keepPreviousData: true },
+    { keepPreviousData: false, shouldRetryOnError: false },
   )
   const lastResultEventKey = useRef<string | null>(null)
 
@@ -47,7 +48,7 @@ export function SearchPageInner() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   useEffect(() => {
-    if (!q || !data?.data || isLoading) return
+    if (!q || !data?.data || isLoading || error) return
 
     const eventKey = `${q}:${searchType}:${sort}:${page}:${total}`
     if (lastResultEventKey.current === eventKey) return
@@ -64,7 +65,7 @@ export function SearchPageInner() {
       durationMs: data.data.durationMs,
       zeroResult: total === 0,
     })
-  }, [data, isLoading, page, q, searchType, sort, total])
+  }, [data, error, isLoading, page, q, searchType, sort, total])
 
   const pushParams = useCallback((overrides: Record<string, string>) => {
     const next = new URLSearchParams({ q, sort, searchType, page: String(page) })
@@ -109,7 +110,7 @@ export function SearchPageInner() {
         <>
           <div className="flex items-center gap-3 my-4">
             <p className="text-sm text-gray-500">
-              &ldquo;{q}&rdquo; 검색결과 {total}건
+              &ldquo;{q}&rdquo; {error ? '검색 결과를 불러오지 못했습니다' : isLoading ? '검색 중...' : `검색결과 ${total}건`}
             </p>
           </div>
           <FilterPanel
@@ -118,11 +119,13 @@ export function SearchPageInner() {
             onChange={handleFilterChange}
           />
           <ResultList
-            isLoading={isLoading}
-            items={data?.data?.items}
+            isLoading={isLoading || isValidating}
+            items={data?.data?.items ?? []}
+            error={error}
             query={q}
           />
-          {total > PAGE_SIZE && (
+          {error && <div className="text-center"><button type="button" onClick={() => { void mutate() }} className="rounded-full bg-primary px-5 py-2 text-sm text-white" disabled={isValidating}>다시 시도</button></div>}
+          {!error && total > PAGE_SIZE && (
             <Pagination
               currentPage={page}
               totalPages={totalPages}

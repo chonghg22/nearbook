@@ -3,14 +3,9 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { trackEvent } from '@/lib/analytics'
+import type { SearchBook } from '@nearbook/shared-types'
 
-type Item = {
-  isbn: string
-  title: string
-  author?: string
-  publisher?: string
-  coverUrl?: string | null
-}
+type Item = SearchBook
 
 type Props = {
   isLoading: boolean
@@ -22,8 +17,8 @@ type Props = {
 export function ResultList({ isLoading, items = [], error, query }: Props) {
   if (error) {
     return (
-      <p className="py-12 text-center text-sm text-gray-500">
-        검색 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.
+      <p role="alert" className="py-12 text-center text-sm text-gray-500">
+        검색 정보를 불러오지 못했습니다. 검색 결과가 없다는 뜻은 아닙니다. 잠시 후 다시 시도해 주세요.
       </p>
     )
   }

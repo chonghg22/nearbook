@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { db, bookCache, searchLogs, sql, ilike, searchStats, and, eq } from '@nearbook/db'
 import { OramaIndexService } from './orama-index.service'
 import { AladdinFallbackService } from './aladdin-fallback.service'
@@ -174,16 +174,9 @@ export class SearchService {
         `search failed for q="${query.q}"`,
         err instanceof Error ? err.stack : String(err),
       )
-      return {
-        items: [],
-        total: 0,
-        page,
-        pageSize,
-        source: 'orama',
-        durationMs: Date.now() - start,
-        personalized: false,
-        personalizeReason: 'disabled',
-      }
+      // A failed search is not a successful zero-result search. The web client
+      // must retain its error/retry path rather than falsely claiming absence.
+      throw new ServiceUnavailableException('Search is temporarily unavailable')
     }
   }
 

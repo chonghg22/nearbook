@@ -75,7 +75,7 @@ test('book metadata is separate from holdings; default location still fetches on
   assert.doesNotMatch(data, /with-libraries|affiliates/)
   assert.match(client, /loadHoldings\(/)
   assert.match(client, /\/holdings\?lat=/)
-  assert.match(holdings, /requestDetail\(url/)
+  assert.match(holdings, /requestApiJson\(url/)
   assert.match(holdings, /Array.isArray\(payload.libraries\)/)
   assert.match(holdings, /return parseHoldings\(payload\)/)
   assert.doesNotMatch(client, /isDefaultLocation|initialLibraries/)

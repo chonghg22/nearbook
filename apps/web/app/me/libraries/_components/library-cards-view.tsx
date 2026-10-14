@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { MapPin, ExternalLink, Trash2 } from 'lucide-react'
-import { apiFetch } from '@/lib/api-client'
+import { authenticatedApiFetch as apiFetch } from '@/lib/api-client'
 
 interface LibraryCard {
   id: number
@@ -24,12 +24,15 @@ interface Props {
 
 export function LibraryCardsView({ cards: initial, plan }: Props) {
   const [cards, setCards] = useState(initial)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleRemove(id: number) {
-    const res = await apiFetch(`/library-cards/${id}`, { method: 'DELETE' })
-    if (res.ok) {
+    setError(null)
+    try {
+      const res = await apiFetch(`/library-cards/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('request-failed')
       setCards((prev) => prev.filter((c) => c.id !== id))
-    }
+    } catch { setError('요청을 완료하지 못했습니다. 상태를 확인한 뒤 다시 시도해 주세요.') }
   }
 
   function getNaverMapUrl(lat: number, lng: number, name: string) {
@@ -38,6 +41,7 @@ export function LibraryCardsView({ cards: initial, plan }: Props) {
 
   return (
     <div>
+      {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">내 도서관</h2>
         <span className="text-sm text-gray-500">

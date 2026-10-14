@@ -4,12 +4,12 @@ import { X, Locate, Map, Building2, Search, Loader2 } from 'lucide-react'
 import useSWR from 'swr'
 import { useLocationContext } from '@/lib/use-location-context'
 import { REGION_TREE, REGION_COORDS } from '@/lib/region-coords'
-import { PUBLIC_API_BASE_URL } from '@/lib/constants'
+import { publicApiJson } from '@/lib/public-api-client'
+import { parseLibrarySearch } from '@/lib/api-contracts'
 
 type Tab = 'gps' | 'region' | 'library'
 
-const API_BASE = PUBLIC_API_BASE_URL
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+const fetcher = (path: string) => publicApiJson(path, parseLibrarySearch)
 
 interface LibrarySearchResult {
   id: number
@@ -45,11 +45,12 @@ export function LocationModal({
   }, [isOpen, location.mode])
 
   // 도서관 검색 (2글자 이상일 때만 호출)
-  const { data: libraryResults, isLoading: libLoading } = useSWR<{ data: LibrarySearchResult[] }>(
+  const { data: libraryResults, error: libError, isLoading: libLoading } = useSWR<{ data: LibrarySearchResult[] }>(
     libraryQuery.length >= 2
-      ? `${API_BASE}/libraries?q=${encodeURIComponent(libraryQuery)}&limit=10`
+      ? `/libraries?q=${encodeURIComponent(libraryQuery)}&limit=10`
       : null,
     fetcher,
+    { shouldRetryOnError: false },
   )
 
   // ESC 닫기
@@ -210,6 +211,7 @@ export function LocationModal({
           {/* Tab 3: 도서관 직접 선택 */}
           {activeTab === 'library' && (
             <div className="flex flex-col gap-3">
+              {libError && <p role="alert" className="text-sm text-red-600">도서관 검색을 불러오지 못했습니다. 검색 결과가 없다는 뜻은 아닙니다.</p>}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -228,11 +230,11 @@ export function LocationModal({
                 </div>
               )}
 
-              {libraryResults?.data?.length === 0 && libraryQuery.length >= 2 && !libLoading && (
+              {!libError && libraryResults?.data?.length === 0 && libraryQuery.length >= 2 && !libLoading && (
                 <p className="text-sm text-gray-400 text-center py-4">&ldquo;{libraryQuery}&rdquo;에 해당하는 도서관이 없어요</p>
               )}
 
-              {libraryResults?.data && libraryResults.data.length > 0 && (
+              {!libError && libraryResults?.data && libraryResults.data.length > 0 && (
                 <ul className="divide-y divide-gray-100">
                   {libraryResults.data.map(lib => (
                     <li key={lib.id}>

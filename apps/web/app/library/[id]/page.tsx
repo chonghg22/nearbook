@@ -4,29 +4,18 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { LocationMap } from '@/components/library/location-map'
 import { LibraryFavoriteButton } from '@/components/library/library-favorite-button'
+import { LibraryHours } from '@/components/library/library-hours'
 import { BookCard } from '@/components/book/book-card'
 import { createServerClient } from '@/lib/supabase/server'
-import { SERVER_API_BASE_URL } from '@/lib/server-api'
+import { serverApiJson } from '@/lib/server-api'
+import { parseLibraryList } from '@/lib/map-libraries.mjs'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buildLibraryJsonLd } from '@/lib/seo/json-ld'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 import { splitRegion } from '@/lib/seo/region'
 import { fetchLibraryDetail, fetchOptionalDetail } from '@/lib/detail-data'
 
-const API_URL = SERVER_API_BASE_URL
 export const revalidate = 0 // Keep detail errors out of the persistent page cache.
-
-function fetchWithTimeout(
-  url: string,
-  timeoutMs: number,
-  options?: RequestInit,
-): Promise<Response> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  return fetch(url, { ...options, signal: controller.signal }).finally(() =>
-    clearTimeout(timer),
-  )
-}
 
 async function fetchLibraryFavoriteStatus(libraryId: string) {
   const supabase = await createServerClient()
@@ -37,15 +26,17 @@ async function fetchLibraryFavoriteStatus(libraryId: string) {
   if (!session?.access_token) return false
 
   try {
-    const res = await fetchWithTimeout(`${API_URL}/me/library-cards/${libraryId}/status`, 5000, {
+    const added = await serverApiJson(`/me/library-cards/${libraryId}/status`, (json) => {
+      const added = (json as { data?: { added?: unknown } })?.data?.added
+      if (typeof added !== 'boolean') throw new Error('invalid-response')
+      return added
+    }, {
+      timeoutMs: 5000,
       headers: { Authorization: `Bearer ${session.access_token}` },
       cache: 'no-store',
     })
 
-    if (!res.ok) return false
-
-    const json = await res.json()
-    return Boolean(json.data?.added)
+    return added === true
   } catch {
     return false
   }
@@ -65,21 +56,8 @@ async function fetchNearbyLibraries(
 
   try {
     const query = new URLSearchParams({ sido: region.sido, sigungu: region.sigungu })
-    const res = await fetchWithTimeout(`${API_URL}/libraries/by-region?${query}`, 5000, {
-      next: { revalidate: 3600 },
-    })
-    if (!res.ok) return []
-
-    const json = await res.json()
-    const rows: unknown[] = Array.isArray(json.data) ? json.data : []
-
-    return rows
-      .map((row) => {
-        const { id, name } = row as { id?: unknown; name?: unknown }
-        return { id: Number(id), name: typeof name === 'string' ? name.trim() : '' }
-      })
-      .filter((row) => Number.isInteger(row.id) && row.id !== currentId && row.name.length > 0)
-      .slice(0, 12)
+    const rows = await serverApiJson(`/libraries/by-region?${query}`, parseLibraryList, { timeoutMs: 5000 })
+    return (rows ?? []).filter((row) => row.id !== currentId).slice(0, 12)
   } catch {
     return []
   }
@@ -172,12 +150,7 @@ export default async function LibraryPage({
                     <span className="text-right font-medium text-foreground">{library.phone}</span>
                   </div>
                 )}
-                {library.operatingHours?.weekday && (
-                  <div className="flex justify-between gap-4 rounded-xl bg-gray-50 px-3 py-2 text-xs">
-                    <span className="text-subtle-foreground">운영시간</span>
-                    <span className="text-right font-medium text-foreground">{library.operatingHours.weekday}</span>
-                  </div>
-                )}
+                <LibraryHours hours={library.operatingHours} />
               </div>
             </div>
             {library.homepage && (

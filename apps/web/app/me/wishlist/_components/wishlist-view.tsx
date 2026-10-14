@@ -3,7 +3,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Trash2 } from 'lucide-react'
-import { apiFetch } from '@/lib/api-client'
+import { authenticatedApiFetch as apiFetch } from '@/lib/api-client'
 
 interface WishItem {
   isbn: string
@@ -22,17 +22,21 @@ interface Props {
 
 export function WishlistView({ items: initial, plan, total }: Props) {
   const [items, setItems] = useState(initial)
+  const [error, setError] = useState<string | null>(null)
   const limit = plan === 'free' ? 10 : null
 
   async function handleRemove(isbn: string) {
-    const res = await apiFetch(`/wishlists/${isbn}`, { method: 'DELETE' })
-    if (res.ok) {
+    setError(null)
+    try {
+      const res = await apiFetch(`/wishlists/${isbn}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error('request-failed')
       setItems((prev) => prev.filter((i) => i.isbn !== isbn))
-    }
+    } catch { setError('요청을 완료하지 못했습니다. 상태를 확인한 뒤 다시 시도해 주세요.') }
   }
 
   return (
     <div>
+      {error && <p role="alert" className="mb-3 text-sm text-red-600">{error}</p>}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">내 위시리스트</h2>
         <span className="text-sm text-gray-500">
