@@ -1,36 +1,48 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { MapPin, ChevronDown } from 'lucide-react'
 import { useLocationContext } from '@/lib/use-location-context'
 import { LocationModal } from './location-modal'
+import { locationDescription } from '@/lib/location-state'
 
-export function LocationBar() {
+export function LocationBar({ showDescription = false }: { showDescription?: boolean }) {
   const { location, isLoaded } = useLocationContext()
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
-  if (!isLoaded) return null
+  const description = locationDescription(location)
 
   return (
     <>
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <MapPin className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-        <span>
-          <span className="font-semibold text-foreground">{location.label}</span>
-          {location.mode !== 'library' && ' 주변 도서관 기준'}
-          {location.mode === 'library' && ' 도서관 기준'}
-        </span>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-0.5 text-primary hover:text-primary-600 font-medium ml-1"
-        >
-          변경
-          <ChevronDown className="w-3 h-3" />
-        </button>
+      <div className="space-y-1.5 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2">
+          <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <span>
+            {description.title}:{' '}
+            <span className="font-semibold text-foreground">{description.label}</span>
+          </span>
+          <button
+            ref={triggerRef}
+            type="button"
+            disabled={!isLoaded}
+            aria-haspopup="dialog"
+            onClick={() => setIsModalOpen(true)}
+            className="ml-1 flex items-center gap-1 rounded-full border border-primary-200 px-3 py-1.5 font-medium text-primary hover:bg-primary-50 disabled:opacity-50"
+          >
+            지역·도서관 변경 <ChevronDown className="h-3 w-3" aria-hidden="true" />
+          </button>
+        </div>
+        {showDescription && (
+          <p className="text-xs leading-5">
+            {isLoaded ? description.detail : '저장된 기준 위치를 확인하고 있습니다.'}
+          </p>
+        )}
       </div>
 
       <LocationModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        returnFocusRef={triggerRef}
       />
     </>
   )

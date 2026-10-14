@@ -17,6 +17,7 @@ interface Props {
   placeholder?: string
   onSubmitted?: () => void
   className?: string
+  formLabel?: string
 }
 
 export function SearchBar({
@@ -25,6 +26,7 @@ export function SearchBar({
   placeholder = '책 제목, 저자, ISBN 검색',
   onSubmitted,
   className,
+  formLabel = '도서 검색',
 }: Props) {
   const router = useRouter()
   const [q, setQ] = useState(defaultValue)
@@ -60,7 +62,7 @@ export function SearchBar({
 
   return (
     <div ref={containerRef} className={cn('relative w-full', className)}>
-      <form onSubmit={handleSubmit} className="relative group">
+      <form role="search" aria-label={formLabel} onSubmit={handleSubmit} className="relative group">
         <input
           type="text"
           value={q}

@@ -42,11 +42,10 @@ async function safeFetch(url: string) {
 }
 
 export default async function HomePage() {
-  const [popular, loanItems, hotTrend, libraries, monthlyKeywords] = await Promise.all([
+  const [popular, loanItems, hotTrend, monthlyKeywords] = await Promise.all([
     safeFetch(`${API}/books/popular?region=전국&limit=10`),
     safeFetch(`${API}/books/loan-item?limit=10`),
     safeFetch(`${API}/books/hot-trend?limit=10`),
-    safeFetch(`${API}/libraries/popular?limit=8`),
     safeFetch(`${API}/search/monthly-keywords?limit=10`),
   ])
 
@@ -56,7 +55,7 @@ export default async function HomePage() {
       <HeroSection monthlyKeywords={monthlyKeywords.data?.length ? monthlyKeywords.data : MONTHLY_KEYWORDS_FALLBACK} />
       
       <div className="space-y-8 pb-20">
-        <LibrariesNearMe fallbackLibraries={libraries.data ?? []} />
+        <LibrariesNearMe />
 
         <BookListSection 
           title="🔥 이번 주 인기 도서" 

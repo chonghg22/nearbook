@@ -1,135 +1,93 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { REGION_COORDS } from './region-coords'
-
-export type LocationMode = 'gps' | 'region' | 'library'
-
-export interface GpsLocation {
-  mode: 'gps'
-  lat: number
-  lng: number
-  label: string
-}
-
-export interface RegionLocation {
-  mode: 'region'
-  regionSlug: string
-  lat: number
-  lng: number
-  label: string
-}
-
-export interface LibraryLocation {
-  mode: 'library'
-  libraryId: number
-  libraryName: string
-  lat: number
-  lng: number
-  label: string
-}
-
-export type LocationContext = GpsLocation | RegionLocation | LibraryLocation
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import {
+  DEFAULT_LOCATION,
+  LOCATION_STORAGE_KEY,
+  libraryLocation,
+  regionLocation,
+  restoreLocation,
+} from './location-state'
+import type { GpsLocation, LocationContext } from './location-state'
+import { GpsError, requestBrowserLocation } from './location-gps'
+export type {
+  GpsLocation,
+  RegionLocation,
+  LibraryLocation,
+  LocationMode,
+  LocationContext,
+} from './location-state'
 
 interface LocationContextValue {
   location: LocationContext
   isLoaded: boolean
-  requestGps: () => Promise<GpsLocation>
+  requestGps: (signal?: AbortSignal) => Promise<GpsLocation>
   selectRegion: (regionSlug: string) => void
   selectLibrary: (lib: { id: number; name: string; lat: number; lng: number }) => void
   toSearchParams: () => Record<string, string>
 }
 
-const STORAGE_KEY = 'nearbook_location_ctx'
-const DEFAULT_LOCATION: LocationContext = {
-  mode: 'region',
-  regionSlug: 'seoul',
-  lat: 37.5665,
-  lng: 126.9780,
-  label: '서울 전체',
-}
-
-const LocationContext = createContext<LocationContextValue | undefined>(undefined)
+const Context = createContext<LocationContextValue | undefined>(undefined)
 
 export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocationState] = useState<LocationContext>(DEFAULT_LOCATION)
   const [isLoaded, setIsLoaded] = useState(false)
+  const version = useRef(0)
+  const mounted = useRef(false)
 
   // localStorage에서 복원
   useEffect(() => {
+    mounted.current = true
+    version.current++
     try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) {
-        const parsed: LocationContext = JSON.parse(saved)
-        setLocationState(parsed)
-      }
+      setLocationState(restoreLocation(localStorage.getItem(LOCATION_STORAGE_KEY)))
     } catch {
       // ignore
     }
     setIsLoaded(true)
+    return () => {
+      mounted.current = false
+    }
   }, [])
 
   const setLocation = useCallback((ctx: LocationContext) => {
+    version.current++
     setLocationState(ctx)
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(ctx))
+      localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(ctx))
     } catch {
       // ignore
     }
   }, [])
 
-  const requestGps = useCallback((): Promise<GpsLocation> => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('geolocation not supported'))
-        return
-      }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const ctx: GpsLocation = {
-            mode: 'gps',
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            label: '현재 위치',
-          }
-          setLocation(ctx)
-          resolve(ctx)
-        },
-        (err) => reject(err),
-        { timeout: 8000, maximumAge: 60000 },
-      )
-    })
-  }, [setLocation])
+  const requestGps = useCallback(
+    async (signal?: AbortSignal): Promise<GpsLocation> => {
+      const current = ++version.current
+      const coords = await requestBrowserLocation(navigator.geolocation, signal)
+      if (!mounted.current || version.current !== current || signal?.aborted)
+        throw new GpsError('cancelled')
+      const ctx: GpsLocation = { mode: 'gps', ...coords, label: '현재 GPS 위치' }
+      setLocation(ctx)
+      return ctx
+    },
+    [setLocation]
+  )
 
-  const selectRegion = useCallback((regionSlug: string) => {
-    const coord = REGION_COORDS[regionSlug]
-    if (!coord) return
-    const ctx: RegionLocation = {
-      mode: 'region',
-      regionSlug,
-      lat: coord.lat,
-      lng: coord.lng,
-      label: coord.label,
-    }
-    setLocation(ctx)
-  }, [setLocation])
+  const selectRegion = useCallback(
+    (regionSlug: string) => {
+      const ctx = regionLocation(regionSlug)
+      if (ctx) setLocation(ctx)
+    },
+    [setLocation]
+  )
 
-  const selectLibrary = useCallback((lib: {
-    id: number
-    name: string
-    lat: number
-    lng: number
-  }) => {
-    const ctx: LibraryLocation = {
-      mode: 'library',
-      libraryId: lib.id,
-      libraryName: lib.name,
-      lat: lib.lat,
-      lng: lib.lng,
-      label: lib.name,
-    }
-    setLocation(ctx)
-  }, [setLocation])
+  const selectLibrary = useCallback(
+    (lib: { id: number; name: string; lat: number; lng: number }) => {
+      const ctx = libraryLocation(lib)
+      if (ctx) setLocation(ctx)
+    },
+    [setLocation]
+  )
 
   const toSearchParams = useCallback((): Record<string, string> => {
     if (location.mode === 'library') {
@@ -149,21 +107,23 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   }, [location])
 
   return (
-    <LocationContext.Provider value={{
-      location,
-      isLoaded,
-      requestGps,
-      selectRegion,
-      selectLibrary,
-      toSearchParams,
-    }}>
+    <Context.Provider
+      value={{
+        location,
+        isLoaded,
+        requestGps,
+        selectRegion,
+        selectLibrary,
+        toSearchParams,
+      }}
+    >
       {children}
-    </LocationContext.Provider>
+    </Context.Provider>
   )
 }
 
 export function useLocationContext() {
-  const context = useContext(LocationContext)
+  const context = useContext(Context)
   if (context === undefined) {
     throw new Error('useLocationContext must be used within a LocationProvider')
   }
