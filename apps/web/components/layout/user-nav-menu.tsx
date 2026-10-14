@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
 import { ChevronDown, LogOut } from 'lucide-react'
 import {
   DropdownMenu,
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { userNavItems } from '@/lib/nav/user-nav.config'
 import { createClient } from '@/lib/supabase/client'
+import { clearPwaCaches } from '@/lib/pwa-privacy.mjs'
 
 interface Props {
   nickname: string
@@ -21,18 +21,17 @@ interface Props {
 }
 
 export function UserNavMenu({ nickname, avatarUrl }: Props) {
-  const router = useRouter()
-
   async function handleLogout() {
     const supabase = createClient()
-
+    document.documentElement.dataset.accountLogout = 'true'
+    document.body.style.visibility = 'hidden'
+    await clearPwaCaches(window.caches, true).catch(() => {})
     await Promise.allSettled([
       supabase.auth.signOut(),
-      fetch('/auth-api/logout', { method: 'POST' }),
+      fetch('/auth-api/logout', { method: 'POST', cache: 'no-store' }),
     ])
 
-    router.push('/')
-    router.refresh()
+    window.location.replace('/')
   }
 
   return (
