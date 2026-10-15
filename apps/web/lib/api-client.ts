@@ -15,6 +15,12 @@ export async function authenticatedApiFetch(
   return authenticatedRequest(`${PUBLIC_API_BASE_URL}${path}`, options)
 }
 
+/** Personal flows use the existing same-origin rewrite without loosening API CORS. */
+export async function personalApiFetch(path: string, options: Options = {}): Promise<Response> {
+  if (!path.startsWith('/') || path.startsWith('//')) throw new ApiRequestError('invalid-response')
+  return authenticatedRequest(`/api${path}`, options)
+}
+
 async function authenticatedRequest(url: string, options: Options): Promise<Response> {
   return requestApiResponse(url, {
     ...options,

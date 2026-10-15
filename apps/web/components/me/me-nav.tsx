@@ -14,7 +14,7 @@ export function MeNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="flex gap-1 mb-8 border-b pb-2">
+    <nav className="flex flex-wrap gap-1 mb-8 border-b pb-2" aria-label="내 페이지 메뉴">
       {navItems.map(({ href, label }) => (
         <Link
           key={href}

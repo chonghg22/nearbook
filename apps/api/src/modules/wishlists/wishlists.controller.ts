@@ -9,6 +9,10 @@ import {
   UseGuards,
   Req,
   HttpCode,
+  Header,
+  Query,
+  ParseIntPipe,
+  BadRequestException,
 } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { AuthGuard } from '../auth/auth.guard'
@@ -23,15 +27,34 @@ export class WishlistsController {
   constructor(private readonly service: WishlistsService) {}
 
   @Get('me/wishlists')
+  @Header('Cache-Control', 'private, no-store')
   @ApiOperation({ summary: '내 위시리스트 목록' })
   listMine(@Req() req: any) {
     return this.service.listByUser(req.user.supabaseUserId)
   }
 
   @Get('me/wishlists/:isbn/status')
+  @Header('Cache-Control', 'private, no-store')
   @ApiOperation({ summary: '특정 책의 위시리스트 등록 여부' })
   getStatus(@Req() req: any, @Param('isbn') isbn: string) {
     return this.service.getStatus(req.user.supabaseUserId, isbn)
+  }
+
+  @Get('me/wishlists/:isbn/holdings')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: '찜한 책 한 권의 기본 도서관 보유 상태 (사용자 선택 조회)' })
+  getDefaultHolding(
+    @Req() req: any,
+    @Param('isbn') isbn: string,
+    @Query('libraryId', ParseIntPipe) libraryId: number
+  ) {
+    if (
+      !/^(?:\d{13}|\d{9}[\dXx])$/.test(isbn) ||
+      !Number.isSafeInteger(libraryId) ||
+      libraryId <= 0
+    )
+      throw new BadRequestException()
+    return this.service.getDefaultHolding(req.user.supabaseUserId, isbn, libraryId)
   }
 
   @Post('wishlists')
@@ -42,11 +65,7 @@ export class WishlistsController {
 
   @Patch('wishlists/:isbn')
   @ApiOperation({ summary: '위시리스트 메모 수정' })
-  update(
-    @Req() req: any,
-    @Param('isbn') isbn: string,
-    @Body() dto: UpdateWishlistDto,
-  ) {
+  update(@Req() req: any, @Param('isbn') isbn: string, @Body() dto: UpdateWishlistDto) {
     return this.service.update(req.user.supabaseUserId, isbn, dto)
   }
 

@@ -1,105 +1,79 @@
 'use client'
-
-import { useEffect, useState } from 'react'
 import { Star } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { authenticatedApiFetch as apiFetch } from '@/lib/api-client'
-import { cn } from '@/lib/utils'
-
-interface Props {
-  libraryId: number
-  initialAdded?: boolean
-}
+import Link from 'next/link'
+import { useSavedToggle } from '@/lib/use-saved-toggle'
 
 export function LibraryFavoriteButton({
   libraryId,
-  initialAdded = false,
-}: Props) {
-  const [added, setAdded] = useState(initialAdded)
-  const [loading, setLoading] = useState(false)
-  const [toastMsg, setToastMsg] = useState<string | null>(null)
-  const router = useRouter()
-
-  useEffect(() => {
-    setAdded(initialAdded)
-  }, [initialAdded, libraryId])
-
-  function showToast(msg: string) {
-    setToastMsg(msg)
-    setTimeout(() => setToastMsg(null), 2500)
-  }
-
-  async function handleClick() {
-    setLoading(true)
-
-    try {
-      if (added) {
-        const res = await apiFetch(`/library-cards/by-library/${libraryId}`, {
-          method: 'DELETE',
-        })
-
-        if (res.ok) {
-          setAdded(false)
-          showToast('즐겨찾기 도서관에서 제거됨')
-        }
-        else throw new Error('request-failed')
-        return
-      }
-
-      const res = await apiFetch('/library-cards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ libraryId }),
-      })
-
-      if (res.status === 401) {
-        showToast('로그인이 필요합니다')
-        setTimeout(() => router.push(`/login?next=/library/${libraryId}`), 1500)
-        return
-      }
-
-      if (res.status === 403) {
-        showToast('무료 플랜은 도서관 1개만 등록할 수 있습니다')
-        return
-      }
-      if (!res.ok) throw new Error('request-failed')
-
-      if (res.ok) {
-        setAdded(true)
-        showToast('즐겨찾기 도서관에 추가됨')
-      }
-    } catch {
-      showToast('요청을 완료하지 못했습니다. 상태를 확인한 뒤 다시 시도해 주세요.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+}: {
+  libraryId: number
+  initialAdded?: boolean
+}) {
+  const saved = useSavedToggle({
+    statusPath: `/me/library-cards/${libraryId}/status`,
+    addPath: '/library-cards',
+    removePath: `/library-cards/by-library/${libraryId}`,
+    addBody: { libraryId },
+  })
   return (
-    <div className="relative inline-block">
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        aria-label={added ? '즐겨찾기 도서관에서 제거' : '즐겨찾기 도서관에 추가'}
-        className={cn(
-          'flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all duration-200',
-          added
-            ? 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100'
-            : 'bg-white text-muted-foreground border-border hover:border-primary/50 hover:text-primary shadow-card',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-        )}
-      >
-        <Star
-          size={16}
-          fill={added ? 'currentColor' : 'none'}
-          className={cn('shrink-0 transition-transform duration-300', added && 'scale-110')}
-        />
-        {added ? '즐겨찾기됨' : '즐겨찾기'}
-      </button>
-
-      {toastMsg && (
-        <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-foreground text-canvas text-2xs px-3 py-1.5 rounded-md shadow-card-md whitespace-nowrap z-50 animate-in fade-in zoom-in duration-200">
-          {toastMsg}
+    <div className="max-w-full">
+      {saved.mode === 'anonymous' ? (
+        <Link
+          href={`/login?next=${encodeURIComponent(`/library/${libraryId}`)}`}
+          prefetch={false}
+          className="inline-flex rounded-full border px-4 py-2 text-sm"
+        >
+          로그인하고 내 도서관 등록
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={saved.toggle}
+          disabled={saved.busy || saved.mode !== 'ready'}
+          aria-label={
+            saved.mode === 'error'
+              ? '등록 상태 확인 필요'
+              : saved.added
+                ? '즐겨찾기 도서관에서 제거'
+                : '즐겨찾기 도서관에 추가'
+          }
+          aria-pressed={saved.mode === 'ready' ? saved.added : undefined}
+          className="flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-sm disabled:opacity-50"
+        >
+          <Star size={16} fill={saved.mode === 'ready' && saved.added ? 'currentColor' : 'none'} />
+          {saved.busy
+            ? '저장 중…'
+            : saved.mode === 'checking'
+              ? '등록 상태 확인 중…'
+              : saved.mode === 'error'
+                ? '등록 상태 확인 필요'
+                : saved.added
+                  ? '즐겨찾기됨'
+                  : '즐겨찾기'}
+        </button>
+      )}
+      {saved.error && saved.mode !== 'anonymous' && (
+        <div role="alert" className="mt-2 max-w-sm rounded-lg border bg-white p-3 text-sm">
+          <p>{saved.error} 변경 전 상태를 다시 확인해 주세요.</p>
+          <button
+            type="button"
+            onClick={saved.retry}
+            className="mt-2 rounded-full border px-3 py-2"
+          >
+            등록 상태 다시 확인
+          </button>
+        </div>
+      )}
+      {saved.notice !== null && (
+        <div role="status" className="mt-2 max-w-sm rounded-lg border bg-white p-3 text-sm">
+          <p>{saved.notice ? '내 도서관에 등록했습니다.' : '내 도서관에서 제거했습니다.'}</p>
+          <Link
+            href="/me/libraries"
+            prefetch={false}
+            className="mt-2 inline-flex rounded-full border px-3 py-2"
+          >
+            기본 도서관 선택·확인
+          </Link>
         </div>
       )}
     </div>

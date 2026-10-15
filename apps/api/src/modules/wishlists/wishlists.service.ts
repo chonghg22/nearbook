@@ -1,12 +1,32 @@
-import { Injectable, ForbiddenException } from '@nestjs/common'
-import { db, users, wishlists, bookCache, eq, and, desc, count } from '@nearbook/db'
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common'
+import {
+  db,
+  users,
+  wishlists,
+  bookCache,
+  libraryCards,
+  libraries,
+  eq,
+  and,
+  desc,
+  count,
+} from '@nearbook/db'
 import { AddWishlistDto, UpdateWishlistDto } from './dto'
+import { lockUser } from '../../common/lock-user'
+import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
+import { holdingFailure, holdingSummary, unknownHolding } from '../libraries/holding-observation'
 
 @Injectable()
 export class WishlistsService {
+  constructor(private readonly jeongbonaru: JeongbonaruService) {}
   async listByUser(supabaseUserId: string) {
     const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
-    if (!user) return { data: [] }
+    if (!user) return { data: [], meta: { total: 0, plan: 'free', limit: 10 } }
 
     const items = await db
       .select({
@@ -29,26 +49,65 @@ export class WishlistsService {
   }
 
   async add(supabaseUserId: string, email: string | undefined, dto: AddWishlistDto) {
-    const user = await this.getOrCreateUser(supabaseUserId, email)
+    return db.transaction(async (tx) => {
+      const user = await lockUser(tx, supabaseUserId, true, email)
+      if (!user) throw new NotFoundException()
+      const [existing] = await tx
+        .select()
+        .from(wishlists)
+        .where(and(eq(wishlists.userId, user.id), eq(wishlists.isbn, dto.isbn)))
+      // A retry of an already successful add must work even at the unchanged free limit.
+      if (existing) return { data: existing }
+      const [current] = await tx
+        .select({ value: count() })
+        .from(wishlists)
+        .where(eq(wishlists.userId, user.id))
+      if (user.plan === 'free' && Number(current.value) >= 10)
+        throw new ForbiddenException('Wishlist limit reached')
+      const [row] = await tx
+        .insert(wishlists)
+        .values({ userId: user.id, isbn: dto.isbn, note: dto.note })
+        .returning()
+      return { data: row }
+    })
+  }
 
-    const [countResult] = await db
-      .select({ value: count() })
-      .from(wishlists)
-      .where(eq(wishlists.userId, user.id))
-
-    const currentCount = Number(countResult.value)
-
-    if (user.plan === 'free' && currentCount >= 10) {
-      throw new ForbiddenException('Pro plan required: wishlist limit (10) exceeded')
+  /** Explicit one-book/one-owned-default-library request, never nearby or a bulk fan-out. */
+  async getDefaultHolding(supabaseUserId: string, isbn: string, expectedLibraryId: number) {
+    const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
+    if (!user) throw new NotFoundException()
+    const assertSelection = async () => {
+      const [item] = await db
+        .select({ id: wishlists.id })
+        .from(wishlists)
+        .where(and(eq(wishlists.userId, user.id), eq(wishlists.isbn, isbn)))
+      if (!item) throw new NotFoundException('Wishlist item not found')
+      const selected = await db
+        .select({
+          id: libraries.id,
+          name: libraries.name,
+          homepage: libraries.homepage,
+          lat: libraries.lat,
+          lng: libraries.lng,
+        })
+        .from(libraryCards)
+        .innerJoin(libraries, eq(libraryCards.libraryId, libraries.id))
+        .where(and(eq(libraryCards.userId, user.id), eq(libraryCards.isDefault, true)))
+      if (selected.length !== 1 || selected[0].id !== expectedLibraryId)
+        throw new ConflictException('Default library changed or missing')
+      return selected[0]
     }
-
-    const [row] = await db
-      .insert(wishlists)
-      .values({ userId: user.id, isbn: dto.isbn, note: dto.note })
-      .onConflictDoNothing()
-      .returning()
-
-    return { data: row }
+    const library = await assertSelection()
+    let observation
+    try {
+      const result = await this.jeongbonaru.getBookOwnership(isbn, String(library.id))
+      observation = result?.availability ?? unknownHolding('invalid-response')
+    } catch (error) {
+      observation = holdingFailure(error)
+    }
+    await assertSelection()
+    const rows = [{ ...library, ...observation }]
+    return { libraries: rows, holdings: holdingSummary(rows, 1) }
   }
 
   async getStatus(supabaseUserId: string, isbn: string) {
@@ -78,32 +137,10 @@ export class WishlistsService {
   }
 
   async remove(supabaseUserId: string, isbn: string) {
-    const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
-    if (!user) return
-
-    await db
-      .delete(wishlists)
-      .where(and(eq(wishlists.userId, user.id), eq(wishlists.isbn, isbn)))
-  }
-
-  private async getOrCreateUser(supabaseUserId: string, email?: string) {
-    let user = await db.query.users.findFirst({
-      where: eq(users.supabaseUserId, supabaseUserId),
+    await db.transaction(async (tx) => {
+      const user = await lockUser(tx, supabaseUserId)
+      if (!user) return
+      await tx.delete(wishlists).where(and(eq(wishlists.userId, user.id), eq(wishlists.isbn, isbn)))
     })
-
-    if (!user) {
-      const safeEmail = email?.trim() || `${supabaseUserId}@users.nearbook.local`
-      const [created] = await db
-        .insert(users)
-        .values({
-          supabaseUserId,
-          email: safeEmail,
-          nickname: null,
-        })
-        .returning()
-      
-      user = created
-    }
-    return user
   }
 }

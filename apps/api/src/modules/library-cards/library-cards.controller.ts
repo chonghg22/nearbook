@@ -10,6 +10,7 @@ import {
   UseGuards,
   Req,
   HttpCode,
+  Header,
 } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { AuthGuard } from '../auth/auth.guard'
@@ -24,12 +25,14 @@ export class LibraryCardsController {
   constructor(private readonly service: LibraryCardsService) {}
 
   @Get('me/library-cards')
+  @Header('Cache-Control', 'private, no-store')
   @ApiOperation({ summary: '내 도서관 카드 목록' })
   listMine(@Req() req: any) {
     return this.service.listByUser(req.user.supabaseUserId)
   }
 
   @Get('me/library-cards/:libraryId/status')
+  @Header('Cache-Control', 'private, no-store')
   @ApiOperation({ summary: '특정 도서관의 즐겨찾기 등록 여부' })
   getStatus(@Req() req: any, @Param('libraryId', ParseIntPipe) libraryId: number) {
     return this.service.getStatus(req.user.supabaseUserId, libraryId)

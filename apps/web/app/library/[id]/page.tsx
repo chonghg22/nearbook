@@ -6,7 +6,6 @@ import { LocationMap } from '@/components/library/location-map'
 import { LibraryFavoriteButton } from '@/components/library/library-favorite-button'
 import { LibraryHours } from '@/components/library/library-hours'
 import { BookCard } from '@/components/book/book-card'
-import { createServerClient } from '@/lib/supabase/server'
 import { serverApiJson } from '@/lib/server-api'
 import { parseLibraryList } from '@/lib/map-libraries.mjs'
 import { JsonLd } from '@/components/seo/json-ld'
@@ -16,31 +15,6 @@ import { splitRegion } from '@/lib/seo/region'
 import { fetchLibraryDetail, fetchOptionalDetail } from '@/lib/detail-data'
 
 export const revalidate = 0 // Keep detail errors out of the persistent page cache.
-
-async function fetchLibraryFavoriteStatus(libraryId: string) {
-  const supabase = await createServerClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session?.access_token) return false
-
-  try {
-    const added = await serverApiJson(`/me/library-cards/${libraryId}/status`, (json) => {
-      const added = (json as { data?: { added?: unknown } })?.data?.added
-      if (typeof added !== 'boolean') throw new Error('invalid-response')
-      return added
-    }, {
-      timeoutMs: 5000,
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      cache: 'no-store',
-    })
-
-    return added === true
-  } catch {
-    return false
-  }
-}
 
 type NearbyLibrary = { id: number; name: string }
 
@@ -93,16 +67,14 @@ export default async function LibraryPage({
 
   const library = await fetchLibraryDetail(id)
   if (!library) notFound()
-  const [popularData, newArrivalData, trendData, isFavorite] = await Promise.all([
+  const [popularData, newArrivalData, trendData] = await Promise.all([
     fetchOptionalDetail<any[]>(`/libraries/${id}/popular?limit=20`),
     fetchOptionalDetail<any[]>(`/libraries/${id}/new-arrivals?limit=20`),
     fetchOptionalDetail<any>(`/libraries/${id}/trends`),
-    fetchLibraryFavoriteStatus(id).catch(() => false),
   ])
   const popular = Array.isArray(popularData) ? popularData : []
   const newArrivals = Array.isArray(newArrivalData) ? newArrivalData : []
   const trends = trendData
-  const initialFavorite = isFavorite
   const region = splitRegion(library.region)
   const nearbyLibraries = await fetchNearbyLibraries(region, Number(library.id))
 
@@ -168,7 +140,6 @@ export default async function LibraryPage({
           <div className="mt-5">
             <LibraryFavoriteButton
               libraryId={library.id}
-              initialAdded={initialFavorite}
             />
           </div>
         </section>

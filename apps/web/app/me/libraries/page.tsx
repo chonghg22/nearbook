@@ -1,9 +1,6 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { LibraryCardsView } from './_components/library-cards-view'
-import { SERVER_API_BASE_URL } from '@/lib/server-api'
-
-const API_URL = SERVER_API_BASE_URL
 
 export const metadata = { title: '내 도서관 | 우리동네책' }
 
@@ -14,17 +11,5 @@ export default async function LibrariesPage() {
   } = await supabase.auth.getSession()
   if (!session) redirect('/login?next=/me/libraries')
 
-  const res = await fetch(`${API_URL}/me/library-cards`, {
-    headers: { Authorization: `Bearer ${session.access_token}` },
-    cache: 'no-store',
-  })
-
-  const json = res.ok ? await res.json() : { data: [], meta: { plan: 'free' } }
-
-  return (
-    <LibraryCardsView
-      cards={json.data ?? []}
-      plan={json.meta?.plan ?? 'free'}
-    />
-  )
+  return <LibraryCardsView />
 }

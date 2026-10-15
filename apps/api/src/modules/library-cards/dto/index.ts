@@ -1,8 +1,9 @@
-import { IsInt, IsOptional, IsString, MaxLength, IsBoolean } from 'class-validator'
+import { IsInt, IsOptional, IsString, MaxLength, IsBoolean, Min } from 'class-validator'
 import { Type } from 'class-transformer'
 
 export class AddLibraryCardDto {
   @IsInt()
+  @Min(1)
   @Type(() => Number)
   libraryId: number
 

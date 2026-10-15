@@ -1,121 +1,95 @@
 'use client'
-import { useEffect, useState } from 'react'
 import { Heart } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { authenticatedApiFetch as apiFetch } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import { trackEvent } from '@/lib/analytics'
+import { useSavedToggle } from '@/lib/use-saved-toggle'
 
-interface Props {
-  isbn: string
-  initialAdded?: boolean
-}
-
-export function WishlistButton({ isbn, initialAdded = false }: Props) {
-  const [added, setAdded] = useState(initialAdded)
-  const [loading, setLoading] = useState(false)
-  const [toastMsg, setToastMsg] = useState<string | null>(null)
-  const [showNotificationNudge, setShowNotificationNudge] = useState(false)
-  const router = useRouter()
-
-  useEffect(() => {
-    let cancelled = false
-    apiFetch(`/me/wishlists/${isbn}/status`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (!cancelled && json?.data?.added != null) {
-          setAdded(Boolean(json.data.added))
-        }
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [isbn])
-
-  function showToast(msg: string) {
-    setToastMsg(msg)
-    setShowNotificationNudge(false)
-    setTimeout(() => setToastMsg(null), 2500)
-  }
-
-  async function handleClick() {
-    setLoading(true)
-    try {
-      if (added) {
-        const res = await apiFetch(`/wishlists/${isbn}`, { method: 'DELETE' })
-        if (res.ok) {
-          setAdded(false)
-          trackEvent('wishlist_remove', { isbn })
-          showToast('위시리스트에서 제거됨')
-        }
-        else throw new Error('request-failed')
-      } else {
-        const res = await apiFetch('/wishlists', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isbn }),
-        })
-
-        if (res.status === 401) {
-          showToast('로그인이 필요합니다')
-          setTimeout(() => router.push(`/login?next=/book/${isbn}`), 1500)
-          return
-        }
-        if (res.status === 403) {
-          showToast('위시리스트 10권 초과 — Pro 업그레이드 필요')
-          return
-        }
-        if (!res.ok) throw new Error('request-failed')
-        if (res.ok) {
-          setAdded(true)
-          trackEvent('wishlist_add', { isbn })
-          setToastMsg('위시리스트에 추가됨')
-          setShowNotificationNudge(true)
-          setTimeout(() => {
-            setToastMsg(null)
-            setShowNotificationNudge(false)
-          }, 3500)
-        }
-      }
-    } catch {
-      showToast('요청을 완료하지 못했습니다. 상태를 확인한 뒤 다시 시도해 주세요.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+export function WishlistButton({ isbn }: { isbn: string; initialAdded?: boolean }) {
+  const saved = useSavedToggle({
+    statusPath: `/me/wishlists/${isbn}/status`,
+    addPath: '/wishlists',
+    removePath: `/wishlists/${isbn}`,
+    addBody: { isbn },
+    onChanged: (added) => trackEvent(added ? 'wishlist_add' : 'wishlist_remove', { isbn }),
+  })
   return (
-    <div className="relative inline-block">
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        aria-label={added ? '위시리스트에서 제거' : '위시리스트에 추가'}
-        className={cn(
-          'flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold transition-all duration-200',
-          added
-            ? 'bg-red-50 text-red-500 border-red-200 hover:bg-red-100'
-            : 'bg-white text-muted-foreground border-border hover:border-primary/50 hover:text-primary shadow-card',
-          'disabled:opacity-50 disabled:cursor-not-allowed'
-        )}
-      >
-        <Heart
-          size={16}
-          fill={added ? 'currentColor' : 'none'}
-          className={cn('shrink-0 transition-transform duration-300', added && 'scale-110')}
-        />
-        {added ? '찜됨' : '찜하기'}
-      </button>
-
-      {toastMsg && (
-        <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-foreground text-canvas text-2xs px-3 py-1.5 rounded-md shadow-card-md whitespace-nowrap z-50 animate-in fade-in zoom-in duration-200">
-          <div className="flex items-center gap-2">
-            <span>{toastMsg}</span>
-            {showNotificationNudge && (
-              <Link href="/me/notifications" className="underline underline-offset-2">
+    <div className="max-w-full">
+      {saved.mode === 'anonymous' ? (
+        <Link
+          href={`/login?next=${encodeURIComponent(`/book/${isbn}`)}`}
+          prefetch={false}
+          className="inline-flex rounded-full border px-4 py-2 text-sm"
+        >
+          로그인하고 찜하기
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={saved.toggle}
+          disabled={saved.busy || saved.mode !== 'ready'}
+          aria-label={
+            saved.mode === 'error'
+              ? '찜 상태 확인 필요'
+              : saved.added
+                ? '위시리스트에서 제거'
+                : '위시리스트에 추가'
+          }
+          aria-pressed={saved.mode === 'ready' ? saved.added : undefined}
+          className={cn(
+            'flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold disabled:opacity-50',
+            saved.mode === 'ready' && saved.added
+              ? 'border-red-200 bg-red-50 text-red-500'
+              : 'bg-white text-muted-foreground'
+          )}
+        >
+          <Heart size={16} fill={saved.mode === 'ready' && saved.added ? 'currentColor' : 'none'} />
+          {saved.busy
+            ? '저장 중…'
+            : saved.mode === 'checking'
+              ? '찜 상태 확인 중…'
+              : saved.mode === 'error'
+                ? '찜 상태 확인 필요'
+                : saved.added
+                  ? '찜됨'
+                  : '찜하기'}
+        </button>
+      )}
+      {saved.error && saved.mode !== 'anonymous' && (
+        <div
+          role="alert"
+          className="mt-2 max-w-sm rounded-lg border bg-white p-3 text-sm [overflow-wrap:anywhere]"
+        >
+          <p>{saved.error} 변경 전 상태를 다시 확인해 주세요.</p>
+          <button
+            type="button"
+            onClick={saved.retry}
+            className="mt-2 rounded-full border px-3 py-2"
+          >
+            찜 상태 다시 확인
+          </button>
+        </div>
+      )}
+      {saved.notice !== null && (
+        <div role="status" className="mt-2 max-w-sm rounded-lg border bg-white p-3 text-sm">
+          <p>{saved.notice ? '위시리스트에 추가했습니다.' : '위시리스트에서 제거했습니다.'}</p>
+          {saved.notice && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link href="/me/libraries" prefetch={false} className="rounded-full border px-3 py-2">
+                기본 도서관 선택·확인
+              </Link>
+              <Link href="/me/wishlist" prefetch={false} className="rounded-full border px-3 py-2">
+                찜한 책 보유 확인
+              </Link>
+              <Link
+                href="/me/notifications"
+                prefetch={false}
+                className="rounded-full border px-3 py-2"
+              >
                 매일 아침 알림 변경하기
               </Link>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
