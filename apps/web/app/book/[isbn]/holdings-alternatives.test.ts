@@ -6,6 +6,7 @@ import { SWRConfig } from 'swr'
 import { LibraryStatus } from './_components/library-status'
 import { LocationProvider, useLocationContext } from '@/lib/use-location-context'
 import type { NearbyHolding } from '@nearbook/shared-types'
+import { hasUsefulAction } from '@/lib/pwa-install-eligibility'
 
 vi.mock('@/lib/analytics', () => ({ trackEvent: vi.fn() }))
 const fetchMock = vi.fn<typeof fetch>()
@@ -75,6 +76,7 @@ const radiusOf = (url: unknown) =>
   new URL(String(url), 'https://example.test').searchParams.get('radius')
 beforeEach(() => {
   localStorage.clear()
+  sessionStorage.clear()
   fetchMock.mockReset()
   gpsMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
@@ -95,6 +97,7 @@ afterEach(() => {
 it('real nonownership offers all actions while retaining official card links', async () => {
   mount()
   const panel = await alternatives()
+  expect(hasUsefulAction()).toBe(true)
   expect(screen.getByText(/소장하지 않는 것으로/)).toBeDefined()
   expect(within(panel).getByRole('button', { name: '10km로 넓혀보기' })).toBeDefined()
   expect(within(panel).getByRole('button', { name: '다른 지역·도서관 선택' })).toBeDefined()
@@ -141,6 +144,7 @@ it('zero candidates has a region/radius fallback, not an invented official homep
   mount()
   await alternatives()
   expect(screen.getByText(/도서관을 찾지 못했습니다/)).toBeDefined()
+  expect(hasUsefulAction()).toBe(false)
   expect(screen.queryByRole('link', { name: /공식 사이트에서 확인/ })).toBeNull()
   expect(screen.getByRole('link', { name: '다른 도서관 찾아보기' })).toBeDefined()
 })
@@ -157,8 +161,10 @@ it('a real endpoint failure keeps retry and alternatives without implying absenc
   mount()
   await alternatives()
   expect(screen.getByRole('alert').textContent).toContain('책이 없다는 뜻은 아닙니다')
+  expect(hasUsefulAction()).toBe(false)
   fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
   await screen.findByText(/소장하지 않는 것으로/)
+  expect(hasUsefulAction()).toBe(true)
   expect(fetchMock).toHaveBeenCalledTimes(2)
   expect(fetchMock.mock.calls.every(([url]) => radiusOf(url) === '5')).toBe(true)
 })

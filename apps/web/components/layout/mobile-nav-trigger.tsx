@@ -18,7 +18,7 @@ export function MobileNavTrigger() {
       <SheetTrigger asChild>
         <button
           aria-label="메뉴 열기"
-          className="flex h-10 w-10 min-h-0 min-w-0 items-center justify-center rounded-md hover:bg-gray-100"
+          className="flex h-11 w-11 items-center justify-center rounded-md hover:bg-gray-100"
         >
           <Menu className="h-6 w-6" />
         </button>

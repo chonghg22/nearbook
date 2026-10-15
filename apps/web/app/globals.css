@@ -63,6 +63,11 @@
     min-width: 44px;
   }
 
+  :where(a, button, select):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
   /* 텍스트 선택 색 */
   ::selection {
     background-color: #BFE8CC;

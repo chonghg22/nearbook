@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { SWRConfig } from 'swr'
 import { SearchPageInner } from './_components/search-page-inner'
+import { hasUsefulAction } from '@/lib/pwa-install-eligibility'
 
 const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), push: vi.fn() }))
 vi.mock('next/navigation', () => ({
@@ -37,6 +38,7 @@ const items = [
   },
 ]
 beforeEach(() => {
+  sessionStorage.clear()
   vi.stubGlobal('fetch', fetchMock)
   navigation.push.mockReset()
   fetchMock.mockImplementation(async () =>
@@ -62,6 +64,7 @@ function mount(params: string) {
 it('default discovery stays same-origin and uses a rollout-compatible omitted all type', async () => {
   mount('q=한강')
   await screen.findByRole('link', { name: /ISBN 9788936434120/ })
+  expect(hasUsefulAction()).toBe(true)
   expect((screen.getByRole('combobox', { name: '검색 유형' }) as HTMLSelectElement).value).toBe(
     'all'
   )
@@ -161,6 +164,7 @@ it('cold enrichment polls then shows results without an interim false zero', asy
   fetchMock.mockImplementationOnce(async () => Response.json({ data: { items: [], total: 0, page: 1, pageSize: 10, enrichmentPending: true } }))
   await act(async () => { mount('q=새로운+제목') })
   expect(screen.getByRole('status').textContent).toContain('확인하고 있습니다')
+  expect(hasUsefulAction()).toBe(false)
   expect(screen.queryByText(/검색결과 0건/)).toBeNull()
   expect(screen.queryByText('검색 결과가 없어요.')).toBeNull()
   await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
@@ -190,6 +194,7 @@ it('provider failure after a cold search shows retry, not absence', async () => 
   fetchMock.mockImplementation(async () => Response.json({ data: { items: [], total: 0, page: 1, pageSize: 10, enrichmentFailed: true } }))
   mount('q=실패+제목')
   expect((await screen.findByRole('alert')).textContent).toContain('검색 결과가 없다는 뜻은 아닙니다')
+  expect(hasUsefulAction()).toBe(false)
   expect(screen.getByRole('button', { name: '다시 시도' })).toBeDefined()
   expect(screen.queryByText('검색 결과가 없어요.')).toBeNull()
 })
@@ -197,6 +202,7 @@ it('valid completed zero remains an empty search rather than an error', async ()
   fetchMock.mockImplementation(async () => Response.json({ data: { items: [], total: 0, page: 1, pageSize: 10, enrichmentPending: false } }))
   mount('q=완료+제목')
   expect(await screen.findByText('검색 결과가 없어요.')).toBeDefined()
+  expect(hasUsefulAction()).toBe(false)
   expect(screen.queryByRole('alert')).toBeNull()
 })
 it('out-of-range old bookmarks offer first-page navigation, not book absence', async () => {

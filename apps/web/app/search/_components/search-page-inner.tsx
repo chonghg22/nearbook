@@ -12,6 +12,7 @@ import { publicApiJson } from '@/lib/public-api-client'
 import { parseSearchResult } from '@/lib/api-contracts'
 import { trackEvent } from '@/lib/analytics'
 import { resolveSearchInput } from '@nearbook/shared-types'
+import { markUsefulAction } from '@/lib/pwa-install-eligibility'
 
 const PAGE_SIZE = 10
 
@@ -71,6 +72,7 @@ export function SearchPageInner() {
     const eventKey = `${q}:${searchType}:${sort}:${page}:${total}`
     if (lastResultEventKey.current === eventKey) return
     lastResultEventKey.current = eventKey
+    if (data.data.items.length > 0) markUsefulAction()
 
     trackEvent('search_result_view', {
       query: q,
@@ -129,7 +131,7 @@ export function SearchPageInner() {
       {q ? (
         <>
           <div className="flex items-center gap-3 my-4">
-            <p className="text-sm text-gray-500">
+            <p className="min-w-0 text-sm text-gray-500 [overflow-wrap:anywhere]">
               &ldquo;{q}&rdquo; {input.invalidIsbn ? 'ISBN 입력을 확인해 주세요' : resultError ? '검색 결과를 불러오지 못했습니다' : isLoading ? '검색 중...' : pending ? '추가 도서 정보를 확인 중입니다' : `검색결과 ${total}건`}
             </p>
           </div>

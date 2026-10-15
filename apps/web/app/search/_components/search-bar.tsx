@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Camera, Search } from 'lucide-react'
 
@@ -11,6 +11,7 @@ type Props = {
 
 export function SearchBar({ defaultValue, onSubmit }: Props) {
   const [value, setValue] = useState(defaultValue)
+  const composing = useRef(false)
 
   useEffect(() => {
     setValue(defaultValue)
@@ -20,9 +21,10 @@ export function SearchBar({ defaultValue, onSubmit }: Props) {
     <form
       onSubmit={(e) => {
         e.preventDefault()
+        if (composing.current) return
         onSubmit(value)
       }}
-      className="flex gap-2"
+      className="flex min-w-0 gap-2"
       role="search"
     >
       <input
@@ -30,20 +32,23 @@ export function SearchBar({ defaultValue, onSubmit }: Props) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="책 제목, 저자, ISBN, 출판사 검색"
-        className="flex-1 px-4 h-14 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+        className="min-w-0 flex-1 px-4 h-14 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
         aria-label="검색어"
+        enterKeyHint="search"
+        onCompositionStart={() => { composing.current = true }}
+        onCompositionEnd={() => { composing.current = false }}
       />
       <Link
         href="/scan"
         aria-label="바코드 스캔"
-        className="flex h-14 w-14 items-center justify-center rounded-lg border border-gray-300 text-gray-600 transition-colors hover:border-primary-500 hover:text-primary-600 md:hidden"
+        className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-gray-300 text-gray-600 transition-colors hover:border-primary-500 hover:text-primary-600 md:hidden"
       >
         <Camera className="w-5 h-5" strokeWidth={2.5} />
       </Link>
       <button
         type="submit"
         aria-label="검색"
-        className="w-14 h-14 bg-primary hover:bg-primary-700 text-white rounded-lg flex items-center justify-center transition-colors"
+        className="w-14 h-14 shrink-0 bg-primary hover:bg-primary-700 text-white rounded-lg flex items-center justify-center transition-colors"
       >
         <Search className="w-5 h-5" strokeWidth={2.5} />
       </button>

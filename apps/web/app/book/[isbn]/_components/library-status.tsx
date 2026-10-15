@@ -11,6 +11,7 @@ import { HoldingsView } from './holdings-view'
 import type { LinkedHoldingsResult } from '@/lib/library-links.mjs'
 import { HOLDING_RADII, type HoldingRadius } from '@/lib/holdings-alternatives'
 import { HoldingsAlternatives } from './holdings-alternatives'
+import { markUsefulAction } from '@/lib/pwa-install-eligibility'
 
 interface Props {
   isbn: string
@@ -59,6 +60,7 @@ export function LibraryStatus({ isbn, bookTitle }: Props) {
       .then((next) => {
         if (!active) return
         setResult(next)
+        if (next.holdings.checkedCount > 0) markUsefulAction()
         setNow(Date.now())
         trackEvent('library_status_view', {
           isbn,
