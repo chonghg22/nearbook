@@ -3,6 +3,7 @@ import { HOLDING_TTL_MS, observeHolding } from '../libraries/holding-observation
 import { db, bookCache, eq, sql, searchStats } from '@nearbook/db'
 import { CacheService } from '../../common/cache/cache.service'
 import { JeongbonaruClient } from './jeongbonaru.client'
+import { Priority } from '../quota/quota-policy'
 import {
   BookCacheRow,
   JeongbonaruBookDoc,
@@ -18,14 +19,14 @@ export class JeongbonaruService {
 
   constructor(
     private readonly client: JeongbonaruClient,
-    private readonly cache: CacheService,
+    private readonly cache: CacheService
   ) {}
 
   /**
    * ISBN으로 책 조회. 캐시 우선 (Layer 4 = book_cache).
    * 만료된 캐시도 API 실패 시 fallback으로 반환 (graceful degradation).
    */
-  async getBookByIsbn(isbn: string): Promise<BookCacheRow | null> {
+  async getBookByIsbn(isbn: string, priority: Priority = 'HIGH'): Promise<BookCacheRow | null> {
     // 1. DB 캐시 우선
     const cached = await db.query.bookCache.findFirst({
       where: eq(bookCache.isbn, isbn),
@@ -43,6 +44,7 @@ export class JeongbonaruService {
           pageNo: 1,
           pageSize: 1,
         },
+        { priority }
       )
 
       if (!Array.isArray(response.response?.docs)) {
@@ -85,26 +87,32 @@ export class JeongbonaruService {
     } catch {
       // graceful: 만료된 캐시라도 반환
       this.logger.warn(
-        `정보나루 조회 실패: ${isbn} (${cached ? 'stale cache fallback' : 'no cached metadata'})`,
+        `정보나루 조회 실패: ${isbn} (${cached ? 'stale cache fallback' : 'no cached metadata'})`
       )
       if (cached) return cached as BookCacheRow
       // A failed request without a fallback is unavailable, not a missing book.
-      throw new ServiceUnavailableException('도서 정보를 잠시 조회할 수 없습니다. 다시 시도해 주세요.')
+      throw new ServiceUnavailableException(
+        '도서 정보를 잠시 조회할 수 없습니다. 다시 시도해 주세요.'
+      )
     }
   }
 
   /** 키워드 검색 (캐시 안 함) */
-  async searchBooks(keyword: string, page = 1, searchType = 'title'): Promise<any> {
+  async searchBooks(
+    keyword: string,
+    page = 1,
+    searchType = 'title',
+    priority: Priority = 'HIGH'
+  ): Promise<any> {
     const params: Record<string, any> = { pageNo: page, pageSize: 20 }
     if (searchType === 'title') params.title = keyword
     else if (searchType === 'author') params.author = keyword
     else if (searchType === 'publisher') params.publisher = keyword
     else params.keyword = keyword
 
-    const response = await this.client.get<JeongbonaruDocsResponse>(
-      '/srchBooks',
-      params,
-    )
+    const response = await this.client.get<JeongbonaruDocsResponse>('/srchBooks', params, {
+      priority,
+    })
     const items = (response.response?.docs ?? []).map((d) => d.doc)
     return { items }
   }
@@ -113,7 +121,12 @@ export class JeongbonaruService {
    * 키워드로 검색 후 결과를 DB 캐시(book_cache)에 저장.
    * 검색 백그라운드 보충. 실패는 정상 0건과 구분해 호출자에게 전달한다.
    */
-  async searchAndCacheBooks(keyword: string, page = 1, pageSize = 40, searchType = 'title'): Promise<{ items: BookCacheRow[], total: number }> {
+  async searchAndCacheBooks(
+    keyword: string,
+    page = 1,
+    pageSize = 40,
+    searchType = 'title'
+  ): Promise<{ items: BookCacheRow[]; total: number }> {
     try {
       const params: Record<string, any> = { pageNo: page, pageSize }
       if (searchType === 'title') params.title = keyword
@@ -121,10 +134,9 @@ export class JeongbonaruService {
       else if (searchType === 'publisher') params.publisher = keyword
       else params.keyword = keyword
 
-      const response = await this.client.get<JeongbonaruDocsResponse>(
-        '/srchBooks',
-        params,
-      )
+      const response = await this.client.get<JeongbonaruDocsResponse>('/srchBooks', params, {
+        priority: 'LOW',
+      })
 
       const resp = response.response
       if (!Array.isArray(resp?.docs)) throw new Error('Invalid search metadata response')
@@ -133,7 +145,8 @@ export class JeongbonaruService {
 
       // 검색 통계 업데이트 (정보나루 실제 총 건수 저장)
       if (total > 0) {
-        await db.insert(searchStats)
+        await db
+          .insert(searchStats)
           .values({
             query: keyword,
             searchType,
@@ -151,8 +164,9 @@ export class JeongbonaruService {
 
       if (docs.length === 0) return { items: [], total }
 
-      const books = docs.map((d) => this.mapBookDoc(d.doc, d.doc.isbn13 || ''))
-        .filter(b => b.isbn && /^97[89]\d{10}$/.test(b.isbn)) // 유효한 ISBN13만 필터
+      const books = docs
+        .map((d) => this.mapBookDoc(d.doc, d.doc.isbn13 || ''))
+        .filter((b) => b.isbn && /^97[89]\d{10}$/.test(b.isbn)) // 유효한 ISBN13만 필터
 
       if (books.length === 0) return { items: [], total }
 
@@ -173,8 +187,8 @@ export class JeongbonaruService {
                 cachedAt: new Date(),
                 expiresAt: sql`now() + interval '365 days'`,
               },
-            }),
-        ),
+            })
+        )
       )
 
       return { items: books as BookCacheRow[], total }
@@ -185,16 +199,24 @@ export class JeongbonaruService {
   }
 
   /** 도서관 보유 정보 (5분 캐시) */
-  async getBookOwnership(isbn: string, libCode: string | number): Promise<any> {
+  async getBookOwnership(
+    isbn: string,
+    libCode: string | number,
+    priority: Priority = 'HIGH'
+  ): Promise<any> {
     // Versioned key avoids treating old untimestamped/raw snapshots as current.
     const cacheKey = `loan:v2:${isbn}:${libCode}`
     const cached = this.cache.get<any>(cacheKey)
     if (cached) return cached
 
-    const result = await this.client.get<any>('/bookExist', {
-      isbn13: isbn,
-      libCode,
-    }, { timeoutMs: 5000 })
+    const result = await this.client.get<any>(
+      '/bookExist',
+      {
+        isbn13: isbn,
+        libCode,
+      },
+      { timeoutMs: 5000, ...(priority === 'LOW' ? { priority } : {}) }
+    )
     const availability = observeHolding(result)
     if (availability.checkedAt === null) throw new Error('INVALID_OWNERSHIP_RESULT')
     const snapshot = { ...result, availability }
@@ -208,29 +230,35 @@ export class JeongbonaruService {
     const cached = this.cache.get<any[]>(cacheKey)
     if (cached) return cached
 
-    const response = await this.client.get<any>('/libSrchByBook', {
-      isbn,
-      region,
-      pageNo: 1,
-      pageSize: limit,
-    }, { timeoutMs: 5000 })
+    const response = await this.client.get<any>(
+      '/libSrchByBook',
+      {
+        isbn,
+        region,
+        pageNo: 1,
+        pageSize: limit,
+      },
+      { timeoutMs: 5000 }
+    )
 
     if (!Array.isArray(response?.response?.libs)) throw new Error('INVALID_HOLDING_INDEX')
 
-    const rows = (response.response?.libs ?? []).map((entry: any) => {
-      const lib = entry.lib ?? entry
-      return {
-        id: Number(lib.libCode),
-        name: lib.libName ?? '',
-        address: lib.address ?? '',
-        phone: lib.tel ?? null,
-        homepage: lib.homepage ?? null,
-        lat: Number.parseFloat(lib.latitude ?? '0') || null,
-        lng: Number.parseFloat(lib.longitude ?? '0') || null,
-        closed: lib.closed ?? null,
-        operatingHours: lib.operatingTime ?? null,
-      }
-    }).filter((lib: any) => Number.isFinite(lib.id) && lib.name)
+    const rows = (response.response?.libs ?? [])
+      .map((entry: any) => {
+        const lib = entry.lib ?? entry
+        return {
+          id: Number(lib.libCode),
+          name: lib.libName ?? '',
+          address: lib.address ?? '',
+          phone: lib.tel ?? null,
+          homepage: lib.homepage ?? null,
+          lat: Number.parseFloat(lib.latitude ?? '0') || null,
+          lng: Number.parseFloat(lib.longitude ?? '0') || null,
+          closed: lib.closed ?? null,
+          operatingHours: lib.operatingTime ?? null,
+        }
+      })
+      .filter((lib: any) => Number.isFinite(lib.id) && lib.name)
 
     this.cache.set(cacheKey, rows, 60 * 60 * 1000)
     return rows
@@ -265,32 +293,48 @@ export class JeongbonaruService {
     return data
   }
 
-  async getLibraryNewArrivalBooks(libCode: string | number, limit = 20, searchDt?: string) {
+  async getLibraryNewArrivalBooks(
+    libCode: string | number,
+    limit = 20,
+    searchDt?: string,
+    priority: Priority = 'HIGH'
+  ) {
     const cacheKey = `new-arrivals:${libCode}:${searchDt ?? 'current'}:${limit}`
     const cached = this.cache.get<any[]>(cacheKey)
     if (cached) return cached
 
-    const candidateMonths = searchDt ? [searchDt] : [this.getCurrentMonthInKst(), ...this.getRecentMonthsInKst(6)]
+    const candidateMonths = searchDt
+      ? [searchDt]
+      : [this.getCurrentMonthInKst(), ...this.getRecentMonthsInKst(6)]
 
     for (const month of candidateMonths) {
-      const response = await this.client.get<any>('/newArrivalBook', {
-        libCode,
-        searchDt: month,
-      })
+      const response = await this.client.get<any>(
+        '/newArrivalBook',
+        {
+          libCode,
+          searchDt: month,
+        },
+        { priority }
+      )
 
-      const rows = (response.response?.docs ?? []).map((entry: any) => {
-        const doc = entry.doc ?? entry
-        return {
-          isbn: doc.isbn13 ?? '',
-          title: doc.bookname?.trim() ?? '',
-          author: doc.authors ?? null,
-          publisher: doc.publisher ?? null,
-          publishedYear: doc.publication_year ? Number.parseInt(doc.publication_year, 10) || null : null,
-          coverUrl: doc.bookImageURL ?? null,
-          category: doc.class_nm ?? null,
-          registeredAt: doc.reg_date ?? null,
-        }
-      }).filter((entry: any) => entry.isbn && entry.title).slice(0, limit)
+      const rows = (response.response?.docs ?? [])
+        .map((entry: any) => {
+          const doc = entry.doc ?? entry
+          return {
+            isbn: doc.isbn13 ?? '',
+            title: doc.bookname?.trim() ?? '',
+            author: doc.authors ?? null,
+            publisher: doc.publisher ?? null,
+            publishedYear: doc.publication_year
+              ? Number.parseInt(doc.publication_year, 10) || null
+              : null,
+            coverUrl: doc.bookImageURL ?? null,
+            category: doc.class_nm ?? null,
+            registeredAt: doc.reg_date ?? null,
+          }
+        })
+        .filter((entry: any) => entry.isbn && entry.title)
+        .slice(0, limit)
 
       if (rows.length > 0) {
         this.cache.set(cacheKey, rows, 24 * 60 * 60 * 1000)
@@ -303,23 +347,24 @@ export class JeongbonaruService {
 
   /** Alias methods for Cron/Compatibility */
   async getBookByIsbnAsCron(isbn: string) {
-    return this.getBookByIsbn(isbn)
+    return this.getBookByIsbn(isbn, 'LOW')
   }
 
   async searchBooksAsCron(keyword: string, page: number) {
-    const docs = await this.searchBooks(keyword, page)
+    const docs = await this.searchBooks(keyword, page, 'title', 'LOW')
     return { docs }
   }
 
   async getBookOwnershipAsCron(isbn: string, libCode: string | number) {
-    return this.getBookOwnership(isbn, libCode)
+    return this.getBookOwnership(isbn, libCode, 'LOW')
   }
 
   /** 도서관 목록 (시드용 — Step 04 다음 단계에서 사용) */
-  async listLibraries(pageNo = 1, pageSize = 100) {
+  async listLibraries(pageNo = 1, pageSize = 100, priority: Priority = 'HIGH') {
     const response = await this.client.get<JeongbonaruLibsResponse>(
       '/libSrch',
       { pageNo, pageSize },
+      { priority }
     )
     return (response.response?.libs ?? []).map((l) => l.lib)
   }
@@ -327,24 +372,22 @@ export class JeongbonaruService {
   /** 인기 대출도서 */
   async getPopularBooks(libCode?: string) {
     const today = new Date().toISOString().slice(0, 10)
-    const past = new Date(Date.now() - 7 * 24 * 3600 * 1000)
-      .toISOString()
-      .slice(0, 10)
+    const past = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10)
 
-    const response = await this.client.get<JeongbonaruDocsResponse>(
-      '/loanItemSrch',
-      {
-        ...(libCode ? { libCode } : {}),
-        from: past,
-        to: today,
-        pageNo: 1,
-        pageSize: 100,
-      },
-    )
+    const response = await this.client.get<JeongbonaruDocsResponse>('/loanItemSrch', {
+      ...(libCode ? { libCode } : {}),
+      from: past,
+      to: today,
+      pageNo: 1,
+      pageSize: 100,
+    })
     return (response.response?.docs ?? []).map((d) => d.doc)
   }
 
-  async getLoanItemBooks(limit = 10, options: { kdc?: string; addCode?: string } = {}) {
+  async getLoanItemBooks(
+    limit = 10,
+    options: { kdc?: string; addCode?: string; priority?: Priority } = {}
+  ) {
     const params: Record<string, string | number> = {}
     if (options.kdc) {
       if (options.kdc.length >= 2) {
@@ -365,31 +408,35 @@ export class JeongbonaruService {
         pageNo: 1,
         pageSize: limit,
       },
+      { priority: options.priority ?? 'HIGH' }
     )
 
-    return (response.response?.docs ?? []).map((entry) => ({
-      isbn: entry.doc.isbn13 ?? '',
-      title: entry.doc.bookname?.trim() ?? '',
-      author: entry.doc.authors ?? null,
-      publisher: entry.doc.publisher ?? null,
-      coverUrl: entry.doc.bookImageURL ?? null,
-      loanCount: Number.parseInt(entry.doc.loan_count ?? '0', 10) || 0,
-    }))
+    return (response.response?.docs ?? [])
+      .map((entry) => ({
+        isbn: entry.doc.isbn13 ?? '',
+        title: entry.doc.bookname?.trim() ?? '',
+        author: entry.doc.authors ?? null,
+        publisher: entry.doc.publisher ?? null,
+        coverUrl: entry.doc.bookImageURL ?? null,
+        loanCount: Number.parseInt(entry.doc.loan_count ?? '0', 10) || 0,
+      }))
       .filter((entry) => entry.isbn && entry.title)
       .slice(0, limit)
   }
 
-  async getMonthlyKeywords(limit = 10, month?: string) {
-    const candidateMonths = month
-      ? [month]
-      : this.getRecentMonthsInKst(3)
+  async getMonthlyKeywords(limit = 10, month?: string, priority: Priority = 'HIGH') {
+    const candidateMonths = month ? [month] : this.getRecentMonthsInKst(3)
 
+    let lastError: unknown
     for (const targetMonth of candidateMonths) {
       try {
         const response = await this.client.get<JeongbonaruMonthlyKeywordsResponse>(
           '/monthlyKeywords',
           { month: targetMonth },
+          { priority }
         )
+
+        if (!Array.isArray(response.response?.keywords)) throw new Error('INVALID_KEYWORD_RESULT')
 
         const keywords = (response.response?.keywords ?? [])
           .map((entry) => ({
@@ -406,37 +453,42 @@ export class JeongbonaruService {
         if (keywords.length > 0) {
           return keywords
         }
-      } catch {
-        continue
+      } catch (error) {
+        if (this.isDispatchBlocked(error)) throw error
+        lastError = error
       }
     }
 
+    if (lastError) throw lastError
     return []
   }
 
-  async getHotTrendBooks(limit = 10, searchDt?: string) {
-    const candidateDates = searchDt
-      ? [searchDt]
-      : this.getRecentDatesInKst(4)
+  async getHotTrendBooks(limit = 10, searchDt?: string, priority: Priority = 'HIGH') {
+    const candidateDates = searchDt ? [searchDt] : this.getRecentDatesInKst(4)
 
+    let lastError: unknown
     for (const targetDate of candidateDates) {
       try {
         const response = await this.client.get<JeongbonaruHotTrendResponse>(
           '/hotTrend',
           { searchDt: targetDate },
+          { priority }
         )
 
+        if (!Array.isArray(response.response?.results)) throw new Error('INVALID_TREND_RESULT')
+
         const docs = response.response?.results?.[0]?.result?.docs ?? []
-        const items = docs.map((entry) => ({
-          isbn: entry.doc.isbn13 ?? '',
-          title: entry.doc.bookname?.trim() ?? '',
-          author: entry.doc.authors ?? null,
-          publisher: entry.doc.publisher ?? null,
-          coverUrl: entry.doc.bookImageURL ?? null,
-          difference: Number.parseInt(String(entry.doc.difference ?? '0'), 10) || 0,
-          baseWeekRank: Number.parseInt(String(entry.doc.baseWeekRank ?? '0'), 10) || 0,
-          pastWeekRank: Number.parseInt(String(entry.doc.pastWeekRank ?? '0'), 10) || 0,
-        }))
+        const items = docs
+          .map((entry) => ({
+            isbn: entry.doc.isbn13 ?? '',
+            title: entry.doc.bookname?.trim() ?? '',
+            author: entry.doc.authors ?? null,
+            publisher: entry.doc.publisher ?? null,
+            coverUrl: entry.doc.bookImageURL ?? null,
+            difference: Number.parseInt(String(entry.doc.difference ?? '0'), 10) || 0,
+            baseWeekRank: Number.parseInt(String(entry.doc.baseWeekRank ?? '0'), 10) || 0,
+            pastWeekRank: Number.parseInt(String(entry.doc.pastWeekRank ?? '0'), 10) || 0,
+          }))
           .filter((entry) => entry.isbn && entry.title)
           .sort((a, b) => b.difference - a.difference)
           .slice(0, limit)
@@ -444,12 +496,23 @@ export class JeongbonaruService {
         if (items.length > 0) {
           return items
         }
-      } catch {
-        continue
+      } catch (error) {
+        if (this.isDispatchBlocked(error)) throw error
+        lastError = error
       }
     }
 
+    if (lastError) throw lastError
     return []
+  }
+
+  private isDispatchBlocked(error: unknown): boolean {
+    const failure = error as { message?: string; response?: { status?: number } } | null
+    return (
+      ['API_LIMIT_EXCEEDED', 'QUOTA_ACCOUNTING_UNAVAILABLE', 'PROVIDER_NOT_CONFIGURED'].includes(
+        failure?.message ?? ''
+      ) || failure?.response?.status === 429
+    )
   }
 
   private mapBookDoc(item: JeongbonaruBookDoc, fallbackIsbn: string): BookCacheRow {
@@ -470,47 +533,68 @@ export class JeongbonaruService {
   private mapUsageAnalysis(raw: any) {
     const book = raw.book ?? raw.response?.book ?? null
     return {
-      book: book ? {
-        isbn: book.isbn13 ?? '',
-        title: book.bookname ?? '',
-        author: book.authors ?? null,
-        publisher: book.publisher ?? null,
-        publishedYear: book.publication_year ? Number.parseInt(book.publication_year, 10) || null : null,
-        coverUrl: book.bookImageURL ?? null,
-        description: book.description ?? null,
-        category: book.class_nm ?? null,
-        loanCount: Number.parseInt(String(book.loanCnt ?? book.loan_count ?? '0'), 10) || 0,
-      } : null,
-      loanHistory: this.unwrapItems(raw.loanHistory, 'loan').map((loan: any) => ({
-        month: loan.month ?? '',
-        loanCount: Number.parseInt(String(loan.loanCnt ?? '0'), 10) || 0,
-        ranking: Number.parseInt(String(loan.ranking ?? '0'), 10) || 0,
-      })).filter((loan: any) => loan.month),
-      loanGroups: this.unwrapItems(raw.loanGrps, 'loanGrp').map((group: any) => ({
-        age: group.age ?? '',
-        gender: group.gender ?? '',
-        loanCount: Number.parseInt(String(group.loanCnt ?? '0'), 10) || 0,
-        ranking: Number.parseInt(String(group.ranking ?? '0'), 10) || 0,
-      })).filter((group: any) => group.age || group.gender),
-      keywords: this.unwrapItems(raw.keywords, 'keyword').map((keyword: any) => ({
-        word: keyword.word ?? '',
-        weight: Number.parseFloat(String(keyword.weight ?? '0')) || 0,
-      })).filter((keyword: any) => keyword.word).slice(0, 20),
+      book: book
+        ? {
+            isbn: book.isbn13 ?? '',
+            title: book.bookname ?? '',
+            author: book.authors ?? null,
+            publisher: book.publisher ?? null,
+            publishedYear: book.publication_year
+              ? Number.parseInt(book.publication_year, 10) || null
+              : null,
+            coverUrl: book.bookImageURL ?? null,
+            description: book.description ?? null,
+            category: book.class_nm ?? null,
+            loanCount: Number.parseInt(String(book.loanCnt ?? book.loan_count ?? '0'), 10) || 0,
+          }
+        : null,
+      loanHistory: this.unwrapItems(raw.loanHistory, 'loan')
+        .map((loan: any) => ({
+          month: loan.month ?? '',
+          loanCount: Number.parseInt(String(loan.loanCnt ?? '0'), 10) || 0,
+          ranking: Number.parseInt(String(loan.ranking ?? '0'), 10) || 0,
+        }))
+        .filter((loan: any) => loan.month),
+      loanGroups: this.unwrapItems(raw.loanGrps, 'loanGrp')
+        .map((group: any) => ({
+          age: group.age ?? '',
+          gender: group.gender ?? '',
+          loanCount: Number.parseInt(String(group.loanCnt ?? '0'), 10) || 0,
+          ranking: Number.parseInt(String(group.ranking ?? '0'), 10) || 0,
+        }))
+        .filter((group: any) => group.age || group.gender),
+      keywords: this.unwrapItems(raw.keywords, 'keyword')
+        .map((keyword: any) => ({
+          word: keyword.word ?? '',
+          weight: Number.parseFloat(String(keyword.weight ?? '0')) || 0,
+        }))
+        .filter((keyword: any) => keyword.word)
+        .slice(0, 20),
       coLoanBooks: this.mapAnalysisBooks(this.unwrapItems(raw.coLoanBooks, 'book')).slice(0, 10),
-      maniaRecBooks: this.mapAnalysisBooks(this.unwrapItems(raw.maniaRecBooks, 'book')).slice(0, 10),
-      readerRecBooks: this.mapAnalysisBooks(this.unwrapItems(raw.readerRecBooks, 'book')).slice(0, 10),
+      maniaRecBooks: this.mapAnalysisBooks(this.unwrapItems(raw.maniaRecBooks, 'book')).slice(
+        0,
+        10
+      ),
+      readerRecBooks: this.mapAnalysisBooks(this.unwrapItems(raw.readerRecBooks, 'book')).slice(
+        0,
+        10
+      ),
     }
   }
 
   private mapAnalysisBooks(value: any) {
-    return this.toArray(value).map((book: any) => ({
-      isbn: book.isbn13 ?? '',
-      title: book.bookname?.trim() ?? '',
-      author: book.authors ?? null,
-      publisher: book.publisher ?? null,
-      publishedYear: book.publication_year ? Number.parseInt(book.publication_year, 10) || null : null,
-      coverUrl: book.bookImageURL ?? null,
-    })).filter((book: any) => book.isbn && book.title)
+    return this.toArray(value)
+      .map((book: any) => ({
+        isbn: book.isbn13 ?? '',
+        title: book.bookname?.trim() ?? '',
+        author: book.authors ?? null,
+        publisher: book.publisher ?? null,
+        publishedYear: book.publication_year
+          ? Number.parseInt(book.publication_year, 10) || null
+          : null,
+        coverUrl: book.bookImageURL ?? null,
+      }))
+      .filter((book: any) => book.isbn && book.title)
   }
 
   private mapTrendResults(value: any) {
@@ -526,7 +610,9 @@ export class JeongbonaruService {
   }
 
   private unwrapItems(value: any, key: string) {
-    return this.toArray(value).map((entry: any) => entry?.[key] ?? entry).filter(Boolean)
+    return this.toArray(value)
+      .map((entry: any) => entry?.[key] ?? entry)
+      .filter(Boolean)
   }
 
   private toArray<T>(value: T | T[] | undefined | null): T[] {
@@ -565,7 +651,7 @@ export class JeongbonaruService {
             if (part.type === 'year') return part.value
             if (part.type === 'month') return `${acc}-${part.value}`
             return acc
-          }, ''),
+          }, '')
       )
     }
 
@@ -585,7 +671,7 @@ export class JeongbonaruService {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',
-        }).format(date),
+        }).format(date)
       )
     }
 

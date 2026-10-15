@@ -66,7 +66,7 @@ export const BOOK_CATEGORY_GROUPS = [
   { code: '00', name: '컴퓨터·IT', description: '프로그래밍, AI, 데이터 분석, IT 트렌드 도서' },
 ] as const
 
-export type BookCategoryCode = typeof BOOK_CATEGORY_GROUPS[number]['code']
+export type BookCategoryCode = (typeof BOOK_CATEGORY_GROUPS)[number]['code']
 
 @Injectable()
 export class HomeCurationsService {
@@ -123,12 +123,18 @@ export class HomeCurationsService {
     ])
 
     return {
-      loanItemBooks: loanItems.status === 'fulfilled' ? loanItems.value : { refreshed: false, count: 0 },
-      hotTrendBooks: hotTrend.status === 'fulfilled' ? hotTrend.value : { refreshed: false, count: 0 },
+      loanItemBooks:
+        loanItems.status === 'fulfilled' ? loanItems.value : { refreshed: false, count: 0 },
+      hotTrendBooks:
+        hotTrend.status === 'fulfilled' ? hotTrend.value : { refreshed: false, count: 0 },
     }
   }
 
-  async getLibraryNewArrivals(libraryId: number, limit = 20, periodKey?: string): Promise<BookItem[]> {
+  async getLibraryNewArrivals(
+    libraryId: number,
+    limit = 20,
+    periodKey?: string
+  ): Promise<BookItem[]> {
     const rows = await this.findLibraryRows(libraryId, 'new_arrivals', limit, periodKey)
     return rows
       .filter((row) => row.isbn && row.title)
@@ -156,7 +162,9 @@ export class HomeCurationsService {
       .select({
         categoryCode: categoryCurations.categoryCode,
         count: sql<number>`count(*)::int`,
-        fetchedAt: sql<Date>`max(${categoryCurations.fetchedAt})`.mapWith(categoryCurations.fetchedAt),
+        fetchedAt: sql<Date>`max(${categoryCurations.fetchedAt})`.mapWith(
+          categoryCurations.fetchedAt
+        ),
       })
       .from(categoryCurations)
       .where(eq(categoryCurations.periodKey, latestPeriodKey))
@@ -171,14 +179,23 @@ export class HomeCurationsService {
     }))
   }
 
-  async getCategoryBooks(categoryCode: string, limit = 40, periodKey?: string): Promise<BookItem[]> {
-    const targetPeriodKey = periodKey ?? await this.findLatestCategoryPeriodKey(categoryCode)
+  async getCategoryBooks(
+    categoryCode: string,
+    limit = 40,
+    periodKey?: string
+  ): Promise<BookItem[]> {
+    const targetPeriodKey = periodKey ?? (await this.findLatestCategoryPeriodKey(categoryCode))
     if (!targetPeriodKey) return []
 
     const rows = await db
       .select()
       .from(categoryCurations)
-      .where(and(eq(categoryCurations.categoryCode, categoryCode), eq(categoryCurations.periodKey, targetPeriodKey)))
+      .where(
+        and(
+          eq(categoryCurations.categoryCode, categoryCode),
+          eq(categoryCurations.periodKey, targetPeriodKey)
+        )
+      )
       .orderBy(asc(categoryCurations.rank))
       .limit(limit)
 
@@ -197,10 +214,10 @@ export class HomeCurationsService {
 
   async refreshMonthlyKeywords(limit = 10, month = this.getPreviousMonthInKst()) {
     try {
-      const keywords = await this.jeongbonaru.getMonthlyKeywords(limit, month)
+      const keywords = await this.jeongbonaru.getMonthlyKeywords(limit, month, 'LOW')
       if (keywords.length === 0) {
         this.logger.warn(`monthly_keywords refresh skipped: empty response (${month})`)
-        return { refreshed: false, count: 0, periodKey: month }
+        return { refreshed: false, count: 0, periodKey: month, reason: 'empty' }
       }
 
       await this.replaceSection(
@@ -213,13 +230,18 @@ export class HomeCurationsService {
           word: item.word,
           weight: item.weight,
           sourceDate: month,
-        })),
+        }))
       )
 
       return { refreshed: true, count: keywords.length, periodKey: month }
     } catch (err) {
-      this.logger.warn(`monthly_keywords refresh failed: ${String(err)}`)
-      return { refreshed: false, count: 0, periodKey: month }
+      this.logger.warn('monthly_keywords refresh failed')
+      return {
+        refreshed: false,
+        count: 0,
+        periodKey: month,
+        reason: this.refreshFailureReason(err),
+      }
     }
   }
 
@@ -227,24 +249,40 @@ export class HomeCurationsService {
     const results = []
     for (const category of BOOK_CATEGORY_GROUPS) {
       results.push(await this.refreshCategoryCuration(category.code, limit, periodKey))
+      if (['quota', 'accounting-unavailable'].includes(results[results.length - 1].reason ?? ''))
+        break
     }
 
     return {
       refreshed: results.filter((result) => result.refreshed).length,
       skipped: results.filter((result) => !result.refreshed).length,
+      count: results.reduce((sum, result) => sum + result.count, 0),
+      reason:
+        results.find((result) => ['quota', 'accounting-unavailable'].includes(result.reason ?? ''))
+          ?.reason ?? (results.every((result) => result.reason === 'empty') ? 'empty' : undefined),
       periodKey,
     }
   }
 
-  async refreshCategoryCuration(categoryCode: BookCategoryCode, limit = 40, periodKey = this.getCurrentMonthInKst()) {
+  async refreshCategoryCuration(
+    categoryCode: BookCategoryCode,
+    limit = 40,
+    periodKey = this.getCurrentMonthInKst()
+  ) {
     const category = BOOK_CATEGORY_GROUPS.find((item) => item.code === categoryCode)
     if (!category) return { refreshed: false, count: 0, categoryCode, periodKey }
 
     try {
-      const books = await this.jeongbonaru.getLoanItemBooks(limit, { kdc: categoryCode, addCode: '0;1;2;9' })
+      const books = await this.jeongbonaru.getLoanItemBooks(limit, {
+        kdc: categoryCode,
+        addCode: '0;1;2;9',
+        priority: 'LOW',
+      })
       if (books.length === 0) {
-        this.logger.warn(`category_curations refresh skipped: empty response (${category.name}, ${periodKey})`)
-        return { refreshed: false, count: 0, categoryCode, periodKey }
+        this.logger.warn(
+          `category_curations refresh skipped: empty response (${category.name}, ${periodKey})`
+        )
+        return { refreshed: false, count: 0, categoryCode, periodKey, reason: 'empty' }
       }
 
       await this.replaceCategorySection(
@@ -262,22 +300,28 @@ export class HomeCurationsService {
           coverUrl: book.coverUrl,
           loanCount: book.loanCount,
           sourceDate: periodKey,
-        })),
+        }))
       )
 
       return { refreshed: true, count: books.length, categoryCode, periodKey }
     } catch (err) {
-      this.logger.warn(`category_curations refresh failed: ${category.name} (${String(err)})`)
-      return { refreshed: false, count: 0, categoryCode, periodKey }
+      this.logger.warn(`category_curations refresh failed: ${category.name}`)
+      return {
+        refreshed: false,
+        count: 0,
+        categoryCode,
+        periodKey,
+        reason: this.refreshFailureReason(err),
+      }
     }
   }
 
   async refreshLoanItemBooks(limit = 20, periodKey = this.getTodayInKst()) {
     try {
-      const books = await this.jeongbonaru.getLoanItemBooks(limit)
+      const books = await this.jeongbonaru.getLoanItemBooks(limit, { priority: 'LOW' })
       if (books.length === 0) {
         this.logger.warn(`loan_item_books refresh skipped: empty response (${periodKey})`)
-        return { refreshed: false, count: 0, periodKey }
+        return { refreshed: false, count: 0, periodKey, reason: 'empty' }
       }
 
       await this.replaceSection(
@@ -294,22 +338,22 @@ export class HomeCurationsService {
           coverUrl: book.coverUrl,
           loanCount: book.loanCount,
           sourceDate: periodKey,
-        })),
+        }))
       )
 
       return { refreshed: true, count: books.length, periodKey }
     } catch (err) {
-      this.logger.warn(`loan_item_books refresh failed: ${String(err)}`)
-      return { refreshed: false, count: 0, periodKey }
+      this.logger.warn('loan_item_books refresh failed')
+      return { refreshed: false, count: 0, periodKey, reason: this.refreshFailureReason(err) }
     }
   }
 
   async refreshHotTrendBooks(limit = 20, periodKey = this.getYesterdayInKst()) {
     try {
-      const books = await this.jeongbonaru.getHotTrendBooks(limit, periodKey)
+      const books = await this.jeongbonaru.getHotTrendBooks(limit, periodKey, 'LOW')
       if (books.length === 0) {
         this.logger.warn(`hot_trend_books refresh skipped: empty response (${periodKey})`)
-        return { refreshed: false, count: 0, periodKey }
+        return { refreshed: false, count: 0, periodKey, reason: 'empty' }
       }
 
       await this.replaceSection(
@@ -328,23 +372,31 @@ export class HomeCurationsService {
           baseWeekRank: book.baseWeekRank,
           pastWeekRank: book.pastWeekRank,
           sourceDate: periodKey,
-        })),
+        }))
       )
 
       return { refreshed: true, count: books.length, periodKey }
     } catch (err) {
-      this.logger.warn(`hot_trend_books refresh failed: ${String(err)}`)
-      return { refreshed: false, count: 0, periodKey }
+      this.logger.warn('hot_trend_books refresh failed')
+      return { refreshed: false, count: 0, periodKey, reason: this.refreshFailureReason(err) }
     }
   }
 
-  async refreshFeaturedLibraryNewArrivals(bookLimit = 40, libraryLimit = 12, periodKey = this.getCurrentMonthInKst()) {
+  async refreshFeaturedLibraryNewArrivals(
+    bookLimit = 40,
+    libraryLimit = 12,
+    periodKey = this.getCurrentMonthInKst()
+  ) {
     const results = []
     const pageSize = 100
     const maxPages = 5
 
-    for (let pageNo = 1; pageNo <= maxPages && results.filter((result) => result.refreshed).length < libraryLimit; pageNo++) {
-      const librariesFromApi = await this.jeongbonaru.listLibraries(pageNo, pageSize)
+    for (
+      let pageNo = 1;
+      pageNo <= maxPages && results.filter((result) => result.refreshed).length < libraryLimit;
+      pageNo++
+    ) {
+      const librariesFromApi = await this.jeongbonaru.listLibraries(pageNo, pageSize, 'LOW')
       if (librariesFromApi.length === 0) break
 
       for (const library of librariesFromApi) {
@@ -360,24 +412,48 @@ export class HomeCurationsService {
         if (!exists) continue
 
         results.push(await this.refreshLibraryNewArrivals(libraryId, bookLimit, periodKey))
+        if (['quota', 'accounting-unavailable'].includes(results[results.length - 1].reason ?? ''))
+          break
       }
 
       if (librariesFromApi.length < pageSize) break
+      if (
+        results.some((result) => ['quota', 'accounting-unavailable'].includes(result.reason ?? ''))
+      )
+        break
     }
 
     return {
       refreshed: results.filter((result) => result.refreshed).length,
       skipped: results.filter((result) => !result.refreshed).length,
+      count: results.reduce((sum, result) => sum + result.count, 0),
+      reason:
+        results.find((result) => ['quota', 'accounting-unavailable'].includes(result.reason ?? ''))
+          ?.reason ??
+        (results.length === 0 || results.every((result) => result.reason === 'empty')
+          ? 'empty'
+          : undefined),
       periodKey,
     }
   }
 
-  async refreshLibraryNewArrivals(libraryId: number, limit = 40, periodKey = this.getCurrentMonthInKst()) {
+  async refreshLibraryNewArrivals(
+    libraryId: number,
+    limit = 40,
+    periodKey = this.getCurrentMonthInKst()
+  ) {
     try {
-      const books: NewArrivalBookItem[] = await this.jeongbonaru.getLibraryNewArrivalBooks(libraryId, limit, periodKey)
+      const books: NewArrivalBookItem[] = await this.jeongbonaru.getLibraryNewArrivalBooks(
+        libraryId,
+        limit,
+        periodKey,
+        'LOW'
+      )
       if (books.length === 0) {
-        this.logger.warn(`new_arrivals refresh skipped: empty response (${libraryId}, ${periodKey})`)
-        return { refreshed: false, count: 0, libraryId, periodKey }
+        this.logger.warn(
+          `new_arrivals refresh skipped: empty response (${libraryId}, ${periodKey})`
+        )
+        return { refreshed: false, count: 0, libraryId, periodKey, reason: 'empty' }
       }
 
       await this.replaceLibrarySection(
@@ -396,18 +472,33 @@ export class HomeCurationsService {
           coverUrl: book.coverUrl,
           category: book.category,
           sourceDate: periodKey,
-        })),
+        }))
       )
 
       return { refreshed: true, count: books.length, libraryId, periodKey }
     } catch (err) {
-      this.logger.warn(`new_arrivals refresh failed: ${libraryId} (${String(err)})`)
-      return { refreshed: false, count: 0, libraryId, periodKey }
+      this.logger.warn(`new_arrivals refresh failed: ${libraryId}`)
+      return {
+        refreshed: false,
+        count: 0,
+        libraryId,
+        periodKey,
+        reason: this.refreshFailureReason(err),
+      }
     }
   }
 
+  private refreshFailureReason(error: unknown): string {
+    const message = (error as { message?: string } | null)?.message
+    return message === 'API_LIMIT_EXCEEDED'
+      ? 'quota'
+      : message === 'QUOTA_ACCOUNTING_UNAVAILABLE'
+        ? 'accounting-unavailable'
+        : 'upstream-or-storage'
+  }
+
   private async findRows(section: HomeCurationSection, limit: number, periodKey?: string) {
-    const targetPeriodKey = periodKey ?? await this.findLatestPeriodKey(section)
+    const targetPeriodKey = periodKey ?? (await this.findLatestPeriodKey(section))
     if (!targetPeriodKey) return []
 
     return db
@@ -422,9 +513,9 @@ export class HomeCurationsService {
     libraryId: number,
     section: LibraryCurationSection,
     limit: number,
-    periodKey?: string,
+    periodKey?: string
   ) {
-    const targetPeriodKey = periodKey ?? await this.findLatestLibraryPeriodKey(libraryId, section)
+    const targetPeriodKey = periodKey ?? (await this.findLatestLibraryPeriodKey(libraryId, section))
     if (!targetPeriodKey) return []
 
     return db
@@ -434,8 +525,8 @@ export class HomeCurationsService {
         and(
           eq(libraryCurations.libraryId, libraryId),
           eq(libraryCurations.section, section),
-          eq(libraryCurations.periodKey, targetPeriodKey),
-        ),
+          eq(libraryCurations.periodKey, targetPeriodKey)
+        )
       )
       .orderBy(asc(libraryCurations.rank))
       .limit(limit)
@@ -466,16 +557,16 @@ export class HomeCurationsService {
   private async findLatestCategoryPeriodKey(categoryCode?: string) {
     const [row] = categoryCode
       ? await db
-        .select({ periodKey: categoryCurations.periodKey })
-        .from(categoryCurations)
-        .where(eq(categoryCurations.categoryCode, categoryCode))
-        .orderBy(desc(categoryCurations.periodKey))
-        .limit(1)
+          .select({ periodKey: categoryCurations.periodKey })
+          .from(categoryCurations)
+          .where(eq(categoryCurations.categoryCode, categoryCode))
+          .orderBy(desc(categoryCurations.periodKey))
+          .limit(1)
       : await db
-        .select({ periodKey: categoryCurations.periodKey })
-        .from(categoryCurations)
-        .orderBy(desc(categoryCurations.periodKey))
-        .limit(1)
+          .select({ periodKey: categoryCurations.periodKey })
+          .from(categoryCurations)
+          .orderBy(desc(categoryCurations.periodKey))
+          .limit(1)
 
     return row?.periodKey
   }
@@ -483,7 +574,7 @@ export class HomeCurationsService {
   private async replaceSection(
     section: HomeCurationSection,
     periodKey: string,
-    rows: Array<typeof homeCurations.$inferInsert>,
+    rows: Array<typeof homeCurations.$inferInsert>
   ) {
     await db.transaction(async (tx) => {
       await tx
@@ -498,7 +589,7 @@ export class HomeCurationsService {
     libraryId: number,
     section: LibraryCurationSection,
     periodKey: string,
-    rows: Array<typeof libraryCurations.$inferInsert>,
+    rows: Array<typeof libraryCurations.$inferInsert>
   ) {
     await db.transaction(async (tx) => {
       await tx
@@ -507,8 +598,8 @@ export class HomeCurationsService {
           and(
             eq(libraryCurations.libraryId, libraryId),
             eq(libraryCurations.section, section),
-            eq(libraryCurations.periodKey, periodKey),
-          ),
+            eq(libraryCurations.periodKey, periodKey)
+          )
         )
 
       await tx.insert(libraryCurations).values(rows)
@@ -518,12 +609,17 @@ export class HomeCurationsService {
   private async replaceCategorySection(
     categoryCode: string,
     periodKey: string,
-    rows: Array<typeof categoryCurations.$inferInsert>,
+    rows: Array<typeof categoryCurations.$inferInsert>
   ) {
     await db.transaction(async (tx) => {
       await tx
         .delete(categoryCurations)
-        .where(and(eq(categoryCurations.categoryCode, categoryCode), eq(categoryCurations.periodKey, periodKey)))
+        .where(
+          and(
+            eq(categoryCurations.categoryCode, categoryCode),
+            eq(categoryCurations.periodKey, periodKey)
+          )
+        )
 
       await tx.insert(categoryCurations).values(rows)
     })

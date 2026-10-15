@@ -8,7 +8,11 @@
     },
     "dev": { "cache": false, "persistent": true },
     "lint": { "outputs": [] },
-    "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] },
+    "test": {
+      "dependsOn": ["^build"],
+      "env": ["NEARBOOK_QUOTA_TEST_DATABASE_URL"],
+      "outputs": ["coverage/**"]
+    },
     "type-check": { "dependsOn": ["^build"], "outputs": [] },
     "clean": { "cache": false }
   }
