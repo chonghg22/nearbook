@@ -69,6 +69,9 @@ export function parseSearchResult(value: unknown): ApiResponse<SearchResult> {
     return value.map(requiredText)
   }
   const durationMs = row.durationMs === undefined ? undefined : count(row.durationMs)
+  for (const key of ['enrichmentPending', 'enrichmentFailed']) {
+    if (row[key] !== undefined && typeof row[key] !== 'boolean') throw new ApiRequestError('invalid-response')
+  }
   return {
     data: {
       items,
@@ -76,6 +79,8 @@ export function parseSearchResult(value: unknown): ApiResponse<SearchResult> {
       page,
       pageSize,
       ...(durationMs === undefined ? {} : { durationMs }),
+      ...(row.enrichmentPending === undefined ? {} : { enrichmentPending: row.enrichmentPending as boolean }),
+      ...(row.enrichmentFailed === undefined ? {} : { enrichmentFailed: row.enrichmentFailed as boolean }),
       ...(row.suggestions === undefined ? {} : { suggestions: strings(row.suggestions)! }),
       ...(row.trending === undefined ? {} : { trending: strings(row.trending)! }),
     },

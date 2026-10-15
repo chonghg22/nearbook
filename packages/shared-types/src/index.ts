@@ -42,6 +42,8 @@ export interface SearchResult {
   page: number
   pageSize: number
   durationMs?: number
+  enrichmentPending?: boolean
+  enrichmentFailed?: boolean
   suggestions?: string[]
   trending?: string[]
 }

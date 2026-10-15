@@ -213,6 +213,19 @@ describe('40 representative queries against the real Orama index', () => {
     expect(result.total).toBe(1)
     expect(result.hits[0]).toMatchObject({ isbn: '080442957X' })
   })
+  it('tracks real index upserts and rebuilds so service caches can invalidate', async () => {
+    const before = service.revision
+    await service.upsertMany([])
+    expect(service.revision).toBe(before)
+    await service.upsertOne(book(901, '새로 색인된 책'))
+    expect(service.revision).toBeGreaterThan(before)
+    const one = service.revision
+    await service.upsertMany([book(902, '두 번째 색인된 책')])
+    expect(service.revision).toBeGreaterThan(one)
+    const many = service.revision
+    await service.fullRebuild()
+    expect(service.revision).toBeGreaterThan(many)
+  })
 })
 
 describe('query and edition semantics', () => {

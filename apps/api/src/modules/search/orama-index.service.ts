@@ -26,6 +26,8 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
   private readonly logger = new Logger(OramaIndexService.name)
   private index!: AnyOrama
   private dirtyCount = 0
+  private indexRevision = 0
+  get revision(): number { return this.indexRevision }
   private readonly indexPath = process.env.SEARCH_INDEX_PATH || '/data/orama-books.msgpack'
 
   async onApplicationBootstrap() {
@@ -58,6 +60,7 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
   }
 
   async fullRebuild() {
+    this.indexRevision++
     // Re-create a fresh index to avoid duplicates
     this.index = create({
       schema: SCHEMA,
@@ -72,22 +75,27 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
       const rows = await db.select().from(bookCache).limit(batchSize).offset(offset)
       if (rows.length === 0) break
 
-      await insertMultiple(this.index, rows.map(this.toDoc))
+      try { await insertMultiple(this.index, rows.map(this.toDoc)) }
+      finally { this.indexRevision++ }
       offset += batchSize
       total += rows.length
     }
 
     this.dirtyCount = total
+    this.indexRevision++
     await this.persist()
     this.logger.log(`Rebuilt index with ${total} docs`)
   }
 
   async upsertOne(book: any) {
+    this.indexRevision++
     const doc = this.toDoc(book)
     try {
       await upsert(this.index, doc)
     } catch {
       await insert(this.index, doc)
+    } finally {
+      this.indexRevision++
     }
     this.dirtyCount++
     if (this.dirtyCount >= 50) await this.persist()
@@ -95,12 +103,17 @@ export class OramaIndexService implements OnApplicationBootstrap, OnApplicationS
 
   async upsertMany(books: any[]) {
     if (books.length === 0) return
-    for (const book of books) {
-      try {
-        await upsert(this.index, this.toDoc(book))
-      } catch {
-        await insert(this.index, this.toDoc(book))
+    this.indexRevision++
+    try {
+      for (const book of books) {
+        try {
+          await upsert(this.index, this.toDoc(book))
+        } catch {
+          await insert(this.index, this.toDoc(book))
+        }
       }
+    } finally {
+      this.indexRevision++
     }
     this.dirtyCount += books.length
     if (this.dirtyCount >= 50) await this.persist()

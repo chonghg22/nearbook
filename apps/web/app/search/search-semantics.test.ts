@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { SWRConfig } from 'swr'
 import { SearchPageInner } from './_components/search-page-inner'
@@ -45,6 +45,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   fetchMock.mockReset()
 })
@@ -117,6 +118,7 @@ it('shows distinct ISBNs and title-evidence edition badges without inventing reg
   expect(screen.getAllByTitle('지은이: 한강')[0]?.textContent).toBe('한강 · 창비')
 })
 it('filter navigation preserves query/type and resets the page before the next request', async () => {
+  fetchMock.mockImplementation(async () => Response.json({ data: { items, total: 30, page: 3, pageSize: 10 } }))
   mount('q=한강&page=3')
   await screen.findByRole('link', { name: /ISBN 9788936434120/ })
   fireEvent.change(screen.getByRole('combobox', { name: '검색 유형' }), {
@@ -145,4 +147,72 @@ it('new API failures are still errors, not a normal empty search', async () => {
     '검색 결과가 없다는 뜻은 아닙니다'
   )
   expect(screen.queryByText('검색 결과가 없어요.')).toBeNull()
+})
+
+it('initial loading never displays a confirmed zero or empty message', () => {
+  fetchMock.mockImplementation(() => new Promise(() => {}))
+  mount('q=제목')
+  expect(screen.getByText(/검색 중/)).toBeDefined()
+  expect(screen.queryByText(/검색결과 0건/)).toBeNull()
+  expect(screen.queryByText('검색 결과가 없어요.')).toBeNull()
+})
+it('cold enrichment polls then shows results without an interim false zero', async () => {
+  vi.useFakeTimers()
+  fetchMock.mockImplementationOnce(async () => Response.json({ data: { items: [], total: 0, page: 1, pageSize: 10, enrichmentPending: true } }))
+  await act(async () => { mount('q=새로운+제목') })
+  expect(screen.getByRole('status').textContent).toContain('확인하고 있습니다')
+  expect(screen.queryByText(/검색결과 0건/)).toBeNull()
+  expect(screen.queryByText('검색 결과가 없어요.')).toBeNull()
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(screen.getByRole('link', { name: /ISBN 9788936434120/ })).toBeDefined()
+  expect(screen.queryByRole('status')).toBeNull()
+  await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+})
+it('polling is capped at 15 and stops on unmount, with manual retry available', async () => {
+  vi.useFakeTimers()
+  fetchMock.mockImplementation(async () => Response.json({ data: { items: [], total: 0, page: 1, pageSize: 10, enrichmentPending: true } }))
+  let view!: ReturnType<typeof mount>
+  await act(async () => { view = mount('q=지연+제목') })
+  for (let i = 0; i < 15; i++) await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+  expect(fetchMock).toHaveBeenCalledTimes(16)
+  expect(screen.getByRole('status').textContent).toContain('지연되고 있습니다')
+  await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+  expect(fetchMock).toHaveBeenCalledTimes(16)
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: '다시 시도' })) })
+  expect(fetchMock).toHaveBeenCalledTimes(17)
+  view.unmount()
+  await act(async () => { await vi.advanceTimersByTimeAsync(10_000) })
+  expect(fetchMock).toHaveBeenCalledTimes(17)
+})
+it('provider failure after a cold search shows retry, not absence', async () => {
+  fetchMock.mockImplementation(async () => Response.json({ data: { items: [], total: 0, page: 1, pageSize: 10, enrichmentFailed: true } }))
+  mount('q=실패+제목')
+  expect((await screen.findByRole('alert')).textContent).toContain('검색 결과가 없다는 뜻은 아닙니다')
+  expect(screen.getByRole('button', { name: '다시 시도' })).toBeDefined()
+  expect(screen.queryByText('검색 결과가 없어요.')).toBeNull()
+})
+it('valid completed zero remains an empty search rather than an error', async () => {
+  fetchMock.mockImplementation(async () => Response.json({ data: { items: [], total: 0, page: 1, pageSize: 10, enrichmentPending: false } }))
+  mount('q=완료+제목')
+  expect(await screen.findByText('검색 결과가 없어요.')).toBeDefined()
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+it('out-of-range old bookmarks offer first-page navigation, not book absence', async () => {
+  fetchMock.mockImplementation(async () => Response.json({ data: { items: [], total: 3, page: 99, pageSize: 10 } }))
+  mount('q=한강&page=99')
+  const first = await screen.findByRole('button', { name: '첫 페이지로 돌아가기' })
+  expect(screen.queryByText('검색 결과가 없어요.')).toBeNull()
+  expect(screen.queryByRole('navigation', { name: '페이지 네비게이션' })).toBeNull()
+  fireEvent.click(first)
+  expect(new URL(navigation.push.mock.calls[0]?.[0], 'https://example.test').searchParams.get('page')).toBe('1')
+})
+it('page count is based on returned index total and invalid page input defaults to one', async () => {
+  fetchMock.mockImplementation(async () => Response.json({ data: { items, total: 11, page: 1, pageSize: 10 } }))
+  mount('q=한강&page=NaN')
+  await screen.findByRole('link', { name: /ISBN 9788936434120/ })
+  expect(new URL(String(fetchMock.mock.calls[0]?.[0]), 'https://example.test').searchParams.get('page')).toBe('1')
+  expect(screen.getByRole('button', { name: '2 페이지' })).toBeDefined()
+  expect(screen.queryByRole('button', { name: '3 페이지' })).toBeNull()
 })

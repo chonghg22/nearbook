@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
-import { db, bookCache, searchLogs, sql, ilike, searchStats, and, eq } from '@nearbook/db'
+import { db, searchLogs, sql } from '@nearbook/db'
+import { LRUCache } from 'lru-cache'
 import { OramaIndexService } from './orama-index.service'
 import { AladdinFallbackService } from './aladdin-fallback.service'
 import { SearchQueryDto } from './dto/search-query.dto'
@@ -16,9 +17,10 @@ const POPULAR_QUERIES_FALLBACK = [
 @Injectable()
 export class SearchService {
   private readonly logger = new Logger(SearchService.name)
-  private cache = new Map<string, { data: SearchResultDto; expiresAt: number }>()
+  private cache = new LRUCache<string, { data: SearchResultDto; revision: number }>({ max: 500, ttl: 60_000 })
   private trendingCache: { items: string[]; at: number } | null = null
-  private naruSyncCache = new Map<string, number>() // keyword -> timestamp
+  private enrichmentState = new LRUCache<string, { failed: boolean }>({ max: 500, ttl: 3600_000 })
+  private enrichmentInFlight = new Map<string, Promise<void>>()
 
   constructor(
     private readonly orama: OramaIndexService,
@@ -75,13 +77,16 @@ export class SearchService {
     const pageSize = typeof query.pageSize === 'number' && !isNaN(query.pageSize) ? query.pageSize : 10
 
     const cacheKey = JSON.stringify({ q: query.q, sort: query.sort, category: query.category, searchType: query.searchType, page, pageSize })
+    this.cache.purgeStale()
+    this.enrichmentState.purgeStale()
     const cached = this.cache.get(cacheKey)
-    if (cached && cached.expiresAt > Date.now()) return cached.data
+    if (cached && cached.revision === this.orama.revision) return cached.data
 
     try {
       this.logger.log(`[Search] Query: "${query.q}" (Page: ${page})`)
 
-      let r = await this.orama.query({
+      const revision = this.orama.revision
+      const r = await this.orama.query({
         q: query.q,
         limit: pageSize,
         offset: (page - 1) * pageSize,
@@ -90,95 +95,41 @@ export class SearchService {
         searchType: query.searchType,
       })
 
-      // [정보나루 지능형 동기 보충]
-      const lastSyncKey = `${query.searchType}:${query.q}:${page}`
-      const lastSync = this.naruSyncCache.get(lastSyncKey) || 0
-      const isExpired = Date.now() - lastSync > 3600_000 // 1시간 경과
-
-      // DB에서 기존 통계(총 수량) 확인
-      const stats = await db.query.searchStats.findFirst({
-        where: and(
-          eq(searchStats.query, query.q),
-          eq(searchStats.searchType, query.searchType || 'all')
-        )
-      })
-
-      let remoteTotal = query.searchType === 'isbn' ? r.total : Math.max(stats?.remoteTotal ?? 0, r.total)
-
-      // 1. 첫 검색인데 로컬 결과가 너무 적거나
-      // 2. 페이지를 넘겼는데 로컬 결과가 없거나
-      // 3. 로컬 결과가 저장된 리모트 총 건수보다 많아진 경우 (통계 데이터 정합성 깨짐)
-      // 4. 마지막 동기화 후 시간이 많이 흘렀을 때
-      const isFirstPageUnderpopulated = page === 1 && r.total < 60
-      const isTargetPageEmpty = r.hits.length < pageSize && r.total < remoteTotal
-      const isStatsInconsistent = r.total > (stats?.remoteTotal ?? 0)
-
-      if (query.searchType === 'isbn' && r.total === 0) {
-        const book = await this.jeongbonaru.getBookByIsbn(query.q)
-        if (book?.isbn === query.q) {
-          await this.orama.upsertMany([book])
-          r = await this.orama.query({ q: query.q, searchType: 'isbn', limit: pageSize, offset: (page - 1) * pageSize, category: query.category, sort: query.sort })
-        }
-        remoteTotal = r.total
-      } else if (query.searchType !== 'isbn' && query.q.length >= 2 && (isExpired || isStatsInconsistent) && (isFirstPageUnderpopulated || isTargetPageEmpty || isStatsInconsistent)) {
-        this.logger.log(`[Search] Naru Deep Sync for "${query.q}" P${page} (local: ${r.total}, remote: ${remoteTotal}, inconsistent: ${isStatsInconsistent})`)
-        this.naruSyncCache.set(lastSyncKey, Date.now())
-        
-        const syncSize = page === 1 ? 60 : 40
-        const naruRes = await this.jeongbonaru.searchAndCacheBooks(query.q, page, syncSize, query.searchType)
-        
-        // 정보나루에서 알려준 최신 총 수량 반영
-        remoteTotal = Math.max(naruRes.total, r.total)
-
-        if (naruRes.items.length > 0) {
-          await this.orama.upsertMany(naruRes.items)
-          // 데이터 보충 후 재검색
-          r = await this.orama.query({
-            q: query.q,
-            limit: pageSize,
-            offset: (page - 1) * pageSize,
-            category: query.category,
-            sort: query.sort,
-            searchType: query.searchType,
-          })
-          remoteTotal = Math.max(remoteTotal, r.total)
-        }
-      }
-
-      const items = r.hits as any[]
-
-      // 알라딘은 항상 백그라운드로 캐시만 채움 (응답 블로킹 없음)
-      const shouldFetchAladdin = page === 1 && query.q.length >= 2 && query.searchType !== 'isbn'
-      if (shouldFetchAladdin) {
-        this.aladdin.searchAndCache(query.q, query.searchType)
-          .then((h) => { if (h.length > 0) return this.orama.upsertMany(h) })
-          .catch(() => {})
-      }
-
-      // zero result 로그 (fire-and-forget)
-      if (items.length === 0) {
-        db.insert(searchLogs).values({ query: query.q, resultCount: 0, region: null }).catch(() => {})
-      } else {
-        this.logSearch(query, r.total).catch(() => {})
-      }
+      // Provider pages (60/40 rows) do not correspond to local ten-row pages.
+      // Fill one bounded first provider page per query/type; never advertise
+      // unindexed remote totals or trigger downloads from arbitrary page URLs.
+      const enrichmentKey = JSON.stringify([query.searchType, query.q])
+      const eligible = query.searchType === 'isbn' ? r.total === 0 : query.q.length >= 2
+      if (eligible) this.enrich(enrichmentKey, query)
+      const state = this.enrichmentState.get(enrichmentKey)
+      const enrichmentPending = r.total === 0 && eligible &&
+        (this.enrichmentInFlight.has(enrichmentKey) || !state)
+      const items = r.hits as unknown as SearchResultDto['items']
 
       const result: SearchResultDto = {
         items,
-        total: remoteTotal,
+        total: r.total,
         page,
         pageSize,
         source: 'orama',
         durationMs: Date.now() - start,
         personalized: false,
         personalizeReason: 'disabled',
+        enrichmentPending,
+        enrichmentFailed: r.total === 0 && !enrichmentPending && state?.failed === true,
       }
+
+      if (!enrichmentPending && !result.enrichmentFailed) this.logSearch(query, r.total).catch(() => {})
 
       if (items.length === 0) {
-        result.suggestions = await this.findSimilar(query.q).catch(() => [])
-        result.trending = await this.getTrending(5).catch(() => [])
+        // Optional discovery must not introduce a database wait into search.
+        result.suggestions = []
+        result.trending = POPULAR_QUERIES_FALLBACK.slice(0, 5)
       }
 
-      this.cache.set(cacheKey, { data: result, expiresAt: Date.now() + 60_000 })
+      if (!enrichmentPending && !result.enrichmentFailed && !this.enrichmentInFlight.has(enrichmentKey) && revision === this.orama.revision) {
+        this.cache.set(cacheKey, { data: result, revision })
+      }
       return result
     } catch (err: any) {
       this.logger.error(
@@ -189,6 +140,41 @@ export class SearchService {
       // must retain its error/retry path rather than falsely claiming absence.
       throw new ServiceUnavailableException('Search is temporarily unavailable')
     }
+  }
+
+  private enrich(key: string, query: SearchQueryDto): void {
+    if (this.enrichmentInFlight.has(key) || this.enrichmentState.has(key) || this.enrichmentInFlight.size >= 16) return
+    // Reserve the slot before invoking providers so simultaneous requests coalesce.
+    const task = Promise.resolve().then(async () => {
+      let failed = false
+      const naru = async () => {
+        try {
+          if (query.searchType === 'isbn') {
+            const book = await this.jeongbonaru.getBookByIsbn(query.q)
+            if (book && book.isbn !== query.q) throw new Error('Invalid ISBN metadata')
+            if (book?.isbn === query.q) await this.orama.upsertMany([book])
+          } else {
+            const result = await this.jeongbonaru.searchAndCacheBooks(query.q, 1, 60, query.searchType)
+            if (result.items.length) await this.orama.upsertMany(result.items)
+          }
+        } catch { failed = true }
+      }
+      const aladdin = async () => {
+        if (query.searchType === 'isbn') return
+        try {
+          const books = await this.aladdin.searchAndCache(query.q, query.searchType)
+          if (books.length) await this.orama.upsertMany(books)
+        } catch { /* Secondary enrichment failure must not discard local results. */ }
+      }
+      await Promise.all([naru(), aladdin()])
+      this.enrichmentState.set(key, { failed }, { ttl: failed ? 30_000 : 3600_000 })
+    }).catch(() => {
+      this.enrichmentState.set(key, { failed: true }, { ttl: 30_000 })
+    }).finally(() => {
+      this.enrichmentInFlight.delete(key)
+      this.cache.clear()
+    })
+    this.enrichmentInFlight.set(key, task)
   }
 
   async suggest(q: string) {
@@ -202,16 +188,4 @@ export class SearchService {
     await db.insert(searchLogs).values({ query: query.q, resultCount, region: null }).catch(() => {})
   }
 
-  private async findSimilar(q: string): Promise<string[]> {
-    try {
-      const rows = await db
-        .select({ title: bookCache.title })
-        .from(bookCache)
-        .where(ilike(bookCache.title, `%${q}%`))
-        .limit(5)
-      return rows.map(r => r.title)
-    } catch {
-      return []
-    }
-  }
 }
