@@ -126,14 +126,14 @@ export function LocationModal({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
         <Dialog.Content
-          style={{ maxHeight: viewport?.height, '--visual-viewport-bottom': `${viewport?.bottom ?? 0}px` } as CSSProperties}
+          style={{ maxHeight: viewport?.height, '--visual-viewport-bottom': `${viewport?.bottom ?? 0}px`, ...(viewport && { '--visual-viewport-center': `${viewport.center}px` }) } as CSSProperties}
           onCloseAutoFocus={(event) => {
             if (returnFocusRef?.current) {
               event.preventDefault()
               returnFocusRef.current.focus()
             }
           }}
-          className="fixed inset-x-0 bottom-[var(--visual-viewport-bottom,0px)] z-50 flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
+          className="fixed inset-x-0 bottom-[var(--visual-viewport-bottom,0px)] z-50 flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:inset-x-auto sm:left-1/2 sm:top-[var(--visual-viewport-center,50%)] sm:bottom-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
         >
           {/* 헤더 */}
           <div className="flex items-center justify-between px-4 py-3 border-b">

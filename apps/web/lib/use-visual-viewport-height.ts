@@ -4,7 +4,12 @@ import { useEffect, useState } from 'react'
 
 // dvh alone need not shrink when a mobile keyboard covers the visual viewport.
 export function useVisualViewportHeight(open: boolean) {
-  const [bounds, setBounds] = useState<{ height: number; top: number; bottom: number }>()
+  const [bounds, setBounds] = useState<{
+    height: number
+    top: number
+    bottom: number
+    center: number
+  }>()
   useEffect(() => {
     if (!open) return
     const viewport = window.visualViewport
@@ -13,6 +18,7 @@ export function useVisualViewportHeight(open: boolean) {
       setBounds({
         height: Math.max(0, viewport.height - 16),
         top: viewport.offsetTop,
+        center: viewport.offsetTop + viewport.height / 2,
         bottom: Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop),
       })
     update()

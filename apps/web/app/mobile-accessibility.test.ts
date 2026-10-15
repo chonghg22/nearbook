@@ -245,6 +245,7 @@ it('location sheet moves above the keyboard; manual selection restores focus wit
   })
   expect(dialog.style.maxHeight).toBe('304px')
   expect(dialog.style.getPropertyValue('--visual-viewport-bottom')).toBe('480px')
+  expect(dialog.style.getPropertyValue('--visual-viewport-center')).toBe('160px')
   fireEvent.click(within(dialog).getByRole('button', { name: '부산광역시' }))
   fireEvent.click(within(dialog).getByRole('button', { name: '부산 중심' }))
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
