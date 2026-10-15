@@ -1,40 +1,43 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { HomeCurationsService } from './home-curations.service'
+import { JobStatusService, CURATION_JOBS } from '../operations/job-status.service'
 
 @Injectable()
 export class HomeCurationsCron {
-  private readonly logger = new Logger(HomeCurationsCron.name)
+  constructor(
+    private readonly homeCurations: HomeCurationsService,
+    private readonly jobs: JobStatusService
+  ) {}
 
-  constructor(private readonly homeCurations: HomeCurationsService) {}
-
-  @Cron('10 3 * * *', { timeZone: 'Asia/Seoul' })
+  @Cron(CURATION_JOBS['curation:loan'], { name: 'curation:loan', timeZone: 'Asia/Seoul' })
   async refreshLoanItemBooks() {
-    const result = await this.homeCurations.refreshLoanItemBooks(20)
-    this.logger.log(`loan_item_books refresh result: ${JSON.stringify(result)}`)
+    await this.jobs.run('curation:loan', () => this.homeCurations.refreshLoanItemBooks(20))
   }
-
-  @Cron('20 3 * * *', { timeZone: 'Asia/Seoul' })
+  @Cron(CURATION_JOBS['curation:trend'], { name: 'curation:trend', timeZone: 'Asia/Seoul' })
   async refreshHotTrendBooks() {
-    const result = await this.homeCurations.refreshHotTrendBooks(20)
-    this.logger.log(`hot_trend_books refresh result: ${JSON.stringify(result)}`)
+    await this.jobs.run('curation:trend', () => this.homeCurations.refreshHotTrendBooks(20))
   }
-
-  @Cron('30 3 1 * *', { timeZone: 'Asia/Seoul' })
+  @Cron(CURATION_JOBS['curation:keywords'], { name: 'curation:keywords', timeZone: 'Asia/Seoul' })
   async refreshMonthlyKeywords() {
-    const result = await this.homeCurations.refreshMonthlyKeywords(10)
-    this.logger.log(`monthly_keywords refresh result: ${JSON.stringify(result)}`)
+    await this.jobs.run('curation:keywords', () => this.homeCurations.refreshMonthlyKeywords(10))
   }
-
-  @Cron('35 3 * * *', { timeZone: 'Asia/Seoul' })
+  @Cron(CURATION_JOBS['curation:categories'], {
+    name: 'curation:categories',
+    timeZone: 'Asia/Seoul',
+  })
   async refreshCategoryCurations() {
-    const result = await this.homeCurations.refreshCategoryCurations(40)
-    this.logger.log(`category_curations refresh result: ${JSON.stringify(result)}`)
+    await this.jobs.run('curation:categories', () =>
+      this.homeCurations.refreshCategoryCurations(40)
+    )
   }
-
-  @Cron('40 3 * * *', { timeZone: 'Asia/Seoul' })
+  @Cron(CURATION_JOBS['curation:new-arrivals'], {
+    name: 'curation:new-arrivals',
+    timeZone: 'Asia/Seoul',
+  })
   async refreshFeaturedLibraryNewArrivals() {
-    const result = await this.homeCurations.refreshFeaturedLibraryNewArrivals(40, 12)
-    this.logger.log(`new_arrivals refresh result: ${JSON.stringify(result)}`)
+    await this.jobs.run('curation:new-arrivals', () =>
+      this.homeCurations.refreshFeaturedLibraryNewArrivals(40, 12)
+    )
   }
 }

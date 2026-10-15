@@ -16,7 +16,7 @@ describe('AppController', () => {
         {
           provide: JeongbonaruClient,
           useValue: {
-            getStatus: () => ({
+            getLocalStatus: () => ({
               called: 0,
               limit: 500,
               remaining: 500,

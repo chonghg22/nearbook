@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common'
+import { Controller, Get, Query, Header } from '@nestjs/common'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { JeongbonaruClient } from './jeongbonaru.client'
 
@@ -147,6 +147,7 @@ export class JeongbonaruProxyController {
 
   /** API 호출 현황 */
   @Get('status')
+  @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'API 호출량 현황' })
   async status() {
     return this.client.getStatus()

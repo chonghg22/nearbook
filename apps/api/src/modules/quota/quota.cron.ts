@@ -2,25 +2,35 @@ import { Injectable, Logger } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import { QuotaService } from './quota.service'
 
+/** Observation/logs only. Never activates the previously dormant Discord sender. */
 @Injectable()
 export class QuotaCron {
   private readonly logger = new Logger(QuotaCron.name)
-
+  private running = false
+  private previousMode: string | null = null
   constructor(private readonly quota: QuotaService) {}
-
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_MINUTE, { name: 'quota:observe' })
   async checkThresholds() {
+    if (this.running) return
+    this.running = true
     try {
-      await this.quota.checkAndNotifyThresholds('jeongbonaru', true)
-      await this.quota.checkAbuse('jeongbonaru')
-    } catch (err) {
-      this.logger.error('quota cron failed', err as Error)
+      const status = await this.quota.getStatus()
+      if (status.mode !== this.previousMode) {
+        this.logger.log(
+          JSON.stringify({
+            event: 'quota-mode',
+            mode: status.mode,
+            called: status.called,
+            limit: status.limit,
+          })
+        )
+        this.previousMode = status.mode
+      }
+    } catch {
+      this.logger.error('quota observation failed')
+      this.previousMode = 'unavailable'
+    } finally {
+      this.running = false
     }
-  }
-
-  // 한국 자정 — day marker 리셋
-  @Cron('0 0 * * *', { timeZone: 'Asia/Seoul' })
-  resetMarkers() {
-    this.quota.resetDayMarkers()
   }
 }

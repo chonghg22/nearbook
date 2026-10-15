@@ -6,7 +6,7 @@ import { CacheService } from './common/cache/cache.service'
 export class AppController {
   constructor(
     private readonly jeongbonaru: JeongbonaruClient,
-    private readonly cache: CacheService,
+    private readonly cache: CacheService
   ) {}
 
   @Get('health')
@@ -14,7 +14,7 @@ export class AppController {
     return {
       status: 'ok',
       time: new Date().toISOString(),
-      jeongbonaru: this.jeongbonaru.getStatus(),
+      jeongbonaru: this.jeongbonaru.getLocalStatus(),
       cache: { memorySize: this.cache.size },
     }
   }

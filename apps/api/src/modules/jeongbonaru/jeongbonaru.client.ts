@@ -1,128 +1,121 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
+import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import axios, { AxiosInstance, isAxiosError } from 'axios'
-import { db, apiUsage } from '@nearbook/db'
+import { QuotaService } from '../quota/quota.service'
+import { Priority, positiveInteger } from '../quota/quota-policy'
+
+type RequestOptions = { timeoutMs?: number; priority?: Priority }
 
 @Injectable()
 export class JeongbonaruClient implements OnModuleInit {
   private readonly logger = new Logger(JeongbonaruClient.name)
   private client!: AxiosInstance
-  private dailyCallCount = 0
-  private DAILY_LIMIT = 30000
-  private TIMEOUT_MS = 30000
-
-  constructor(private readonly config: ConfigService) {}
-
+  private timeoutMs = 30000
+  private authKey: string | undefined
+  private readonly inflight = new Map<string, Promise<unknown>>()
+  constructor(
+    private readonly config: ConfigService,
+    private readonly quota: QuotaService
+  ) {}
   onModuleInit(): void {
-    const authKey = this.config.get<string>('JEONGBONARU_API_KEY')
-    if (!authKey) {
-      this.logger.warn('JEONGBONARU_API_KEY 미설정 — API 호출은 모두 실패한다')
-    }
-    this.DAILY_LIMIT =
-      this.config.get<number>('JEONGBONARU_DAILY_LIMIT') ?? 30_000
-    this.TIMEOUT_MS =
-      this.config.get<number>('JEONGBONARU_TIMEOUT_MS') ?? 30_000
-
+    this.authKey = this.config.get<string>('JEONGBONARU_API_KEY')
+    if (!this.authKey) this.logger.warn('JEONGBONARU_API_KEY missing; provider dispatch disabled')
+    this.timeoutMs = positiveInteger(this.config.get('JEONGBONARU_TIMEOUT_MS'), 30000)
     this.client = axios.create({
       baseURL: 'https://www.data4library.kr/api',
-      params: {
-        authKey,
-        format: 'json',
-      },
-      timeout: this.TIMEOUT_MS,
+      timeout: this.timeoutMs,
     })
   }
 
-  /**
-   * 정보나루 GET 호출. 호출량 추적 + api_usage 로깅.
-   * 한도 도달 시 Error('API_LIMIT_EXCEEDED')
-   */
-  async get<T>(
+  get<T>(
     endpoint: string,
     params: Record<string, unknown> = {},
-    options: { timeoutMs?: number } = {},
+    options: RequestOptions = {}
   ): Promise<T> {
-    if (this.dailyCallCount >= this.DAILY_LIMIT) {
-      this.logger.warn(
-        `API limit reached: ${this.dailyCallCount}/${this.DAILY_LIMIT}`,
-      )
-      throw new Error('API_LIMIT_EXCEEDED')
+    if (!/^\/[a-zA-Z][a-zA-Z0-9]*$/.test(endpoint))
+      return Promise.reject(new Error('INVALID_PROVIDER_ENDPOINT'))
+    if (!this.authKey) return Promise.reject(new Error('PROVIDER_NOT_CONFIGURED'))
+    const priority = options.priority ?? 'HIGH'
+    if (priority !== 'HIGH' && priority !== 'LOW')
+      return Promise.reject(new Error('INVALID_PROVIDER_PRIORITY'))
+    const timeoutMs = Math.min(this.timeoutMs, positiveInteger(options.timeoutMs, this.timeoutMs))
+    // User-supplied proxy query params must not override the configured key or JSON envelope.
+    const safeParams = { ...params }
+    delete safeParams.authKey
+    delete safeParams.format
+    const key = JSON.stringify([
+      endpoint,
+      priority,
+      timeoutMs,
+      Object.keys(safeParams)
+        .sort()
+        .map((name) => [name, safeParams[name]]),
+    ])
+    const existing = this.inflight.get(key)
+    if (existing) return existing as Promise<T>
+    const request = this.dispatch<T>(endpoint, safeParams, priority, timeoutMs)
+    // Bounded single-flight only, no new long-lived content/PII cache.
+    if (this.inflight.size < 500) {
+      this.inflight.set(key, request)
+      void request
+        .finally(() => {
+          if (this.inflight.get(key) === request) this.inflight.delete(key)
+        })
+        .catch(() => {})
     }
+    return request
+  }
 
-    if (
-      this.dailyCallCount > 0 &&
-      this.dailyCallCount === Math.floor(this.DAILY_LIMIT * 0.9)
-    ) {
-      this.logger.warn(
-        `API 호출 90% 도달: ${this.dailyCallCount}/${this.DAILY_LIMIT}`,
-      )
-    }
-
+  private async dispatch<T>(
+    endpoint: string,
+    params: Record<string, unknown>,
+    priority: Priority,
+    timeoutMs: number
+  ): Promise<T> {
+    const reservationId = await this.quota.acquire('jeongbonaru', priority, endpoint)
     const start = Date.now()
-    this.dailyCallCount++
-
+    let statusCode = 500
     try {
       const { data } = await this.client.get<T>(endpoint, {
-        params,
-        ...(options.timeoutMs === undefined ? {} : { timeout: Math.min(this.TIMEOUT_MS, options.timeoutMs) }),
+        params: { ...params, authKey: this.authKey, format: 'json' },
+        timeout: timeoutMs,
       })
-      const apiError = this.extractApiError(data)
-
-      if (apiError) {
-        this.logger.error(`API app error: ${endpoint} ${apiError}`)
-        this.logUsage(endpoint, 429, Date.now() - start)
-        throw new Error(`JEONGBONARU_APP_ERROR: ${apiError}`)
+      const appError = this.extractApiError(data)
+      if (appError) {
+        statusCode = 422
+        // Safe error only. Provider text may contain the URL/key and is never logged/returned.
+        throw new Error('JEONGBONARU_APP_ERROR')
       }
-
-      // fire-and-forget 로깅 (실패해도 메인 흐름 끊지 않음)
-      this.logUsage(endpoint, 200, Date.now() - start)
+      statusCode = 200
       return data
-    } catch (err) {
-      const status = isAxiosError(err) ? err.response?.status ?? 500 : 500
-      const msg = isAxiosError(err) ? err.message : String(err)
-      this.logger.error(`API call failed: ${endpoint} (${status}) ${msg}`)
-      this.logUsage(endpoint, status, Date.now() - start)
-      throw err
+    } catch (error) {
+      if (isAxiosError(error)) statusCode = error.response?.status ?? 500
+      this.logger.warn('provider request failed: ' + endpoint + ' status=' + statusCode)
+      throw error
+    } finally {
+      // Budget is already durable. Outcome logging must not stall a successful provider response.
+      void this.quota.complete(reservationId, statusCode, Date.now() - start).catch(() => {
+        this.logger.error('provider outcome recording failed; reservation retained')
+      })
     }
   }
 
-  /** 매일 자정 cron에서 호출 (다음 단계에서 등록) */
-  resetDailyCount(): void {
-    this.logger.log(
-      `Daily count reset (yesterday: ${this.dailyCallCount}/${this.DAILY_LIMIT})`,
-    )
-    this.dailyCallCount = 0
-  }
-
-  getStatus() {
-    return {
-      called: this.dailyCallCount,
-      limit: this.DAILY_LIMIT,
-      remaining: this.DAILY_LIMIT - this.dailyCallCount,
+  async getStatus() {
+    try {
+      return await this.quota.getStatus()
+    } catch {
+      throw new ServiceUnavailableException('Provider usage status is temporarily unavailable')
     }
   }
-
-  private logUsage(endpoint: string, statusCode: number, durationMs: number): void {
-    db.insert(apiUsage)
-      .values({
-        provider: 'jeongbonaru',
-        endpoint,
-        statusCode,
-        cachedHit: false,
-        durationMs,
-      })
-      .catch((e) => {
-        this.logger.error(`api_usage insert failed: ${String(e)}`)
-      })
+  getLocalStatus() {
+    return this.quota.getLocalStatus()
   }
 
-  private extractApiError(data: unknown) {
+  private extractApiError(data: unknown): string | null {
     if (!data || typeof data !== 'object') return null
-
     const response = (data as { response?: unknown }).response
     if (!response || typeof response !== 'object') return null
-
     const error = (response as { error?: unknown }).error
-    return typeof error === 'string' && error.trim().length > 0 ? error.trim() : null
+    return typeof error === 'string' && error.trim() ? error.trim() : null
   }
 }
