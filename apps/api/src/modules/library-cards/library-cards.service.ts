@@ -1,20 +1,18 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common'
 import {
-  db,
-  users,
-  libraryCards,
-  libraries,
-  eq,
-  and,
-  count,
-} from '@nearbook/db'
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common'
+import { db, users, libraryCards, libraries, eq, and, asc } from '@nearbook/db'
 import { AddLibraryCardDto, UpdateLibraryCardDto } from './dto'
+import { lockUser } from '../../common/lock-user'
 
 @Injectable()
 export class LibraryCardsService {
   async listByUser(supabaseUserId: string) {
     const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
-    if (!user) return { data: [] }
+    if (!user) return { data: [], meta: { total: 0, plan: 'free', limit: 1 } }
 
     const items = await db
       .select({
@@ -35,6 +33,7 @@ export class LibraryCardsService {
       .from(libraryCards)
       .innerJoin(libraries, eq(libraryCards.libraryId, libraries.id))
       .where(eq(libraryCards.userId, user.id))
+      .orderBy(asc(libraryCards.id))
 
     return {
       data: items,
@@ -43,33 +42,30 @@ export class LibraryCardsService {
   }
 
   async add(supabaseUserId: string, dto: AddLibraryCardDto) {
-    const user = await this.getOrCreateUser(supabaseUserId)
-
-    const [countResult] = await db
-      .select({ value: count() })
-      .from(libraryCards)
-      .where(eq(libraryCards.userId, user.id))
-
-    const currentCount = Number(countResult.value)
-
-    if (user.plan === 'free' && currentCount >= 1) {
-      throw new ForbiddenException('Pro plan required: only 1 library allowed on free plan')
-    }
-
-    const isFirstCard = currentCount === 0
-
-    const [row] = await db
-      .insert(libraryCards)
-      .values({
-        userId: user.id,
-        libraryId: dto.libraryId,
-        nickname: dto.nickname,
-        isDefault: isFirstCard,
-      })
-      .onConflictDoNothing()
-      .returning()
-
-    return { data: row }
+    return db.transaction(async (tx) => {
+      const user = await lockUser(tx, supabaseUserId, true)
+      if (!user) throw new NotFoundException()
+      const existing = await tx.select().from(libraryCards).where(eq(libraryCards.userId, user.id))
+      const duplicate = existing.find((card) => card.libraryId === dto.libraryId)
+      if (duplicate) return { data: duplicate }
+      if (user.plan === 'free' && existing.length >= 1)
+        throw new ForbiddenException('Library limit reached')
+      const [library] = await tx
+        .select({ id: libraries.id })
+        .from(libraries)
+        .where(eq(libraries.id, dto.libraryId))
+      if (!library) throw new NotFoundException('Library not found')
+      const [row] = await tx
+        .insert(libraryCards)
+        .values({
+          userId: user.id,
+          libraryId: dto.libraryId,
+          nickname: dto.nickname,
+          isDefault: existing.length === 0,
+        })
+        .returning()
+      return { data: row }
+    })
   }
 
   async getStatus(supabaseUserId: string, libraryId: number) {
@@ -97,64 +93,52 @@ export class LibraryCardsService {
   }
 
   async update(supabaseUserId: string, cardId: number, dto: UpdateLibraryCardDto) {
-    const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
-    if (!user) throw new NotFoundException()
-
-    // isDefault 설정 시 기존 default 해제
-    if (dto.isDefault) {
-      await db
+    if (dto.isDefault !== undefined && typeof dto.isDefault !== 'boolean')
+      throw new BadRequestException()
+    return db.transaction(async (tx) => {
+      const user = await lockUser(tx, supabaseUserId)
+      if (!user) throw new NotFoundException()
+      const condition = and(eq(libraryCards.id, cardId), eq(libraryCards.userId, user.id))
+      const [target] = await tx.select().from(libraryCards).where(condition)
+      // Validate ownership BEFORE clearing defaults, all inside the same transaction.
+      if (!target) throw new NotFoundException()
+      if (dto.nickname === undefined && dto.isDefault === undefined) return { data: target }
+      if (dto.isDefault)
+        await tx
+          .update(libraryCards)
+          .set({ isDefault: false })
+          .where(eq(libraryCards.userId, user.id))
+      const [row] = await tx
         .update(libraryCards)
-        .set({ isDefault: false })
-        .where(eq(libraryCards.userId, user.id))
-    }
-
-    const [row] = await db
-      .update(libraryCards)
-      .set({
-        nickname: dto.nickname,
-        ...(dto.isDefault !== undefined && { isDefault: dto.isDefault }),
-      })
-      .where(and(eq(libraryCards.id, cardId), eq(libraryCards.userId, user.id)))
-      .returning()
-
-    return { data: row }
+        .set({
+          ...(dto.nickname !== undefined && { nickname: dto.nickname }),
+          ...(dto.isDefault !== undefined && { isDefault: dto.isDefault }),
+        })
+        .where(condition)
+        .returning()
+      if (!row) throw new NotFoundException()
+      return { data: row }
+    })
   }
 
   async remove(supabaseUserId: string, cardId: number) {
-    const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
-    if (!user) return
-
-    await db
-      .delete(libraryCards)
-      .where(and(eq(libraryCards.id, cardId), eq(libraryCards.userId, user.id)))
+    await db.transaction(async (tx) => {
+      const user = await lockUser(tx, supabaseUserId)
+      if (!user) return
+      await tx
+        .delete(libraryCards)
+        .where(and(eq(libraryCards.id, cardId), eq(libraryCards.userId, user.id)))
+      // Do not auto-promote another card: the user chooses a new default.
+    })
   }
 
   async removeByLibraryId(supabaseUserId: string, libraryId: number) {
-    const [user] = await db.select().from(users).where(eq(users.supabaseUserId, supabaseUserId))
-    if (!user) return
-
-    await db
-      .delete(libraryCards)
-      .where(and(eq(libraryCards.libraryId, libraryId), eq(libraryCards.userId, user.id)))
-  }
-
-  private async getOrCreateUser(supabaseUserId: string) {
-    let user = await db.query.users.findFirst({
-      where: eq(users.supabaseUserId, supabaseUserId),
+    await db.transaction(async (tx) => {
+      const user = await lockUser(tx, supabaseUserId)
+      if (!user) return
+      await tx
+        .delete(libraryCards)
+        .where(and(eq(libraryCards.libraryId, libraryId), eq(libraryCards.userId, user.id)))
     })
-
-    if (!user) {
-      const [created] = await db
-        .insert(users)
-        .values({
-          supabaseUserId,
-          email: null,
-          nickname: null,
-        })
-        .returning()
-
-      user = created
-    }
-    return user
   }
 }
