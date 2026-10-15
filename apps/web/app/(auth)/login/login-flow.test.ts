@@ -2,7 +2,7 @@
 import { createElement as h } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { LoginInner } from './_components/login-inner'
+import LoginPage from './page'
 const mocked = vi.hoisted(() => ({
   oauth: vi.fn(),
   params: new URLSearchParams('next=/me/libraries'),
@@ -24,7 +24,7 @@ it('deduplicates login start, preserves the internal return route, and offers re
         finish = done
       })
   )
-  render(h(LoginInner))
+  render(h(LoginPage))
   const button = screen.getByRole('button', { name: /카카오로 시작하기/ })
   fireEvent.click(button)
   fireEvent.click(button)
@@ -42,7 +42,7 @@ it('deduplicates login start, preserves the internal return route, and offers re
 it('unsafe incoming next is replaced by the same-origin main fallback even when OAuth fails', async () => {
   mocked.params = new URLSearchParams('next=https://evil.example/')
   mocked.oauth.mockRejectedValue(new Error('offline'))
-  render(h(LoginInner))
+  render(h(LoginPage))
   await act(async () => {
     fireEvent.click(screen.getByRole('button'))
   })
@@ -50,4 +50,10 @@ it('unsafe incoming next is replaced by the same-origin main fallback even when 
     '/'
   )
   expect(screen.getByRole('alert')).toBeTruthy()
+})
+it('the actual login route displays callback failure recovery without starting OAuth', () => {
+  mocked.params = new URLSearchParams('error=auth&next=/me/wishlist')
+  render(h(LoginPage))
+  expect(screen.getByRole('alert').textContent).toContain('로그인이 완료되지 않았습니다')
+  expect(mocked.oauth).not.toHaveBeenCalled()
 })
