@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { X, Locate, Map, Building2, Search, Loader2 } from 'lucide-react'
 import useSWR from 'swr'
 import { useLocationContext } from '@/lib/use-location-context'
@@ -9,6 +9,7 @@ import { parseLibrarySearch } from '@/lib/api-contracts'
 import * as Dialog from '@radix-ui/react-dialog'
 import { gpsErrorMessage } from '@/lib/location-gps'
 import { locationDescription } from '@/lib/location-state'
+import { useVisualViewportHeight } from '@/lib/use-visual-viewport-height'
 
 type Tab = 'gps' | 'region' | 'library'
 
@@ -39,6 +40,7 @@ export function LocationModal({
   const [selectedSido, setSelectedSido] = useState<string | null>(null)
   const [libraryQuery, setLibraryQuery] = useState('')
   const gpsRequestRef = useRef<AbortController | null>(null)
+  const viewport = useVisualViewportHeight(isOpen)
 
   // 현재 모드에 맞는 탭 초기화
   useEffect(() => {
@@ -124,13 +126,14 @@ export function LocationModal({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
         <Dialog.Content
+          style={{ maxHeight: viewport?.height, '--visual-viewport-bottom': `${viewport?.bottom ?? 0}px`, ...(viewport && { '--visual-viewport-center': `${viewport.center}px` }) } as CSSProperties}
           onCloseAutoFocus={(event) => {
             if (returnFocusRef?.current) {
               event.preventDefault()
               returnFocusRef.current.focus()
             }
           }}
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
+          className="fixed inset-x-0 bottom-[var(--visual-viewport-bottom,0px)] z-50 flex max-h-[85dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:inset-x-auto sm:left-1/2 sm:top-[var(--visual-viewport-center,50%)] sm:bottom-auto sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
         >
           {/* 헤더 */}
           <div className="flex items-center justify-between px-4 py-3 border-b">
@@ -171,7 +174,7 @@ export function LocationModal({
           </div>
 
           {/* 탭 콘텐츠 */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {/* Tab 1: GPS */}
             {activeTab === 'gps' && (
               <div className="flex flex-col items-center gap-4 py-6">
@@ -298,7 +301,7 @@ export function LocationModal({
                     aria-label="기준 도서관 이름 검색"
                     value={libraryQuery}
                     onChange={(e) => setLibraryQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
 

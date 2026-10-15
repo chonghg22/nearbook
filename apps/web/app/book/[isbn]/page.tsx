@@ -82,10 +82,10 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
       <main className="bg-canvas min-h-screen">
         <div className="max-w-5xl mx-auto px-4 py-8 md:py-12 space-y-12">
           {/* 상단: 책 기본 정보 및 사이드바 */}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-8 md:gap-12 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px] gap-8 md:gap-12 items-start">
             
             {/* 왼쪽: 책 상세 정보 */}
-            <section className="flex flex-col sm:flex-row gap-6 md:gap-8">
+            <section className="min-w-0 flex flex-col sm:flex-row gap-6 md:gap-8">
               {book.coverUrl && (
                 <div className="shrink-0 mx-auto sm:mx-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -98,7 +98,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
                   />
                 </div>
               )}
-              <div className="flex-1 text-center sm:text-left">
+              <div className="min-w-0 flex-1 text-center sm:text-left [overflow-wrap:anywhere]">
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight text-balance leading-tight">
                   {book.title}
                 </h1>

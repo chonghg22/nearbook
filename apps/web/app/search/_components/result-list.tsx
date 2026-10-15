@@ -63,13 +63,13 @@ export function ResultList({ isLoading, items = [], error, query }: Props) {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-gray-900 line-clamp-2 text-lg">
+              <h3 className="font-bold text-gray-900 line-clamp-2 text-lg [overflow-wrap:anywhere]" title={item.title}>
                 {item.title}
               </h3>
               {searchEditionLabels(item.title).length > 0 && <p className="mt-1 flex flex-wrap gap-1">
                 {searchEditionLabels(item.title).map(label => <span key={label} className="rounded border border-primary-200 bg-primary-50 px-2 py-0.5 text-xs text-primary-700">{label}</span>)}
               </p>}
-              <p className="text-sm text-gray-500 mt-0.5" title={item.author ?? undefined}>
+              <p className="text-sm text-gray-500 mt-0.5 [overflow-wrap:anywhere]" title={item.author ?? undefined}>
                 {item.author ? authorNames(item.author) : '저자 정보 없음'}
                 {item.publisher && ` · ${item.publisher}`}
               </p>

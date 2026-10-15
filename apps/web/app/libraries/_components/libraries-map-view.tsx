@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useMapLibraries } from '@/hooks/use-map-libraries'
 import { NaverInteractiveMap } from '@/components/maps/naver-interactive-map'
@@ -61,13 +61,17 @@ export function LibrariesMapView() {
   const [mapError, setMapError] = useState<string | null>(null)
   // SSR과 첫 클라이언트 렌더는 항상 분할로 같게 두고, 마운트 후 모바일이면 사용자가 고르지 않은 경우에만 지도로 바꾼다.
   const [viewMode, setViewMode] = useState<ViewMode>('split')
-  const userChoseViewRef = useRef(false)
   const chooseView = useCallback((mode: ViewMode) => {
-    userChoseViewRef.current = true
     setViewMode(mode)
   }, [])
   useEffect(() => {
-    if (!userChoseViewRef.current && window.matchMedia('(max-width: 767px)').matches) setViewMode('map')
+    const media = window.matchMedia('(max-width: 767px)')
+    const update = () => {
+      if (media.matches) setViewMode((mode) => mode === 'split' ? 'map' : mode)
+    }
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
   }, [])
 
   // 시군구 목록 (시도 선택 시 동적)
@@ -102,17 +106,17 @@ export function LibrariesMapView() {
   }, [])
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
+    <div className="flex min-h-0 flex-col h-[calc(100dvh-64px)]">
       {/* 상단 필터 바 */}
       <div className="flex flex-wrap items-center gap-2 p-3 border-b bg-white z-10 flex-shrink-0">
         {/* 지역 필터 */}
-        <div className="flex gap-2">
+        <div className="flex min-w-0 max-w-full flex-wrap gap-2">
           {/* 시도 */}
           <select
             value={sido}
             onChange={(e) => handleSidoChange(e.target.value)}
             aria-label="시도"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[120px]"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-base bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-11 min-w-[120px] max-w-full"
           >
             <option value="">전체 시도</option>
             {SIDO_LIST.map((s) => (
@@ -126,7 +130,7 @@ export function LibrariesMapView() {
             onChange={(e) => setSigungu(e.target.value)}
             disabled={!sido || sigunguList.length === 0}
             aria-label="시군구"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[120px] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-base bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 min-h-11 min-w-[120px] max-w-full disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <option value="">전체 시군구</option>
             {sigunguList.map((s) => (
@@ -136,10 +140,11 @@ export function LibrariesMapView() {
         </div>
 
         {/* 뷰 모드 토글 */}
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto flex gap-1" role="group" aria-label="도서관 보기 방식">
           <button
             type="button"
             onClick={() => chooseView('list')}
+            aria-pressed={viewMode === 'list'}
             className={`px-3 py-1 rounded text-sm ${viewMode === 'list' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             목록
@@ -147,6 +152,7 @@ export function LibrariesMapView() {
           <button
             type="button"
             onClick={() => chooseView('map')}
+            aria-pressed={viewMode === 'map'}
             className={`px-3 py-1 rounded text-sm ${viewMode === 'map' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             지도
@@ -154,6 +160,7 @@ export function LibrariesMapView() {
           <button
             type="button"
             onClick={() => chooseView('split')}
+            aria-pressed={viewMode === 'split'}
             className={`px-3 py-1 rounded text-sm hidden md:block ${viewMode === 'split' ? 'bg-primary text-white' : 'bg-gray-100'}`}
           >
             분할
@@ -162,11 +169,11 @@ export function LibrariesMapView() {
       </div>
 
       {/* 콘텐츠 영역 */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* 목록 패널 */}
         {(viewMode === 'list' || viewMode === 'split') && (
           <div
-            className={`overflow-y-auto ${viewMode === 'split' ? 'w-[400px] min-w-[320px]' : 'w-full'} border-r`}
+            className={`min-w-0 overflow-y-auto overscroll-contain ${viewMode === 'split' ? 'w-full md:w-[400px] md:min-w-[320px] md:shrink-0' : 'w-full'} border-r`}
           >
             {isLoading ? (
               <div className="p-4 text-center text-gray-500 text-sm" role="status">{loadingMessage}</div>
@@ -200,8 +207,8 @@ export function LibrariesMapView() {
                     onMouseEnter={() => setHoveredLibraryId(lib.id)}
                     onMouseLeave={() => setHoveredLibraryId(null)}
                   >
-                    <p className="font-medium text-sm">{lib.name}</p>
-                    {lib.address && <p className="text-xs text-gray-500 mt-0.5">{lib.address}</p>}
+                    <p className="font-medium text-sm [overflow-wrap:anywhere]">{lib.name}</p>
+                    {lib.address && <p className="text-xs text-gray-500 mt-0.5 [overflow-wrap:anywhere]">{lib.address}</p>}
                   </Link>
                 ))}
               </>
@@ -212,7 +219,7 @@ export function LibrariesMapView() {
         {/* 지도 패널 */}
         {(viewMode === 'map' || viewMode === 'split') && (
           // min-w-0: SDK가 지도 요소에 쓴 픽셀 너비가 flex 최소 크기가 되어 분할 전환 때 패널이 줄지 못하는 것을 막는다.
-          <div className="relative flex-1 min-w-0">
+          <div className={`relative flex-1 min-w-0 ${viewMode === 'split' ? 'hidden md:block' : ''}`}>
             <NaverInteractiveMap
               onBoundsChange={handleBoundsChange}
               onMapErrorChange={setMapError}

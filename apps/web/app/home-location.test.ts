@@ -97,7 +97,7 @@ it('home form submits a trimmed encoded query, but not blank input', () => {
   const form = screen.getByRole('search', { name: '홈 도서 검색' })
   fireEvent.submit(form)
   expect(router.push).not.toHaveBeenCalled()
-  fireEvent.change(within(form).getByRole('textbox'), { target: { value: ' 한강 & 책 ' } })
+  fireEvent.change(within(form).getByRole('combobox', { name: '책 제목·저자·ISBN 검색' }), { target: { value: ' 한강 & 책 ' } })
   fireEvent.submit(form)
   expect(router.push).toHaveBeenCalledWith(`/search?q=${encodeURIComponent('한강 & 책')}`)
   expect(gpsMock).not.toHaveBeenCalled()

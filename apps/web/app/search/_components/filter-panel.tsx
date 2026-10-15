@@ -12,7 +12,7 @@ export function FilterPanel({ searchType, sort, onChange }: Props) {
       <select
         value={searchType}
         onChange={(e) => onChange('searchType', e.target.value)}
-        className="px-3 py-1.5 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+        className="min-h-11 max-w-full px-3 py-1.5 border border-gray-300 rounded text-base bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         aria-label="검색 유형"
       >
         <option value="all">통합</option>
@@ -25,7 +25,7 @@ export function FilterPanel({ searchType, sort, onChange }: Props) {
       <select
         value={sort}
         onChange={(e) => onChange('sort', e.target.value)}
-        className="px-3 py-1.5 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+        className="min-h-11 max-w-full px-3 py-1.5 border border-gray-300 rounded text-base bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         aria-label="정렬"
       >
         <option value="relevance">관련도순</option>

@@ -12,7 +12,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Props) {
   const pages = getPageNumbers(currentPage, totalPages)
 
   return (
-    <nav className="mt-8 flex items-center justify-center gap-1" aria-label="페이지 네비게이션">
+    <nav className="mt-8 flex flex-wrap items-center justify-center gap-1" aria-label="페이지 네비게이션">
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage <= 1}
@@ -31,7 +31,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Props) {
           <button
             key={p}
             onClick={() => onPageChange(p as number)}
-            className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-colors ${
+            className={`min-w-11 h-11 rounded-lg text-sm font-medium transition-colors ${
               p === currentPage
                 ? 'bg-primary text-white'
                 : 'text-gray-700 hover:bg-gray-100'
