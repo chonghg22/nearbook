@@ -75,7 +75,7 @@ it('loads the pictured ISBN through same-origin proxy and renders both CTA links
   ).toContain(',37.5663245,126.977752')
   expect(fetchMock).toHaveBeenCalledTimes(1)
   const [url, init] = fetchMock.mock.calls[0]!
-  expect(url).toBe('/api/books/9788954682152/holdings?lat=37.5665&lng=126.978')
+  expect(url).toBe('/api/books/9788954682152/holdings?lat=37.5665&lng=126.978&radius=5')
   expect(init?.credentials).toBe('same-origin')
   expect(init?.cache).toBe('no-store')
   expect(new Headers(init?.headers).has('Authorization')).toBe(false)

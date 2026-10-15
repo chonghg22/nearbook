@@ -118,7 +118,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
                   {book.publisher} {book.publishedYear && `· ${book.publishedYear}`}
                 </p>
                 
-                <div className="mt-6 flex flex-wrap justify-center sm:justify-start gap-3">
+                <div id="book-wishlist" tabIndex={-1} className="mt-6 flex flex-wrap justify-center sm:justify-start gap-3">
                   <WishlistButton isbn={book.isbn} />
                 </div>
               </div>
@@ -152,7 +152,7 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
 
           {/* 하단: 전체 너비를 사용하는 도서관 목록 섹션 */}
           <div className="space-y-12">
-            <LibraryStatus isbn={isbn} />
+            <LibraryStatus isbn={isbn} bookTitle={book.title} />
 
             {hasAnalysis && (
               <BookAnalysisSection analysis={analysis} />

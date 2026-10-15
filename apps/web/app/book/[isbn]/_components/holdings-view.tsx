@@ -4,6 +4,7 @@ import { LibraryCard } from '@/components/library/library-card'
 import { holdingsMessage } from '@/lib/holdings-data.mjs'
 import { trackEvent } from '@/lib/analytics'
 import { libraryDirectionsUrl, type LinkedHoldingsResult } from '@/lib/library-links.mjs'
+import type { ReactNode } from 'react'
 
 interface Props {
   isbn: string
@@ -11,14 +12,15 @@ interface Props {
   loading: boolean
   error: boolean
   onRetry: () => void
+  alternatives?: ReactNode
 }
 
-export function HoldingsView({ isbn, result, loading, error, onRetry }: Props) {
+export function HoldingsView({ isbn, result, loading, error, onRetry, alternatives }: Props) {
   if (loading) return <p className="py-8 text-center text-muted-foreground" role="status">주변 도서관 보유 현황을 확인하고 있습니다.</p>
-  if (error || !result) return <div className="rounded-lg border border-border bg-white p-8 text-center" role="alert">
+  if (error || !result) return <div className="space-y-4"><div className="rounded-lg border border-border bg-white p-8 text-center" role="alert">
     <p>보유 현황을 잠시 불러올 수 없습니다. 책이 없다는 뜻은 아닙니다.</p>
     <button type="button" onClick={onRetry} className="mt-4 rounded-lg bg-primary px-5 py-2 text-white">다시 시도</button>
-  </div>
+  </div>{alternatives}</div>
   const h = result.holdings
   const message = holdingsMessage(result)
   const stale = result.libraries.some((lib) => lib.stale)
@@ -34,6 +36,7 @@ export function HoldingsView({ isbn, result, loading, error, onRetry }: Props) {
       {h.limited && <span className="block">조회 한도로 후보 중 {h.attemptedCount}곳을 조회했습니다. {h.uncheckedCount}곳은 확인하지 않았습니다.</span>}
     </p>
     {message && <p className="rounded-lg border border-dashed p-6" role="status">{message}</p>}
+    {alternatives}
     {rows.length > 0 && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {rows.map((lib) => <LibraryCard key={lib.id} libraryId={String(lib.id)} libraryName={lib.name}
         distanceKm={lib.distanceKm} status={lib.status} hasBook={lib.hasBook} checkedAt={lib.checkedAt} stale={lib.stale}
