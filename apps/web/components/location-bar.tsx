@@ -5,7 +5,7 @@ import { useLocationContext } from '@/lib/use-location-context'
 import { LocationModal } from './location-modal'
 import { locationDescription } from '@/lib/location-state'
 
-export function LocationBar({ showDescription = false }: { showDescription?: boolean }) {
+export function LocationBar({ showDescription = false, changeButtonLabel = '지역·도서관 변경' }: { showDescription?: boolean; changeButtonLabel?: string }) {
   const { location, isLoaded } = useLocationContext()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -29,7 +29,7 @@ export function LocationBar({ showDescription = false }: { showDescription?: boo
             onClick={() => setIsModalOpen(true)}
             className="ml-1 flex items-center gap-1 rounded-full border border-primary-200 px-3 py-1.5 font-medium text-primary hover:bg-primary-50 disabled:opacity-50"
           >
-            지역·도서관 변경 <ChevronDown className="h-3 w-3" aria-hidden="true" />
+            {changeButtonLabel} <ChevronDown className="h-3 w-3" aria-hidden="true" />
           </button>
         </div>
         {showDescription && (
