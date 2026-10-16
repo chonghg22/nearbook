@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common'
-import { db } from '@nearbook/db'
+import { SearchIndexRepository } from './search-index.repository'
 import { OramaIndexService } from './orama-index.service'
 import { bookMatchRank } from './search-ranking'
 import {
@@ -10,7 +10,7 @@ import {
   searchEditionLabels,
 } from '@nearbook/shared-types'
 
-jest.mock('@nearbook/db', () => ({ db: { select: jest.fn() }, bookCache: {} }))
+jest.mock('@nearbook/db', () => ({ db: {}, sql: jest.fn() }))
 
 const titles = [
   '소년이 온다',
@@ -85,15 +85,23 @@ describe('40 representative queries against the real Orama index', () => {
   let service: OramaIndexService
   beforeAll(async () => {
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {})
-    ;(db.select as jest.Mock).mockImplementation(() => ({
-      from: () => ({
-        limit: () => ({
-          offset: (offset: number) => Promise.resolve(offset === 0 ? [...rows, ...extras] : []),
-        }),
+    const stored = [...rows, ...extras].sort((a, b) => a.isbn.localeCompare(b.isbn))
+    const source = {
+      snapshot: (read: (reader: unknown) => Promise<unknown>) => read({}),
+      popularity: async () => ({
+        period: 'fixture',
+        scores: new Map(stored.map((b) => [b.isbn, b.popularityScore])),
       }),
-    }))
-    service = new OramaIndexService()
-    jest.spyOn(service, 'persist').mockResolvedValue(undefined) // Never touch disk/production index.
+      page: async (after: string, limit: number) =>
+        stored.filter((b) => b.isbn > after).slice(0, limit),
+      byIsbns: async (isbns: string[]) =>
+        isbns.map(
+          (isbn) =>
+            stored.find((b) => b.isbn === isbn) ??
+            book(Number(isbn.slice(3, 12)), '새로 색인된 책', { isbn })
+        ),
+    }
+    service = new OramaIndexService(source as SearchIndexRepository)
     await service.fullRebuild()
   })
   afterAll(() => jest.restoreAllMocks())
