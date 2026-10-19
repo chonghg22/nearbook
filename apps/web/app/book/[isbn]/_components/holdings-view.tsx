@@ -8,6 +8,7 @@ import type { ReactNode } from 'react'
 
 interface Props {
   isbn: string
+  requestId?: string
   result: LinkedHoldingsResult | null
   loading: boolean
   error: boolean
@@ -15,7 +16,7 @@ interface Props {
   alternatives?: ReactNode
 }
 
-export function HoldingsView({ isbn, result, loading, error, onRetry, alternatives }: Props) {
+export function HoldingsView({ isbn, requestId, result, loading, error, onRetry, alternatives }: Props) {
   if (loading) return <p className="py-8 text-center text-muted-foreground" role="status">주변 도서관 보유 현황을 확인하고 있습니다.</p>
   if (error || !result) return <div className="space-y-4"><div className="rounded-lg border border-border bg-white p-8 text-center" role="alert">
     <p>보유 현황을 잠시 불러올 수 없습니다. 책이 없다는 뜻은 아닙니다.</p>
@@ -41,8 +42,8 @@ export function HoldingsView({ isbn, result, loading, error, onRetry, alternativ
       {rows.map((lib) => <LibraryCard key={lib.id} libraryId={String(lib.id)} libraryName={lib.name}
         distanceKm={lib.distanceKm} status={lib.status} hasBook={lib.hasBook} checkedAt={lib.checkedAt} stale={lib.stale}
         homepageUrl={lib.homepage} directionsUrl={libraryDirectionsUrl(lib.lat, lib.lng, lib.name)}
-        onClick={(action) => trackEvent('library_click', { isbn, libraryId: String(lib.id), libraryName: lib.name,
-          action, status: lib.status, distanceKm: lib.distanceKm })} />)}
+        onClick={(action) => trackEvent('library_click', { isbn, requestId, libraryId: String(lib.id), libraryName: lib.name,
+          source: 'book_holdings', action, status: lib.status, stale: lib.stale, checkedAt: lib.checkedAt })} />)}
     </div>}
     <p className="text-xs text-muted-foreground">출처: 도서관 정보나루 · 확인 시각은 이 서비스가 조회한 시각이며, 도서관 재고의 실시간 갱신 시각이 아닙니다. 실제 대출 가능 여부는 도서관 공식 사이트에서 확인해 주세요.</p>
     {rows.length > 0 && <p className="text-xs text-muted-foreground">공식 사이트와 카카오맵 길찾기는 새 탭에서 열립니다. 대출·예약은 도서관 사이트에서 직접 확인해 주세요. 이 서비스에서 예약이 접수되지는 않습니다.</p>}

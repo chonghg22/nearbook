@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { trackEvent } from '@/lib/analytics'
 import { LibraryStatus } from './_components/library-status'
 
 // Reproduce the absolute API setting which previously bypassed the public proxy.
@@ -52,6 +53,7 @@ function payload() {
   }
 }
 beforeEach(() => {
+  vi.mocked(trackEvent).mockClear()
   vi.stubGlobal('fetch', fetchMock)
   fetchMock.mockImplementation(async (url) => {
     if (!String(url).startsWith('/api/')) throw new TypeError('Blocked by CORS')
@@ -80,6 +82,11 @@ it('loads the pictured ISBN through same-origin proxy and renders both CTA links
   expect(init?.cache).toBe('no-store')
   expect(new Headers(init?.headers).has('Authorization')).toBe(false)
   expect(screen.queryByRole('alert')).toBeNull()
+  const complete = vi.mocked(trackEvent).mock.calls.find(([type]) => type === 'holdings_request_completed')?.[1]
+  expect(complete).toMatchObject({ checkedCount: 1, heldCount: 1, availableCount: 1, outcome: 'complete', staleCount: 0, durationMs: expect.any(Number) })
+  expect(JSON.stringify(complete)).not.toMatch(/37\.5665|126\.978/)
+  fireEvent.click(official)
+  expect(trackEvent).toHaveBeenCalledWith('library_click', expect.objectContaining({ requestId: complete?.requestId, action: 'library_site' }))
 })
 
 it('keeps real failure distinct and retry recovers through the same public route', async () => {
@@ -90,5 +97,39 @@ it('keeps real failure distinct and retry recovers through the same public route
   fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
   await screen.findByRole('link', { name: '공식 사이트에서 확인 — 서울도서관, 새 탭' })
   expect(fetchMock).toHaveBeenCalledTimes(2)
+  const failures = vi.mocked(trackEvent).mock.calls.filter(([type]) => type === 'holdings_request_failed')
+  expect(failures).toHaveLength(1)
+  expect(failures[0]?.[1]).toMatchObject({ errorKind: 'http', httpStatus: 503 })
+  const completions = vi.mocked(trackEvent).mock.calls.filter(([type]) => type === 'holdings_request_completed')
+  expect(completions).toHaveLength(1)
+  expect(completions[0]?.[1]?.requestId).not.toBe(failures[0]?.[1]?.requestId)
   expect(fetchMock.mock.calls.every(([url]) => String(url).startsWith('/api/books/'))).toBe(true)
+})
+
+it('unmounted requests never become completion or failure events', async () => {
+  let finish!: (response: Response) => void
+  fetchMock.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
+  const view = render(createElement(LibraryStatus, { isbn: '9788954682152' }))
+  view.unmount()
+  finish(Response.json(payload()))
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(trackEvent).not.toHaveBeenCalled()
+})
+
+it.each(['unknown', 'not_held', 'stale'] as const)('preserves %s completion semantics without conflating held and available counts', async (state) => {
+  const data = payload()
+  if (state === 'stale') data.libraries[0]!.checkedAt = new Date(Date.now() - 360000).toISOString()
+  else {
+    Object.assign(data.libraries[0]!, { status: state, hasBook: state === 'unknown' ? null : false,
+      loanAvailable: state === 'unknown' ? null : false, checkedAt: state === 'unknown' ? null : new Date().toISOString() })
+    Object.assign(data.holdings, { checkedCount: state === 'unknown' ? 0 : 1, heldCount: 0, availableCount: 0, unknownCount: state === 'unknown' ? 1 : 0, notHeldCount: state === 'not_held' ? 1 : 0 })
+  }
+  fetchMock.mockResolvedValue(Response.json(data))
+  render(createElement(LibraryStatus, { isbn: '9788954682152' }))
+  await screen.findByRole('link', { name: /공식 사이트에서 확인/ })
+  expect(trackEvent).toHaveBeenCalledWith('holdings_request_completed', expect.objectContaining({
+    outcome: state === 'unknown' ? 'unknown' : 'complete', staleCount: state === 'stale' ? 1 : 0,
+    checkedCount: state === 'unknown' ? 0 : 1,
+    heldCount: state === 'stale' ? 1 : 0, availableCount: state === 'stale' ? 1 : 0,
+  }))
 })

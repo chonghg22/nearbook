@@ -10,6 +10,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { publicApiJson } from '@/lib/public-api-client'
 import { parseSuggestions } from '@/lib/api-contracts'
+import { trackEvent } from '@/lib/analytics'
+import { searchSubmission } from '@/lib/analytics-events'
 
 interface Props {
   defaultValue?: string
@@ -19,6 +21,7 @@ interface Props {
   className?: string
   formLabel?: string
   inlineSuggestions?: boolean
+  analyticsSource?: 'header' | 'mobile_header' | 'home'
 }
 
 export function SearchBar({
@@ -29,6 +32,7 @@ export function SearchBar({
   className,
   formLabel = '도서 검색',
   inlineSuggestions = false,
+  analyticsSource = 'header',
 }: Props) {
   const router = useRouter()
   const [q, setQ] = useState(defaultValue)
@@ -68,6 +72,10 @@ export function SearchBar({
   }
 
   function selectBook(isbn: string) {
+    trackEvent('book_result_click', {
+      ...searchSubmission(q, 'all', analyticsSource), isbn,
+      surface: 'suggestion', rank: items.findIndex((item) => item.isbn === isbn) + 1,
+    })
     router.push(`/book/${encodeURIComponent(isbn)}`)
     closeSuggestions()
     onSubmitted?.()
@@ -86,6 +94,7 @@ export function SearchBar({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (composing.current || !q.trim()) return
+    trackEvent('search_submit', searchSubmission(q, 'all', analyticsSource))
     router.push(`/search?q=${encodeURIComponent(q.trim())}`)
     closeSuggestions()
     onSubmitted?.()

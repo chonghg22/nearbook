@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { SWRConfig } from 'swr'
 import { SearchPageInner } from './_components/search-page-inner'
+import { trackEvent } from '@/lib/analytics'
 import { hasUsefulAction } from '@/lib/pwa-install-eligibility'
 
 const navigation = vi.hoisted(() => ({ params: new URLSearchParams(), push: vi.fn() }))
@@ -38,6 +39,7 @@ const items = [
   },
 ]
 beforeEach(() => {
+  vi.mocked(trackEvent).mockClear()
   sessionStorage.clear()
   vi.stubGlobal('fetch', fetchMock)
   navigation.push.mockReset()
@@ -150,6 +152,8 @@ it('new API failures are still errors, not a normal empty search', async () => {
     '검색 결과가 없다는 뜻은 아닙니다'
   )
   expect(screen.queryByText('검색 결과가 없어요.')).toBeNull()
+  expect(trackEvent).toHaveBeenCalledWith('search_request_failed', expect.objectContaining({ errorKind: 'http', httpStatus: 503 }))
+  expect(vi.mocked(trackEvent).mock.calls.some(([type]) => type === 'search_result_view')).toBe(false)
 })
 
 it('initial loading never displays a confirmed zero or empty message', () => {
@@ -164,6 +168,8 @@ it('cold enrichment polls then shows results without an interim false zero', asy
   fetchMock.mockImplementationOnce(async () => Response.json({ data: { items: [], total: 0, page: 1, pageSize: 10, enrichmentPending: true } }))
   await act(async () => { mount('q=새로운+제목') })
   expect(screen.getByRole('status').textContent).toContain('확인하고 있습니다')
+  expect(trackEvent).toHaveBeenCalledWith('search_request_completed', expect.objectContaining({ outcome: 'pending' }))
+  expect(vi.mocked(trackEvent).mock.calls.some(([type]) => type === 'search_result_view')).toBe(false)
   expect(hasUsefulAction()).toBe(false)
   expect(screen.queryByText(/검색결과 0건/)).toBeNull()
   expect(screen.queryByText('검색 결과가 없어요.')).toBeNull()
@@ -202,6 +208,7 @@ it('valid completed zero remains an empty search rather than an error', async ()
   fetchMock.mockImplementation(async () => Response.json({ data: { items: [], total: 0, page: 1, pageSize: 10, enrichmentPending: false } }))
   mount('q=완료+제목')
   expect(await screen.findByText('검색 결과가 없어요.')).toBeDefined()
+  expect(trackEvent).toHaveBeenCalledWith('search_result_view', expect.objectContaining({ zeroResult: true, total: 0 }))
   expect(hasUsefulAction()).toBe(false)
   expect(screen.queryByRole('alert')).toBeNull()
 })

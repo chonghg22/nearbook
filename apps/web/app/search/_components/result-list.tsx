@@ -12,9 +12,13 @@ type Props = {
   items?: Item[]
   error?: unknown
   query: string
+  page?: number
+  pageSize?: number
+  searchType?: string
+  sort?: string
 }
 
-export function ResultList({ isLoading, items = [], error, query }: Props) {
+export function ResultList({ isLoading, items = [], error, query, page = 1, pageSize = 10, searchType = 'all', sort = 'relevance' }: Props) {
   if (error) {
     return (
       <p role="alert" className="py-12 text-center text-sm text-gray-500">
@@ -33,7 +37,7 @@ export function ResultList({ isLoading, items = [], error, query }: Props) {
 
   return (
     <ul className="space-y-3 mt-4">
-      {items.map((item) => (
+      {items.map((item, index) => (
         <li key={item.isbn}>
           <Link
             href={`/book/${item.isbn}`}
@@ -42,6 +46,8 @@ export function ResultList({ isLoading, items = [], error, query }: Props) {
                 isbn: item.isbn,
                 title: item.title,
                 query,
+                page, searchType, sort, rank: (page - 1) * pageSize + index + 1,
+                source: 'search_page', surface: 'results',
               })
             }}
             className="flex gap-4 p-4 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"

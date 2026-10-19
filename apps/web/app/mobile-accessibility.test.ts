@@ -175,7 +175,9 @@ it('click selection and clear retain existing public navigation without writes',
   expect((input as HTMLInputElement).value).toBe('')
   expect(document.activeElement).toBe(input)
   expect(
-    fetchMock.mock.calls.every(([, init]) => init?.method === undefined || init.method === 'GET')
+    fetchMock.mock.calls.every(([url, init]) =>
+      init?.method === undefined || init.method === 'GET' ||
+      (String(url) === '/api/analytics/event' && init.method === 'POST'))
   ).toBe(true)
 })
 it('a failed suggestion request still allows direct search and exposes no fabricated options', async () => {
