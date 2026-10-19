@@ -193,10 +193,12 @@ export function WishlistView() {
             </ul>
             {wishlist.data.plan === 'free' && (
               <div className="mt-6 rounded-lg border border-dashed border-primary-200 p-4 text-center">
-                <p className="text-sm text-gray-600">Pro로 업그레이드하면 위시리스트 무제한</p>
-                <button className="mt-2 text-sm font-medium text-primary hover:underline">
-                  Pro 알아보기 →
-                </button>
+                <p className="text-sm text-gray-600">
+                  무료 계정은 책을 최대 10권까지 찜할 수 있습니다.
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  한도에 도달하면 목록에서 더 이상 필요하지 않은 책을 제거한 뒤 새 책을 추가하세요.
+                </p>
               </div>
             )}
           </>
