@@ -63,3 +63,21 @@ it('does not turn a private route event into a public visit', async () => {
   await (await import('./analytics')).trackEvent('wishlist_add', { isbn: '123' })
   expect(sent().map((r) => r.type)).toEqual(['wishlist_add'])
 })
+
+it.each([
+  '/digest/downgrade?token=secret',
+  '/auth/callback?code=secret',
+  '/unsubscribe?token=secret',
+])('excludes token-bearing route %s from visits and URL metadata', async (path) => {
+  history.replaceState({}, '', path)
+  await (await import('./analytics')).trackEvent('page_view')
+  expect(sent().map((r) => r.type)).toEqual(['page_view'])
+  expect(sent()[0].search).toBe('')
+  expect(JSON.stringify(sent())).not.toContain('secret')
+})
+it('keeps only explicit search metadata and never copies coordinates or extra parameters', async () => {
+  history.replaceState({}, '', '/search?q=book&sort=popular&lat=37.5&token=secret')
+  await (await import('./analytics')).trackEvent('search_submit')
+  expect(sent()[1].search).toBe('?q=book&sort=popular')
+  expect(JSON.stringify(sent())).not.toMatch(/secret|37\.5/)
+})

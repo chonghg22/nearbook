@@ -24,7 +24,7 @@
 
 `durationMs`는 브라우저 요청 시작부터 응답 계약 검사까지의 시간이다. 검색 API 자체 시간은 `serviceDurationMs`이며 결과 화면의 기존 durationMs와 혼합하지 않는다. SWR 재검증·추가 정보 polling·수동 재시도는 여러 요청이므로 요청 수가 사용자 행동/세션 수와 같지 않다.
 
-보유 응답의 `staleCount`·`oldestCheckedAt`를 함께 본다. stale/캐시 응답도 알려진 상태 수에 포함될 수 있다. heldCount와 availableCount는 서로 다른 도서관 수이며 권수가 아니다. unknown에는 예산 소진 등이 포함될 수 있으나 원시 오류/응답을 수집해 원인을 추정하지 않는다. 좌표·지역명·도서관까지의 거리·인증 정보는 새 계측에 보내지 않는다.
+보유 응답의 `staleCount`·`oldestCheckedAt`를 함께 본다. stale/캐시 응답도 알려진 상태 수에 포함될 수 있다. heldCount와 availableCount는 서로 다른 도서관 수이며 권수가 아니다. unknown에는 예산 소진 등이 포함될 수 있으나 원시 오류/응답을 수집해 원인을 추정하지 않는다. 좌표·지역명·도서관까지의 거리·인증 정보는 새 계측에 보내지 않는다. URL 메타데이터는 공개 source와 /search의 q·유형·정렬·페이지로 제한하고 개인/인증/구독·digest 경로는 공개 방문에서 제외한다.
 
 ## 집계와 해석
 

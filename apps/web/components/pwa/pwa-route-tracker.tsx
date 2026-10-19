@@ -18,7 +18,7 @@ export function PwaRouteTracker() {
     if (typeof window === 'undefined') return
     if (
       lastPath.current !== pathname &&
-      !/^\/(?:me|login|auth|unsubscribe)(?:\/|$)/.test(pathname)
+      !/^\/(?:me|login|auth|unsubscribe|digest|api)(?:\/|$)/.test(pathname)
     ) {
       lastPath.current = pathname
       trackEvent('page_view')

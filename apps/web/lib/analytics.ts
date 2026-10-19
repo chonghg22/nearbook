@@ -59,6 +59,21 @@ export async function trackEvent(type: string, payload: Record<string, unknown> 
     const sessionId = getSessionId()
     const anonymousId = getAnonymousId()
     const source = getSource()
+    // Query metadata is explicit: never copy auth tokens, coordinates or arbitrary URL parameters.
+    const search = new URLSearchParams()
+    const params = new URLSearchParams(window.location.search)
+    const publicPath = !/^\/(?:me|login|auth|unsubscribe|digest|api)(?:\/|$)/.test(
+      window.location.pathname
+    )
+    for (const key of publicPath
+      ? [
+          'source',
+          ...(window.location.pathname === '/search' ? ['q', 'searchType', 'sort', 'page'] : []),
+        ]
+      : []) {
+      const value = params.get(key)
+      if (value !== null) search.set(key, value)
+    }
 
     const send = (eventType: string, eventPayload: Record<string, unknown>) =>
       fetch('/api/analytics/event', {
@@ -76,7 +91,7 @@ export async function trackEvent(type: string, payload: Record<string, unknown> 
           },
           sessionId,
           pathname: window.location.pathname.slice(0, 256),
-          search: window.location.search.slice(0, 512),
+          search: search.size ? `?${search.toString()}`.slice(0, 512) : '',
           at: new Date().toISOString(),
         }),
         keepalive: true,
@@ -84,7 +99,7 @@ export async function trackEvent(type: string, payload: Record<string, unknown> 
     // Mark synchronously: concurrent effects/StrictMode share one visit. Delivery is
     // best effort, with no retries or claim of exactly-once ingestion.
     if (
-      !/^\/(?:me|login|auth|unsubscribe)(?:\/|$)/.test(window.location.pathname) &&
+      !/^\/(?:me|login|auth|unsubscribe|digest|api)(?:\/|$)/.test(window.location.pathname) &&
       window.sessionStorage.getItem(VISIT_KEY) !== sessionId
     ) {
       window.sessionStorage.setItem(VISIT_KEY, sessionId)
