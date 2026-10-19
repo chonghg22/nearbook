@@ -16,11 +16,9 @@ export function PwaRouteTracker() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (
-      lastPath.current !== pathname &&
-      !/^\/(?:me|login|auth|unsubscribe|digest|api)(?:\/|$)/.test(pathname)
-    ) {
-      lastPath.current = pathname
+    const changed = lastPath.current !== pathname
+    lastPath.current = pathname
+    if (changed && !/^\/(?:me|login|auth|unsubscribe|digest|api)(?:\/|$)/.test(pathname)) {
       trackEvent('page_view')
     }
 

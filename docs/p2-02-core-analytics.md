@@ -12,4 +12,4 @@ main c48a91b에서 분기했다. P1-15 PR22는 별도 검토 중이며 포함하
 
 검증은 별도 기록한다. 병합·운영 배포 전에는 새 이벤트가 운영에서 수집된다고 표시하지 않는다.
 
-로컬 검증: frozen lockfile 설치, 웹387개(기존365+추가22)·웹 lint/type-check·diff check 통과. 격리 PostgreSQL17의 임시 events 테이블에서 집계 SQL6개 및 순서/ISBN/재시도/7일 코호트 fixture 통과. CI에 같은 SQL 회귀용 PostgreSQL service를 추가했다. 기존 API용 실제 PG15개와 이 SQL 검증을 구분한다. 실제 운영 계정·이벤트 저장·수집 지표는 실행/조회하지 않았다.
+로컬 검증: frozen lockfile 설치, 웹388개(기존365+추가23)·웹 lint/type-check·diff check 통과. 격리 PostgreSQL17의 임시 events 테이블에서 집계 SQL6개 및 순서/ISBN/재시도/7일 코호트 fixture 통과. CI에 같은 SQL 회귀용 PostgreSQL service를 추가했다. 기존 API용 실제 PG15개와 이 SQL 검증을 구분한다. 실제 운영 계정·이벤트 저장·수집 지표는 실행/조회하지 않았다.

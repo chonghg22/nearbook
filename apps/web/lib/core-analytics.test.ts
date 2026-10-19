@@ -149,3 +149,13 @@ it('shared submit contract preserves author selection and errors expose only bou
   })
   expect(requestFailure(new Error('secret URL/body'))).toEqual({ errorKind: 'unknown' })
 })
+
+it('returning from a private route to the same public path is a new page exposure', () => {
+  const view = render(h(PwaRouteTracker))
+  nav.pathname = '/digest/downgrade'
+  view.rerender(h(PwaRouteTracker))
+  expect(trackEvent).toHaveBeenCalledTimes(1)
+  nav.pathname = '/'
+  view.rerender(h(PwaRouteTracker))
+  expect(trackEvent).toHaveBeenCalledTimes(2)
+})
