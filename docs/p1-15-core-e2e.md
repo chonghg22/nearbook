@@ -2,6 +2,8 @@
 
 2026-10-19, P1-14 운영 main `d619481` 기반 `test/p1-15-core-e2e-20261019`에서 진행. 실제 사용자 계정/발송/외부 provider 없이 앱을 브라우저로 검증한다. P1-11 알림 개선은 보류를 유지한다.
 
+[PR22](https://github.com/chonghg22/nearbook/pull/22). 원격 CI의 실행 결과와 현재 head는 [PR 검사](https://github.com/chonghg22/nearbook/pull/22/checks)에서 확인한다. P1-14 운영 반영 이후 작성한 테스트·문서·CI 변경이며 이 PR은 아직 병합하지 않았다.
+
 ## 실행 구조
 
 - Playwright1.58.2 고정, Chromium desktop/mobile 기기 에뮬레이션. 실제 Next production build/start는 `127.0.0.1:3100`, SSR·브라우저 API와 Supabase 모의 서버는 `127.0.0.1:4101`에서 실행한다. 일반 API 장애 주입은 worker를 차단해 route 가로채기를 보장하고, 별도 privacy 그룹은 실제 worker를 허용한다.
@@ -28,9 +30,9 @@
 | ISBN 스캔 성공 | 모의 native detector가 ISBN을 읽으면 정확한 책/scan source로 이동 |
 | 모바일 폭3종 | 360/390/430px에서 가로 넘침 없음·dialog 범위·Escape 닫기 |
 
-로컬 production build/start에서 **28개 모두 통과**(desktop14+mobile14, 약1분). frozen install/lint/type-check 및 기존 API243 성공/실PG15 skip·웹365·Node237 회귀도 통과했다. 처음 dev 서버의 도구 overlay가 모바일 버튼을 가로채던 검증 간섭을 확인해 production bundle로 바꿨다. CI 결과와 PR은 후속 기록에 보완한다. 기존 API/SEO/개인정보 단위·계약 테스트는 유지한다.
+로컬 production build/start에서 **28개 모두 통과**(desktop14+mobile14, 최종56초). frozen install/lint/type-check 및 기존 API243 성공/실PG15 skip·웹365·Node237 회귀도 통과했다. 처음 dev 서버의 도구 overlay가 모바일 버튼을 가로채던 검증 간섭을 확인해 production bundle로 바꿨다. 기존 API/SEO/개인정보 단위·계약 테스트는 유지한다.
 
-검증 로그: `/private/tmp/nearbook-p115-e2e-production.log`, `nearbook-p115-regression.log`, `nearbook-p115-node-contracts.log`, `nearbook-p115-lint.log`, `nearbook-p115-web-types.log`. 운영 API/DB에 테스트 데이터를 쓰지 않았다.
+검증 로그: `/private/tmp/nearbook-p115-e2e-production-final.log`, `nearbook-p115-regression.log`, `nearbook-p115-node-contracts.log`, `nearbook-p115-lint-final.log`, `nearbook-p115-types-final.log`. 운영 API/DB에 테스트 데이터를 쓰지 않았다.
 
 ## 자동 검증과 구분할 기기 확인
 

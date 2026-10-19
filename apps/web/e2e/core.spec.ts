@@ -188,5 +188,9 @@ for (const width of [360, 390, 430]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
+    await page.goto(`/search?q=${encodeURIComponent(title)}`)
+    await expect(page.getByText('검색결과 1건', { exact: false })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: '검색어', exact: true })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 }
