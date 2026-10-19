@@ -30,7 +30,11 @@ import { CacheModule } from './common/cache/cache.module'
       { name: 'short', ttl: 1_000, limit: 10 },
       { name: 'medium', ttl: 60_000, limit: 100 },
     ]),
-    ScheduleModule.forRoot(),
+    ScheduleModule.forRoot({
+      cronJobs: process.env.API_SCHEDULER_ENABLED !== 'false',
+      intervals: process.env.API_SCHEDULER_ENABLED !== 'false',
+      timeouts: process.env.API_SCHEDULER_ENABLED !== 'false',
+    }),
     CacheModule,
     CommonModule,
     NotifyModule,

@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common'
 import { JeongbonaruClient } from './modules/jeongbonaru/jeongbonaru.client'
 import { CacheService } from './common/cache/cache.service'
+import { SkipThrottle } from '@nestjs/throttler'
 
 @Controller()
 export class AppController {
@@ -10,6 +11,7 @@ export class AppController {
   ) {}
 
   @Get('health')
+  @SkipThrottle()
   health() {
     return {
       status: 'ok',

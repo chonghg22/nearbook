@@ -41,6 +41,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Deployment failure and probe contracts
+        run: |
+          bash -n scripts/deploy-api.sh
+          python3 scripts/test-deploy-api.py
+          node --test apps/api/scripts/check-readiness.test.cjs
+
       - name: Type Check
         run: pnpm type-check
 
