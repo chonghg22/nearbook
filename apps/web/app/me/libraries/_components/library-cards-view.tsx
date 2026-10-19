@@ -224,10 +224,11 @@ export function LibraryCardsView() {
       <SavedLibrarySearch disabled={disabled} onAdd={(id) => change('add', id)} />
       {list.data?.plan === 'free' && list.data.items.length >= 1 && (
         <div className="mt-6 rounded-lg border border-dashed border-primary-200 p-4 text-center">
-          <p className="text-sm text-gray-600">Pro로 업그레이드하면 도서관 무제한 등록</p>
-          <button className="mt-2 text-sm font-medium text-primary hover:underline">
-            Pro 알아보기 →
-          </button>
+          <p className="text-sm text-gray-600">무료 계정은 도서관을 1곳까지 저장할 수 있습니다.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            다른 도서관을 저장하려면 기존 도서관을 제거한 뒤 추가하세요. 기본 도서관도 다시 선택해
+            주세요.
+          </p>
         </div>
       )}
     </div>
