@@ -12,4 +12,6 @@ CLAUDE.md
 .vercel/
 .cloudflare/
 .vercel
+playwright-report/
+test-results/
 .env*
