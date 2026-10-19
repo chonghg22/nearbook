@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { LocationMap } from '@/components/library/location-map'
 import { LibraryFavoriteButton } from '@/components/library/library-favorite-button'
 import { LibraryHours } from '@/components/library/library-hours'
+import { LibrarySiteLink } from '@/components/library/library-site-link'
 import { BookCard } from '@/components/book/book-card'
 import { serverApiJson } from '@/lib/server-api'
 import { parseLibraryList } from '@/lib/map-libraries.mjs'
@@ -126,15 +127,14 @@ export default async function LibraryPage({
               </div>
             </div>
             {library.homepage && (
-              <a
+              <LibrarySiteLink
                 href={library.homepage}
-                target="_blank"
-                rel="noopener noreferrer"
+                libraryId={String(library.id)}
                 className="shrink-0 flex items-center justify-center h-10 px-6 rounded-full
                            bg-primary text-white text-sm font-semibold hover:bg-primary-600 transition-colors shadow-card"
               >
                 도서관 홈페이지 방문
-              </a>
+              </LibrarySiteLink>
             )}
           </div>
           <div className="mt-5">

@@ -45,7 +45,7 @@ export function MobileSearchTrigger() {
             책 제목·저자·ISBN으로 검색하거나 방향키로 추천 도서를 선택하세요.
           </DialogDescription>
         </DialogHeader>
-        <SearchBar autoFocus inlineSuggestions onSubmitted={() => setOpen(false)} />
+        <SearchBar autoFocus inlineSuggestions analyticsSource="mobile_header" onSubmitted={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   )

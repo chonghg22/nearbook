@@ -13,10 +13,34 @@ import { parseSearchResult } from '@/lib/api-contracts'
 import { trackEvent } from '@/lib/analytics'
 import { resolveSearchInput } from '@nearbook/shared-types'
 import { markUsefulAction } from '@/lib/pwa-install-eligibility'
+import { requestFailure, searchSubmission } from '@/lib/analytics-events'
 
 const PAGE_SIZE = 10
 
-const fetcher = (path: string) => publicApiJson(path, parseSearchResult, { timeoutMs: 15000 })
+const fetcher = async (path: string) => {
+  const params = new URLSearchParams(path.split('?')[1])
+  const context = {
+    query: params.get('q'), searchType: params.get('searchType') ?? 'all',
+    sort: params.get('sort') ?? 'relevance', page: Number(params.get('page') ?? 1),
+  }
+  const started = Date.now()
+  try {
+    const result = await publicApiJson(path, parseSearchResult, { timeoutMs: 15000 })
+    trackEvent('search_request_completed', {
+      ...context, durationMs: Math.max(0, Date.now() - started),
+      outcome: result.data.enrichmentFailed ? 'enrichment_failed'
+        : result.data.enrichmentPending ? 'pending' : 'ready',
+      total: result.data.total, resultCount: result.data.items.length,
+      serviceDurationMs: result.data.durationMs,
+    })
+    return result
+  } catch (cause) {
+    trackEvent('search_request_failed', {
+      ...context, ...requestFailure(cause), durationMs: Math.max(0, Date.now() - started),
+    })
+    throw cause
+  }
+}
 
 export function SearchPageInner() {
   const params = useSearchParams()
@@ -67,7 +91,7 @@ export function SearchPageInner() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   useEffect(() => {
-    if (!q || !data?.data || isLoading || error || pending || data.data.enrichmentFailed) return
+    if (!q || !data?.data || isLoading || isValidating || error || pending || data.data.enrichmentFailed) return
 
     const eventKey = `${q}:${searchType}:${sort}:${page}:${total}`
     if (lastResultEventKey.current === eventKey) return
@@ -75,7 +99,7 @@ export function SearchPageInner() {
     if (data.data.items.length > 0) markUsefulAction()
 
     trackEvent('search_result_view', {
-      query: q,
+      query: input.q,
       searchType,
       sort,
       page,
@@ -85,7 +109,7 @@ export function SearchPageInner() {
       durationMs: data.data.durationMs,
       zeroResult: total === 0,
     })
-  }, [data, error, isLoading, pending, page, q, searchType, sort, total])
+  }, [data, error, isLoading, isValidating, pending, page, q, input.q, searchType, sort, total])
 
   const pushParams = useCallback((overrides: Record<string, string>) => {
     const next = new URLSearchParams({ q, sort, searchType, page: String(page) })
@@ -103,11 +127,7 @@ export function SearchPageInner() {
     const nextQuery = query.trim()
     if (!nextQuery) return
 
-    trackEvent('search_submit', {
-      query: nextQuery,
-      searchType: resolveSearchInput(nextQuery, requestedSearchType).searchType,
-      source: 'search_page',
-    })
+    trackEvent('search_submit', searchSubmission(nextQuery, requestedSearchType, 'search_page'))
 
     // Automatic ISBN detection is query-specific, not a sticky user-selected mode.
     const next = new URLSearchParams({ q: nextQuery,
@@ -117,12 +137,14 @@ export function SearchPageInner() {
 
   const handleFilterChange = useCallback((key: string, value: string | null) => {
     if (value === null) return
+    trackEvent('search_filter_change', { query: q, filter: key, value })
     pushParams({ [key]: value })
-  }, [pushParams])
+  }, [pushParams, q])
 
   const handlePageChange = useCallback((p: number) => {
+    trackEvent('search_page_change', { query: q, searchType, sort, page: p })
     pushParams({ page: String(p) })
-  }, [pushParams])
+  }, [pushParams, q, searchType, sort])
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -146,7 +168,11 @@ export function SearchPageInner() {
             isLoading={isLoading || isValidating || pending}
             items={data?.data?.items ?? []}
             error={resultError}
-            query={q}
+            query={input.q}
+            page={page}
+            pageSize={PAGE_SIZE}
+            searchType={searchType}
+            sort={sort}
           />}
           {!input.invalidIsbn && <p className="mt-3 text-xs text-muted-foreground">큰글자·필사 표기는 책 제목을 기준으로 표시합니다. 표기가 없는 책의 판본을 확정하는 정보는 아니며, 상세 페이지에서 ISBN을 확인해 주세요.</p>}
           {!input.invalidIsbn && <p className="mt-2 text-xs text-muted-foreground">총건수는 현재 검색 가능한 도서 기준입니다. 추가 도서 정보는 다음 검색에 반영될 수 있습니다.</p>}
