@@ -7,6 +7,11 @@ on:
       - 'apps/api/**'
       - 'packages/**'
       - '.github/workflows/cd.yml'
+      - 'scripts/deploy-api.sh'
+
+concurrency:
+  group: nearbook-api-production
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -41,6 +46,7 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -51,28 +57,26 @@ jobs:
 
       - name: Deploy to Oracle Cloud
         uses: appleboy/ssh-action@v1
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          DEPLOY_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
+          DEPLOY_REVISION: ${{ github.sha }}
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ${{ secrets.ORACLE_USER }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
+          command_timeout: 30m
+          envs: GHCR_TOKEN,GHCR_USER,DEPLOY_IMAGE,DEPLOY_REVISION
           script: |
-            # Login to GHCR
-            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Pull latest image
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-            # Stop and remove old container
-            docker stop nearbook-api 2>/dev/null || true
-            docker rm nearbook-api 2>/dev/null || true
-
-            # Run new container
-            docker run -d \
-              --name nearbook-api \
-              --restart unless-stopped \
-              -p 3001:3001 \
-              --env-file /home/${{ secrets.ORACLE_USER }}/nearbook/apps/api/.env \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
-            # Clean up old images
-            docker image prune -f
+            set -eu
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            unset GHCR_TOKEN
+            docker pull "$DEPLOY_IMAGE"
+            release_dir=$(mktemp -d)
+            extract=$(docker create "$DEPLOY_IMAGE")
+            trap 'docker rm "$extract" >/dev/null 2>&1 || true; rm -rf "$release_dir"' EXIT
+            mkdir -p "$release_dir/scripts" "$release_dir/apps/api/scripts"
+            docker cp "$extract:/app/scripts/deploy-api.sh" "$release_dir/scripts/deploy-api.sh"
+            docker cp "$extract:/app/apps/api/scripts/check-readiness.cjs" "$release_dir/apps/api/scripts/check-readiness.cjs"
+            bash "$release_dir/scripts/deploy-api.sh" "$DEPLOY_IMAGE" "$DEPLOY_REVISION" "$HOME/nearbook/apps/api/.env"

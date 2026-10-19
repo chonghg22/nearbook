@@ -37,6 +37,7 @@ COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/apps/api ./apps/api
 COPY --from=base /app/packages ./packages
 COPY --from=base /app/package.json ./package.json
+COPY scripts/deploy-api.sh ./scripts/deploy-api.sh
 
 EXPOSE 3001
 ENV PORT=3001
