@@ -9,12 +9,12 @@ describe('배포 환경 판별', () => {
     vi.unstubAllEnvs()
   })
 
-  it('APP_ENV가 production이면 다른 값과 무관하게 운영으로 판단한다', () => {
+  it('APP_ENV production도 명시적인 Vercel preview 차단을 우회하지 못한다', () => {
     vi.stubEnv('APP_ENV', 'production')
     vi.stubEnv('VERCEL_ENV', 'preview')
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', PREVIEW_SITE_URL)
 
-    expect(isProductionDeployment()).toBe(true)
+    expect(isProductionDeployment()).toBe(false)
   })
 
   it('APP_ENV가 production이 아니면 운영 도메인이어도 운영이 아니다', () => {

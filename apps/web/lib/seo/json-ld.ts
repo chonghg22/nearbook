@@ -255,3 +255,20 @@ export function buildFaqJsonLd({
 
   return { '@context': 'https://schema.org', '@graph': [faqPage] }
 }
+
+/** Only the real libraries rendered on this landing belong in its ItemList. */
+export function buildLibraryListJsonLd({ path, name, description, libraries, breadcrumbs }: {
+  path: string; name: string; description: string;
+  libraries: { id: number; name: string }[]; breadcrumbs: BreadcrumbItem[]
+}): Graph {
+  const pageUrl = toAbsoluteSiteUrl(path)
+  return { '@context': 'https://schema.org', '@graph': [
+    { '@type': 'CollectionPage', '@id': `${pageUrl}#webpage`, url: pageUrl, name, description,
+      inLanguage: 'ko-KR', mainEntity: { '@id': `${pageUrl}#library-list` },
+      breadcrumb: { '@id': `${pageUrl}#breadcrumb` } },
+    { '@type': 'ItemList', '@id': `${pageUrl}#library-list`, numberOfItems: libraries.length,
+      itemListElement: libraries.map((library, index) => ({ '@type': 'ListItem', position: index + 1,
+        name: library.name, url: toAbsoluteSiteUrl(`/library/${library.id}`) })) },
+    buildBreadcrumbList(path, breadcrumbs),
+  ] }
+}

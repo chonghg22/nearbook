@@ -16,7 +16,16 @@ export function stripBrandSuffix(title: string) {
   return title.replace(BRAND_SUFFIX_PATTERN, '').trim()
 }
 
-type OpenGraphImage = { url: string; alt?: string }
+export const DEFAULT_SHARE_IMAGE = '/images/share-default.png'
+type OpenGraphImage = { url: string; alt?: string; width?: number; height?: number }
+
+function safeImage(image: OpenGraphImage) {
+  try {
+    const url = new URL(image.url, toAbsoluteSiteUrl('/'))
+    return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password
+      ? { ...image, url: url.toString() } : null
+  } catch { return null }
+}
 
 export type PageMetadataInput = {
   /** self canonical에 사용할 경로. 쿼리는 넣지 않는다. */
@@ -70,6 +79,13 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
     absoluteTitle = false,
   } = input
 
+  const providedImages = (images ?? []).flatMap((image) => {
+    const safe = safeImage(image)
+    return safe ? [safe] : []
+  })
+  const shareImages = providedImages.length ? providedImages : [{
+    url: toAbsoluteSiteUrl(DEFAULT_SHARE_IMAGE), alt: '우리동네책 — 동네 도서관 책 찾기', width: 1200, height: 630,
+  }]
   const canonical = toAbsoluteSiteUrl(path)
   const cleanTitle = title ? stripBrandSuffix(title) : undefined
   // og:title에는 template이 적용되지 않으므로 여기서 직접 브랜드를 붙인다.
@@ -90,14 +106,13 @@ export function buildPageMetadata(input: PageMetadataInput): Metadata {
       url: canonical,
       title: ogTitle,
       ...(description ? { description } : {}),
-      ...(images?.length ? { images } : {}),
+      images: shareImages,
     },
     twitter: {
-      // 이미지가 있을 때만 큰 카드로 올린다. 이미지 없는 large 카드는 빈 영역만 남는다.
-      card: images?.length ? 'summary_large_image' : 'summary',
+      card: 'summary_large_image',
       title: ogTitle,
       ...(description ? { description } : {}),
-      ...(images?.length ? { images: images.map((image) => image.url) } : {}),
+      images: shareImages.map((image) => image.url),
     },
   }
 
@@ -127,4 +142,15 @@ export function buildVerificationMetadata(): Metadata['verification'] | undefine
     ...(google ? { google } : {}),
     ...(naver ? { other: { 'naver-site-verification': naver } } : {}),
   }
+}
+
+/** Page data still throws into its error boundary; only metadata fails closed. */
+export async function buildDetailMetadata<T>(read: () => Promise<T | null>, build: (value: T) => Metadata): Promise<Metadata> {
+  try {
+    const value = await read()
+    if (value) return build(value)
+  } catch { /* Never index a transient error or emit a fabricated entity. */ }
+  return { title: '정보를 확인할 수 없습니다', robots: { index: false, follow: true },
+    openGraph: { title: '정보를 확인할 수 없습니다', images: [] },
+    twitter: { card: 'summary', title: '정보를 확인할 수 없습니다', images: [] } }
 }

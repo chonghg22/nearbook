@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildPageMetadata, buildVerificationMetadata, stripBrandSuffix } from './metadata'
+import { buildDetailMetadata, buildPageMetadata, buildVerificationMetadata, stripBrandSuffix } from './metadata'
 
 function stubProductionEnv() {
   vi.stubEnv('APP_ENV', 'production')
@@ -77,11 +77,11 @@ describe('metadata 생성', () => {
     expect(metadata.robots).toMatchObject({ index: false, follow: false })
   })
 
-  it('이미지가 없으면 og:image와 twitter 이미지를 넣지 않는다', () => {
+  it('책 표지가 없으면 실제 공용 공유 카드를 사용한다', () => {
     const metadata = buildPageMetadata({ path: '/book/9788936434120', title: '소년이 온다' })
 
-    expect(metadata.openGraph).not.toHaveProperty('images')
-    expect(metadata.twitter).toMatchObject({ card: 'summary' })
+    expect(metadata.openGraph).toMatchObject({ images: [{ url: 'https://www.near-book.com/images/share-default.png', width: 1200, height: 630 }] })
+    expect(metadata.twitter).toMatchObject({ card: 'summary_large_image' })
   })
 
   it('이미지가 있을 때만 큰 트위터 카드를 사용한다', () => {
@@ -121,5 +121,25 @@ describe('사이트 소유 확인 metadata', () => {
     vi.stubEnv('NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION', 'google-token')
 
     expect(buildVerificationMetadata()).toBeUndefined()
+  })
+})
+
+describe('detail metadata failure policy', () => {
+  afterEach(() => vi.unstubAllEnvs())
+  for (const value of [null, new Error('temporary upstream failure')]) {
+    it('noindexes missing or failed detail data without canonical or a fabricated image', async () => {
+      stubProductionEnv()
+      const build = vi.fn()
+      const metadata = await buildDetailMetadata(async () => { if (value instanceof Error) throw value; return value }, build)
+      expect(metadata.robots).toMatchObject({ index: false })
+      expect(metadata.alternates).toBeUndefined()
+      expect(metadata.openGraph).toMatchObject({ images: [] })
+      expect(build).not.toHaveBeenCalled()
+    })
+  }
+  it('preserves the actual book cover but filters non-http image schemes', () => {
+    stubProductionEnv()
+    const metadata = buildPageMetadata({ path: '/book/9791161571195', images: [{ url: 'javascript:alert(1)' }, { url: 'https://images.example/cover.jpg' }] })
+    expect(metadata.openGraph).toMatchObject({ images: [{ url: 'https://images.example/cover.jpg' }] })
   })
 })
