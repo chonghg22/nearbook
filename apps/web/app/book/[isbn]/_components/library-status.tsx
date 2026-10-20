@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocationContext } from '@/lib/use-location-context'
 import { LocationBar } from '@/components/location-bar'
 import { Loader2 } from 'lucide-react'
@@ -12,6 +12,7 @@ import type { LinkedHoldingsResult } from '@/lib/library-links.mjs'
 import { HOLDING_RADII, type HoldingRadius } from '@/lib/holdings-alternatives'
 import { HoldingsAlternatives } from './holdings-alternatives'
 import { markUsefulAction } from '@/lib/pwa-install-eligibility'
+import { holdingsOutcome, requestFailure } from '@/lib/analytics-events'
 
 interface Props {
   isbn: string
@@ -33,6 +34,8 @@ export function LibraryStatus({ isbn, bookTitle }: Props) {
   const radiusKm = radiusChoice.key === referenceKey ? radiusChoice.km : 5
   const requestKey = `${referenceKey}:${radiusKm}:${retryCount}`
   const [resolvedKey, setResolvedKey] = useState('')
+  const [resultRequestId, setResultRequestId] = useState('')
+  const lastViewId = useRef('')
 
   useEffect(() => {
     setRadiusChoice((previous) =>
@@ -48,6 +51,8 @@ export function LibraryStatus({ isbn, bookTitle }: Props) {
   useEffect(() => {
     if (!isLoaded) return
     const controller = new AbortController()
+    const started = Date.now()
+    const requestId = `holdings_${started}_${Math.random().toString(36).slice(2)}`
     let active = true
     setIsLoading(true)
     setHasError(false)
@@ -60,21 +65,29 @@ export function LibraryStatus({ isbn, bookTitle }: Props) {
       .then((next) => {
         if (!active) return
         setResult(next)
+        setResultRequestId(requestId)
         if (next.holdings.checkedCount > 0) markUsefulAction()
         setNow(Date.now())
-        trackEvent('library_status_view', {
+        trackEvent('holdings_request_completed', {
+          ...holdingsOutcome(next),
           isbn,
-          libraryCount: next.holdings.heldCount,
-          availableCount: next.holdings.availableCount,
-          checkedCount: next.holdings.checkedCount,
-          unknownCount: next.holdings.unknownCount,
-          hasLocation: true,
+          requestId,
           radiusKm,
-          source: 'nearby',
+          scope: 'nearby',
+          durationMs: Math.max(0, Date.now() - started),
         })
       })
-      .catch(() => {
-        if (active) setHasError(true)
+      .catch((cause) => {
+        if (!active) return
+        setHasError(true)
+        trackEvent('holdings_request_failed', {
+          ...requestFailure(cause),
+          isbn,
+          requestId,
+          radiusKm,
+          scope: 'nearby',
+          durationMs: Math.max(0, Date.now() - started),
+        })
       })
       .finally(() => {
         if (active) {
@@ -89,6 +102,18 @@ export function LibraryStatus({ isbn, bookTitle }: Props) {
   }, [isbn, location.lat, location.lng, isLoaded, radiusKm, retryCount, requestKey])
 
   const loading = !isLoaded || isLoading || resolvedKey !== requestKey
+  useEffect(() => {
+    if (loading || hasError || !result || lastViewId.current === resultRequestId) return
+    lastViewId.current = resultRequestId
+    trackEvent('library_status_view', {
+      isbn,
+      requestId: resultRequestId,
+      radiusKm,
+      scope: 'nearby',
+      libraryCount: result.holdings.heldCount,
+      ...holdingsOutcome(result),
+    })
+  }, [loading, hasError, result, resultRequestId, isbn, radiusKm])
   const current = result ? parseHoldings(result, now) : null
   const changeRadius = (km: HoldingRadius) => {
     if (loading || radiusKm === km) return
@@ -125,6 +150,7 @@ export function LibraryStatus({ isbn, bookTitle }: Props) {
       </p>
       <HoldingsView
         isbn={isbn}
+        requestId={resultRequestId}
         result={current}
         loading={loading}
         error={hasError}

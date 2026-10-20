@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { getRegionDirectory } from '@/lib/seo/region-directory-server'
 import { CATEGORIES } from '@/lib/category-config'
 import { SERVER_API_BASE_URL } from '@/lib/server-api'
 import { isProductionDeployment } from '@/lib/seo/deployment-environment'
@@ -92,6 +93,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return []
   })
   const notices = await collectNotices(fetchJson)
+  const directory = await getRegionDirectory()
+  const regionPages: MetadataRoute.Sitemap = directory?.length ? [
+    { url: toAbsoluteSiteUrl('/regions'), changeFrequency: 'weekly', priority: 0.7 },
+    ...directory.map((region) => ({ url: toAbsoluteSiteUrl(`/region/${region.slug}`), changeFrequency: 'weekly' as const, priority: 0.7 })),
+  ] : []
 
   const staticPages: MetadataRoute.Sitemap = STATIC_ENTRIES.map((entry) => ({
     url: toAbsoluteSiteUrl(entry.path),
@@ -134,5 +140,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...noticePages,
     ...bookPages,
     ...libraryPages,
+    ...regionPages,
   ])
 }

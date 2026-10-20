@@ -5,12 +5,13 @@ import Image from 'next/image'
 import { LocationMap } from '@/components/library/location-map'
 import { LibraryFavoriteButton } from '@/components/library/library-favorite-button'
 import { LibraryHours } from '@/components/library/library-hours'
+import { LibrarySiteLink } from '@/components/library/library-site-link'
 import { BookCard } from '@/components/book/book-card'
 import { serverApiJson } from '@/lib/server-api'
 import { parseLibraryList } from '@/lib/map-libraries.mjs'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buildLibraryJsonLd } from '@/lib/seo/json-ld'
-import { buildPageMetadata } from '@/lib/seo/metadata'
+import { buildDetailMetadata, buildPageMetadata } from '@/lib/seo/metadata'
 import { splitRegion } from '@/lib/seo/region'
 import { fetchLibraryDetail, fetchOptionalDetail } from '@/lib/detail-data'
 
@@ -43,18 +44,17 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const lib = await fetchLibraryDetail(id)
-  if (!lib) return { title: '도서관을 찾을 수 없습니다', robots: { index: false, follow: true } }
-
-  return buildPageMetadata({
-    path: `/library/${id}`,
-    title: `${lib.name} 인기도서·신착도서`,
-    description: [
-      `${lib.name}에서 많이 빌려 간 인기 도서와 새로 들어온 책을 확인하세요.`,
-      lib.address ? `위치: ${lib.address}` : '',
-    ]
-      .filter(Boolean)
-      .join(' '),
+  return buildDetailMetadata(() => fetchLibraryDetail(id), (lib) => {
+    return buildPageMetadata({
+      path: `/library/${id}`,
+      title: `${lib.name} 인기도서·신착도서`,
+      description: [
+        `${lib.name}에서 많이 빌려 간 인기 도서와 새로 들어온 책을 확인하세요.`,
+        lib.address ? `위치: ${lib.address}` : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    })
   })
 }
 
@@ -101,6 +101,8 @@ export default async function LibraryPage({
                 <Link href="/libraries" className="text-primary-700 hover:underline">
                   우리 동네 도서관
                 </Link>
+                <span className="text-subtle-foreground">›</span>
+                <Link href="/regions" className="text-primary-700 hover:underline">지역별 도서관</Link>
                 {region && (
                   <>
                     <span className="text-subtle-foreground">›</span>
@@ -126,15 +128,14 @@ export default async function LibraryPage({
               </div>
             </div>
             {library.homepage && (
-              <a
+              <LibrarySiteLink
                 href={library.homepage}
-                target="_blank"
-                rel="noopener noreferrer"
+                libraryId={String(library.id)}
                 className="shrink-0 flex items-center justify-center h-10 px-6 rounded-full
                            bg-primary text-white text-sm font-semibold hover:bg-primary-600 transition-colors shadow-card"
               >
                 도서관 홈페이지 방문
-              </a>
+              </LibrarySiteLink>
             )}
           </div>
           <div className="mt-5">

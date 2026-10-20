@@ -9,7 +9,7 @@ import { LibraryStatus } from './_components/library-status'
 import { BookViewTracker } from './_components/book-view-tracker'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buildBookJsonLd } from '@/lib/seo/json-ld'
-import { buildPageMetadata } from '@/lib/seo/metadata'
+import { buildDetailMetadata, buildPageMetadata } from '@/lib/seo/metadata'
 import { fetchBookDetail, fetchOptionalDetail } from '@/lib/detail-data'
 
 export const revalidate = 0 // Do not persist a transient detail error as a page.
@@ -21,25 +21,23 @@ async function fetchAnalysis(isbn: string) {
 
 export async function generateMetadata({ params }: { params: Promise<{ isbn: string }> }): Promise<Metadata> {
   const { isbn } = await params
-  const book = await fetchBookDetail(isbn)
-  if (!book) {
-    return { title: '책을 찾을 수 없습니다', robots: { index: false, follow: true } }
-  }
-  const author = typeof book.author === 'string' ? book.author.trim() : ''
-  const publisher = typeof book.publisher === 'string' ? book.publisher.trim() : ''
+  return buildDetailMetadata(() => fetchBookDetail(isbn), (book) => {
+    const author = typeof book.author === 'string' ? book.author.trim() : ''
+    const publisher = typeof book.publisher === 'string' ? book.publisher.trim() : ''
 
-  return buildPageMetadata({
-    path: `/book/${isbn}`,
-    title: author ? `${book.title} — ${author}` : book.title,
-    description: [
-      `${book.title}을(를) 우리 동네 공공도서관에서 빌릴 수 있는지 확인하세요.`,
-      [author, publisher].filter(Boolean).join(' · '),
-    ]
-      .filter(Boolean)
-      .join(' '),
-    openGraphType: 'book',
-    // 표지가 없으면 이미지 자체를 넣지 않는다. 빈 이미지 카드가 생기지 않도록.
-    ...(book.coverUrl ? { images: [{ url: book.coverUrl, alt: `${book.title} 표지` }] } : {}),
+    return buildPageMetadata({
+      path: `/book/${isbn}`,
+      title: author ? `${book.title} — ${author}` : book.title,
+      description: [
+        `${book.title}을(를) 우리 동네 공공도서관에서 빌릴 수 있는지 확인하세요.`,
+        [author, publisher].filter(Boolean).join(' · '),
+      ]
+        .filter(Boolean)
+        .join(' '),
+      openGraphType: 'book',
+      // Prefer the actual book cover; the shared card is the fallback.
+      ...(book.coverUrl ? { images: [{ url: book.coverUrl, alt: `${book.title} 표지` }] } : {}),
+    })
   })
 }
 

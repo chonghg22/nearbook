@@ -31,7 +31,7 @@ export function HeroSection({ monthlyKeywords }: HeroSectionProps) {
       </p>
 
       <div className="mt-8 max-w-2xl space-y-4 text-left">
-        <SearchBar formLabel="홈 도서 검색" />
+        <SearchBar formLabel="홈 도서 검색" analyticsSource="home" />
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Link
             href="/scan"

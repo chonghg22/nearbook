@@ -11,7 +11,7 @@ import { InstallPrompt } from '@/components/pwa/install-prompt'
 import { PwaRouteTracker } from '@/components/pwa/pwa-route-tracker'
 import { isProductionDeployment } from '@/lib/seo/deployment-environment'
 import { getSiteOrigin } from '@/lib/seo/site-url'
-import { buildVerificationMetadata, SITE_DESCRIPTION, SITE_NAME } from '@/lib/seo/metadata'
+import { DEFAULT_SHARE_IMAGE, buildVerificationMetadata, SITE_DESCRIPTION, SITE_NAME } from '@/lib/seo/metadata'
 
 const isProduction = isProductionDeployment()
 
@@ -26,12 +26,13 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: SITE_NAME,
     locale: 'ko_KR',
+    images: [{ url: DEFAULT_SHARE_IMAGE, width: 1200, height: 630, alt: '우리동네책 — 동네 도서관 책 찾기' }],
     title: '우리동네책 — 동네 도서관 책 찾기',
     description: SITE_DESCRIPTION,
   },
   twitter: {
-    // 사이트 공용 OG 이미지가 아직 없으므로 존재하지 않는 asset을 가리키지 않는다.
-    card: 'summary',
+    card: 'summary_large_image',
+    images: [DEFAULT_SHARE_IMAGE],
     title: '우리동네책 — 동네 도서관 책 찾기',
     description: SITE_DESCRIPTION,
   },
