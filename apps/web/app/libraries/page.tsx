@@ -97,6 +97,9 @@ export default async function LibrariesPage() {
         </p>
       </header>
 
+      <nav aria-label="지역별 도서관" className="mx-auto max-w-6xl px-4 pb-4">
+        <Link href="/regions" className="text-sm font-semibold text-primary-700 hover:underline">지역별 도서관 목록 보기 →</Link>
+      </nav>
       <LibrariesMapView />
 
       <section className="mx-auto max-w-6xl px-4 py-10">

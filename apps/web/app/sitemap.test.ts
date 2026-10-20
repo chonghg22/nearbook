@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   collectSitemapBooks: vi.fn(),
   collectSitemapLibraries: vi.fn(),
   defaultFetchJson: vi.fn(),
+  getRegionDirectory: vi.fn(),
 }))
 
 vi.mock('@/lib/seo/sitemap-source', async () => {
@@ -18,6 +19,8 @@ vi.mock('@/lib/seo/sitemap-source', async () => {
     defaultFetchJson: mocks.defaultFetchJson,
   }
 })
+
+vi.mock('@/lib/seo/region-directory-server', () => ({ getRegionDirectory: mocks.getRegionDirectory }))
 
 import sitemap from './sitemap'
 
@@ -37,6 +40,7 @@ describe('sitemap 메타 라우트', () => {
       { id: 111003, lastModified: '2026-05-07T03:06:01.081Z' },
     ])
     mocks.defaultFetchJson.mockResolvedValue({ data: [] })
+    mocks.getRegionDirectory.mockResolvedValue(null)
   })
 
   afterEach(() => {
@@ -135,5 +139,21 @@ describe('sitemap 메타 라우트', () => {
     const library = entries.find((entry) => entry.url.includes('/library/'))
 
     expect(library?.lastModified).toBe('2026-05-07T03:06:01.081Z')
+  })
+})
+
+describe('regional sitemap eligibility', () => {
+  afterEach(() => vi.unstubAllEnvs())
+  it('only includes actual eligible regional landings and omits invented timestamps', async () => {
+    vi.stubEnv('APP_ENV', 'production')
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://www.near-book.com')
+    mocks.getRegionDirectory.mockResolvedValue([{ slug: 'seoul' }])
+    const entries = await sitemap()
+    expect(urlsOf(entries)).toContain('https://www.near-book.com/regions')
+    expect(urlsOf(entries)).toContain('https://www.near-book.com/region/seoul')
+    expect(urlsOf(entries)).not.toContain('https://www.near-book.com/region/busan')
+    expect(entries.find((x) => x.url.endsWith('/region/seoul'))).not.toHaveProperty('lastModified')
+    mocks.getRegionDirectory.mockResolvedValue([])
+    expect(urlsOf(await sitemap()).some((url) => url.includes('/region'))).toBe(false)
   })
 })

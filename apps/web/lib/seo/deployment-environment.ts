@@ -20,14 +20,12 @@ function isProductionHost() {
 }
 
 export function isProductionDeployment() {
-  // 1. APP_ENV가 명시되어 있으면 이것만 신뢰한다.
+  // A preview/development deployment always vetoes a copied production override.
+  const vercelEnv = process.env.VERCEL_ENV?.trim()
+  if (vercelEnv && vercelEnv !== 'production') return false
+
   const appEnv = process.env.APP_ENV?.trim()
   if (appEnv) return appEnv === 'production'
-
-  const vercelEnv = process.env.VERCEL_ENV?.trim()
-
-  // 2. Vercel preview/development는 도메인 설정과 무관하게 비운영이다.
-  if (vercelEnv && vercelEnv !== 'production') return false
 
   // 3~4. 운영 도메인이 아니거나 값이 깨져 있으면 비운영이다.
   if (!isProductionHost()) return false
