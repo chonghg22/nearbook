@@ -2,7 +2,15 @@
 
 2026-10-19, P1-14 운영 main `d619481` 기반 `test/p1-15-core-e2e-20261019`에서 진행. 실제 사용자 계정/발송/외부 provider 없이 앱을 브라우저로 검증한다. P1-11 알림 개선은 보류를 유지한다.
 
-[PR22](https://github.com/chonghg22/nearbook/pull/22). 원격 CI의 실행 결과와 현재 head는 [PR 검사](https://github.com/chonghg22/nearbook/pull/22/checks)에서 확인한다. P1-14 운영 반영 이후 작성한 테스트·문서·CI 변경이며 이 PR은 아직 병합하지 않았다.
+[PR22](https://github.com/chonghg22/nearbook/pull/22). 원격 CI의 실행 결과와 현재 head는 [PR 검사](https://github.com/chonghg22/nearbook/pull/22/checks)에서 확인한다. P1-14 운영 반영 이후 작성한 테스트·문서·CI 변경이다. 10월19일 검증 이후 최신 P2-01~03 코드를 통합한 후속 결과는 다음 절에 기록한다.
+
+## 최신 코드 통합 — 2026-10-20
+
+운영 main `56f5239`의 P2-01 재방문 안내·P2-02 이벤트·P2-03 지역 SEO를 병합했다. 기존 PostgreSQL 분석 SQL 검증6개와 배포 실패/준비 상태 계약은 CI에 유지하고, 이후 Chromium E2E를 실행한다. 앱 동작·API·DB 스키마 변경은 없다.
+
+기존 E2E28개는 최신 코드에서도 통과했다. 확장한 **32개 모두 통과**(desktop16+mobile16,57.7초). 동일 production bundle·격리 fixture에서 검증했다. 웹402/API243·실PG15skip/Node237, lint·배포 실패/준비 상태 계약도 통과했다. 원격 최종 결과는 PR 검사와 후속 병합 기록을 따른다. 분석 이벤트 검증은 로컬 수집기까지의 전달 근거이며 운영 DB 저장·운영 시간대·실제 광고 유입/재방문 측정을 입증하지 않는다. 실제 외부 도서관 사이트는 브라우저에서 차단한다.
+
+사전 확장 실행에서 링크 이름을 잘못 지정한 선택자와 Next 스트리밍의 중복 robots meta 선택자를 보정했다. 제품 동작 수정 없이 전체 suite 재실행32개 통과를 확인했다. 로그: `/private/tmp/nearbook-p115-update-e2e-final.log`, `nearbook-p115-update-regression.log`, `nearbook-p115-update-contracts.log`, `nearbook-p115-update-deploy.log`, `nearbook-p115-update-readiness.log`.
 
 ## 실행 구조
 
@@ -14,11 +22,13 @@
 
 ## 시나리오
 
-각 desktop/mobile에서 14개, 합계28개를 구성했다.
+각 desktop/mobile에서 16개, 합계32개를 구성했다. 기존28개에 지역 탐색과 개인 경로→공개 경로 계측을 추가했다.
 
 | 범위 | 검증하는 실제 앱 동작 |
 | --- | --- |
-| 검색→책→도서관 | 검색 제출·결과 선택·h1/ISBN·대출가능 집계·공식 URL·상세 운영시간 |
+| 검색→책→도서관 | 검색 제출·결과 선택·h1/ISBN·대출가능 집계·공식 URL·상세 운영시간. 실제 브라우저→Next 프록시→로컬 수집기의 v2 이벤트·유입 source/세션 유지, 검색/ISBN/rank·보유 requestId와 공식 링크 클릭 연결, 임의 URL 토큰·좌표 제외 |
+| 지역 탐색 | 최소3개 실제 fixture 도서관의 서울 목록→도서관 상세, 콘텐츠1개뿐인 부산 링크 제외/상세 비노출·로컬 noindex·가로 넘침 없음 |
+| 비공개 진입→공개 이동 | 모의 로그인 찜 목록의 page_view/visit 제외, 공개 검색 이동 후 visit1개·개인 URL 토큰 미전송 |
 | 외부429/503 | 오류를 미소장으로 오인하지 않고 기본 metadata 유지·재시도 복구 |
 | 검색503 | 오류와 정상0건 구분·재시도 정상1건 |
 | 보유 deadline | 17초 지연 응답에서 15초 앱 deadline·오류 안내·다음 조회 복구 |
@@ -30,7 +40,7 @@
 | ISBN 스캔 성공 | 모의 native detector가 ISBN을 읽으면 정확한 책/scan source로 이동 |
 | 모바일 폭3종 | 360/390/430px에서 가로 넘침 없음·dialog 범위·Escape 닫기 |
 
-로컬 production build/start에서 **28개 모두 통과**(desktop14+mobile14, 최종56초). frozen install/lint/type-check 및 기존 API243 성공/실PG15 skip·웹365·Node237 회귀도 통과했다. 처음 dev 서버의 도구 overlay가 모바일 버튼을 가로채던 검증 간섭을 확인해 production bundle로 바꿨다. 기존 API/SEO/개인정보 단위·계약 테스트는 유지한다.
+최초(2026-10-19) 로컬 production build/start에서 **28개 모두 통과**(desktop14+mobile14, 최종56초). frozen install/lint/type-check 및 기존 API243 성공/실PG15 skip·웹365·Node237 회귀도 통과했다. 처음 dev 서버의 도구 overlay가 모바일 버튼을 가로채던 검증 간섭을 확인해 production bundle로 바꿨다. 기존 API/SEO/개인정보 단위·계약 테스트는 유지한다.
 
 검증 로그: `/private/tmp/nearbook-p115-e2e-production-final.log`, `nearbook-p115-regression.log`, `nearbook-p115-node-contracts.log`, `nearbook-p115-lint-final.log`, `nearbook-p115-types-final.log`. 운영 API/DB에 테스트 데이터를 쓰지 않았다.
 

@@ -23,8 +23,9 @@ test.beforeEach(async ({ request, context }) => {
   })
 })
 
-test('search → book → holding library → official link', async ({ page }) => {
-  await page.goto('/search')
+test('search → book → holding library → official link', async ({ page, request }) => {
+  const source = 'qa-p115-local-fixture'
+  await page.goto(`/search?source=${source}&token=fixture-sensitive&lat=37`)
   const input = page.getByRole('textbox', { name: '검색어', exact: true })
   await input.fill(title)
   await input.press('Enter')
@@ -33,9 +34,58 @@ test('search → book → holding library → official link', async ({ page }) =
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
   await expect(page.getByText('대출 가능 1곳', { exact: false })).toBeVisible()
   await expect(page.getByRole('link', { name: /공식 사이트에서 확인/ })).toHaveAttribute('href', 'https://library.example.test/')
+  // Verify the real browser → Next proxy → local collector path, without visiting the external site.
+  const popup = page.waitForEvent('popup')
+  await page.getByRole('link', { name: /공식 사이트에서 확인/ }).click()
+  await (await popup).close()
+  await expect.poll(async () => (await (await request.get(`${fixture}/__state`)).json()).events
+    .some((event: { type: string }) => event.type === 'library_click')).toBe(true)
+  const { events } = await (await request.get(`${fixture}/__state`)).json()
+  const event = (type: string) => events.find((entry: { type: string }) => entry.type === type)
+  expect(events.filter((entry: { type: string }) => entry.type === 'visit')).toHaveLength(1)
+  expect(event('search_submit').payload).toMatchObject({ query: title })
+  expect(event('book_result_click').payload).toMatchObject({ query: title, isbn, rank: 1 })
+  expect(event('book_detail_view').payload).toMatchObject({ isbn })
+  expect(event('holdings_request_completed').payload).toMatchObject({ isbn, checkedCount: 1, outcome: 'complete' })
+  expect(event('library_click').payload).toMatchObject({ isbn, libraryId: '111314', action: 'library_site',
+    requestId: event('holdings_request_completed').payload.requestId })
+  for (const entry of events) {
+    expect(entry.sessionId).toBe(event('visit').sessionId)
+    expect(entry.payload).toMatchObject({ schemaVersion: 2, trafficSource: source, anonymousId: event('visit').payload.anonymousId })
+    expect(entry.search).not.toMatch(/token=|lat=|fixture-sensitive/)
+  }
   await page.getByRole('link', { name: '검증 도서관', exact: true }).click()
   await expect(page.getByRole('heading', { name: '검증 도서관', exact: true })).toBeVisible()
   await expect(page.getByText('평일 09:00~18:00')).toBeVisible()
+})
+
+test('regional directory exposes eligible content and opens a library detail', async ({ page }) => {
+  await page.goto('/regions')
+  await expect(page.getByRole('heading', { name: '지역별 공공도서관', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: /부산광역시/ })).toHaveCount(0)
+  await page.getByRole('link', { name: /서울특별시.*공공도서관 3곳/ }).click()
+  await expect(page.getByRole('heading', { name: '서울특별시 공공도서관', exact: true })).toBeVisible()
+  await expect(page.locator('a[href^="/library/"]')).toHaveCount(3)
+  await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute('content', /noindex/)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.getByRole('link', { name: /검증 도서관 서울시/ }).click()
+  await expect(page.getByRole('heading', { name: '검증 도서관', exact: true })).toBeVisible()
+  await page.goto('/region/busan')
+  await expect(page.locator('meta[name="robots"]').first()).toHaveAttribute('content', /noindex/)
+  await expect(page.getByRole('heading', { name: '부산광역시 공공도서관', exact: true })).toHaveCount(0)
+})
+
+test('private entry emits no page view and public navigation starts one visit', async ({ page, context, request }) => {
+  await signIn(context, 'reader-b')
+  await page.goto('/me/wishlist?token=fixture-private')
+  await expect(page.getByText(/위시리스트.*비어|아직.*찜|찜한 책이/).first()).toBeVisible()
+  await page.getByRole('link', { name: '책 검색하러 가기', exact: true }).click()
+  await expect.poll(async () => (await (await request.get(`${fixture}/__state`)).json()).events
+    .some((entry: { type: string }) => entry.type === 'visit')).toBe(true)
+  const { events } = await (await request.get(`${fixture}/__state`)).json()
+  expect(events.filter((entry: { type: string }) => entry.type === 'visit')).toHaveLength(1)
+  expect(events.every((entry: { pathname: string }) => !entry.pathname.startsWith('/me/'))).toBe(true)
+  expect(JSON.stringify(events)).not.toContain('fixture-private')
 })
 
 for (const status of [429, 503]) {
