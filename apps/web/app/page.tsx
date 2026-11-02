@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { LibraryGuideLinks } from '@/components/library-guides'
 import { HeroSection } from './_components/hero-section'
 import { BookListSection } from './_components/book-list-section'
 import { LibrariesNearMe } from './_components/libraries-near-me'
@@ -76,6 +77,7 @@ export default async function HomePage() {
         />
       </div>
 
+      <LibraryGuideLinks />
       <AboutSection />
       <AdSenseSlot
         slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME_FOOTER}

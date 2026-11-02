@@ -31,6 +31,7 @@ export function SiteFooter() {
               <li><Link href="/explore" className="hover:text-primary">탐색</Link></li>
               <li><Link href="/popular" className="hover:text-primary">인기도서</Link></li>
               <li><Link href="/category" className="hover:text-primary">카테고리</Link></li>
+              <li><Link href="/guides" className="hover:text-primary">도서관 이용 가이드</Link></li>
             </ul>
           </div>
 

@@ -78,6 +78,10 @@ export default function QnaPage() {
         ))}
       </div>
 
+      <p className="mt-8 text-sm leading-7 text-gray-600">
+        국립중앙도서관 검색과 국가전자도서관 원문 이용 방법은{' '}
+        <Link href="/guides" className="font-semibold text-primary-700 hover:underline">도서관 이용 가이드</Link>에서 확인하세요.
+      </p>
       <p className="mt-8 text-sm text-gray-600">
         찾는 답이 없다면{' '}
         <Link href="/feedback" className="font-semibold text-primary-700 hover:underline">
