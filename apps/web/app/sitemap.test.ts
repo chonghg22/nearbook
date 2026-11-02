@@ -167,4 +167,3 @@ describe('regional sitemap eligibility', () => {
     expect(urlsOf(await sitemap()).some((url) => url.includes('/region'))).toBe(false)
   })
 })
-
