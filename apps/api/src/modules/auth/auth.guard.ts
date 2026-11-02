@@ -25,6 +25,8 @@ export class AuthGuard implements CanActivate {
       return true
     }
 
+    // Supabase owns identity; application rows live in our independent PostgreSQL database.
+    await this.authService.getOrCreateUser(user.supabaseUserId, user.email, user.nickname)
     request.user = user
     return true
   }

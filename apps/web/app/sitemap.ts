@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { GUIDES_UPDATED_AT, LIBRARY_GUIDES, guidePath } from '@/lib/library-guides'
 import { getRegionDirectory } from '@/lib/seo/region-directory-server'
 import { CATEGORIES } from '@/lib/category-config'
 import { SERVER_API_BASE_URL } from '@/lib/server-api'
@@ -37,7 +38,9 @@ type StaticEntry = {
  * noindex인 /search, /scan, /events, /me, 인증·토큰 라우트는 넣지 않는다.
  */
 const STATIC_ENTRIES: StaticEntry[] = [
-  { path: '/', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'daily', priority: 1.0 },
+  { path: '/', lastModified: GUIDES_UPDATED_AT, changeFrequency: 'daily', priority: 1.0 },
+  { path: '/guides', lastModified: GUIDES_UPDATED_AT, changeFrequency: 'monthly', priority: 0.6 },
+  ...LIBRARY_GUIDES.map((guide): StaticEntry => ({ path: guidePath(guide), lastModified: GUIDES_UPDATED_AT, changeFrequency: 'monthly', priority: 0.6 })),
   { path: '/popular', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'daily', priority: 0.8 },
   { path: '/rising', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'daily', priority: 0.8 },
   { path: '/new-books', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'daily', priority: 0.7 },
@@ -45,7 +48,7 @@ const STATIC_ENTRIES: StaticEntry[] = [
   { path: '/libraries', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'weekly', priority: 0.8 },
   { path: '/category', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'weekly', priority: 0.7 },
   { path: '/explore', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'weekly', priority: 0.5 },
-  { path: '/qna', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'monthly', priority: 0.4 },
+  { path: '/qna', lastModified: GUIDES_UPDATED_AT, changeFrequency: 'monthly', priority: 0.4 },
   { path: '/notices', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'weekly', priority: 0.4 },
   { path: '/feedback', lastModified: CONTENT_UPDATED_AT, changeFrequency: 'monthly', priority: 0.3 },
   { path: '/terms', lastModified: LEGAL_UPDATED_AT, changeFrequency: 'yearly', priority: 0.2 },

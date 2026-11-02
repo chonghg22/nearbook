@@ -65,12 +65,15 @@ export class AuthService {
       id: string
       email?: string | null
       app_metadata?: { provider?: string }
+      user_metadata?: { nickname?: string; name?: string }
     }
 
+    const nickname = user.user_metadata?.nickname ?? user.user_metadata?.name
     return {
       supabaseUserId: user.id,
       email: user.email ?? '',
       provider: user.app_metadata?.provider ?? 'unknown',
+      nickname: typeof nickname === 'string' ? nickname.slice(0, 64) : undefined,
     }
   }
 
@@ -84,8 +87,14 @@ export class AuthService {
       supabaseUserId,
       email: email ?? null,
       nickname: nickname ?? null,
-    }).returning()
+    }).onConflictDoNothing({ target: users.supabaseUserId }).returning()
 
-    return created
+    if (created) return created
+    // Two verified requests may initialize the same account concurrently.
+    const concurrent = await db.query.users.findFirst({
+      where: eq(users.supabaseUserId, supabaseUserId),
+    })
+    if (!concurrent) throw new Error('Unable to initialize local user')
+    return concurrent
   }
 }

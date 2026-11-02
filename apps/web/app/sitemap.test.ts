@@ -117,8 +117,18 @@ describe('sitemap 메타 라우트', () => {
     const home = entries.find((entry) => entry.url === 'https://www.near-book.com/')
     const terms = entries.find((entry) => entry.url === 'https://www.near-book.com/terms')
 
-    expect(home?.lastModified).toBe('2026-08-10')
+    expect(home?.lastModified).toBe('2026-11-02')
     expect(terms?.lastModified).toBe('2026-05-07')
+    expect(entries.find((entry) => entry.url === 'https://www.near-book.com/popular')?.lastModified).toBe('2026-08-10')
+  })
+
+  it('publishes the guide hub and both unique guides once with their real revision date', async () => {
+    const entries = await sitemap()
+    for (const path of ['/guides', '/guides/national-library-search', '/guides/national-digital-library']) {
+      const matching = entries.filter((entry) => entry.url === `https://www.near-book.com${path}`)
+      expect(matching).toHaveLength(1)
+      expect(matching[0]?.lastModified).toBe('2026-11-02')
+    }
   })
 
   it('갱신 시각을 모르는 책 URL에는 lastModified를 넣지 않는다', async () => {
