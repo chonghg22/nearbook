@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 
 const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'chonghg22@gmail.com'
-const UPDATED_AT = '2026년 5월 7일'
+const UPDATED_AT = '2026년 11월 3일'
 
 export const metadata: Metadata = buildPageMetadata({
   path: '/privacy',
