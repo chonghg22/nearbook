@@ -335,7 +335,7 @@ describe('actual Nest graph: cache singleton, named schedules and aggregate HTTP
       .overrideProvider(ConfigService)
       .useValue({
         get: (key: string) =>
-          key === 'SUPABASE_JWT_SECRET' ? 'isolated-test-only-not-an-account' : undefined,
+          key === 'AUTH_JWT_SECRET' ? 'isolated-test-only-not-an-account' : undefined,
       })
       .overrideProvider(SearchIndexRepository)
       .useValue(f.source)

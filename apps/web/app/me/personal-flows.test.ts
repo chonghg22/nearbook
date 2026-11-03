@@ -14,7 +14,7 @@ const mocked = vi.hoisted(() => ({
   listeners: [] as Array<(event: string, session: { user: { id: string } } | null) => void>,
 }))
 vi.mock('@/lib/api-client', () => ({ personalApiFetch: mocked.api }))
-vi.mock('@/lib/supabase/client', () => ({
+vi.mock('@/lib/auth/client', () => ({
   createClient: () => ({
     auth: {
       onAuthStateChange: (listener: (typeof mocked.listeners)[number]) => {

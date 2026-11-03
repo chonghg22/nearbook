@@ -6,7 +6,7 @@ import { parseSearchResult } from './api-contracts'
 
 const session = vi.hoisted(() => ({ get: vi.fn(), getUser: vi.fn() }))
 vi.mock('./constants', () => ({ PUBLIC_API_BASE_URL: 'https://api.example.test' }))
-vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ auth: { getSession: session.get, getUser: session.getUser } }) }))
+vi.mock('@/lib/auth/client', () => ({ createClient: () => ({ auth: { getSession: session.get, getUser: session.getUser } }) }))
 const fetchMock = vi.fn<typeof fetch>()
 const payload = { data: { items: [], total: 0, page: 1, pageSize: 10 } }
 beforeEach(() => {

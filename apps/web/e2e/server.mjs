@@ -9,10 +9,6 @@ const directory = [library, ...[111315, 111316].map((id) => ({ ...library, id, n
   { ...library, id: 222001, name: '소규모 지역 도서관', region: '부산광역시 중구' }]
 const initialState = () => ({ added: {}, writes: 0, saveFailure: false, searchStatus: 200, events: [] })
 let state = initialState()
-function user(id) {
-  return { id, aud: 'authenticated', role: 'authenticated', email: `${id}@example.test`,
-    app_metadata: { provider: 'kakao' }, user_metadata: { nickname: '검증 독자' }, created_at: '2026-01-01T00:00:00Z' }
-}
 function identity(req) {
   try { return JSON.parse(Buffer.from(req.headers.authorization.split('.')[1], 'base64url')).sub } catch { return 'anonymous' }
 }
@@ -27,7 +23,7 @@ function holdings() {
 }
 const server = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:3100')
-  res.setHeader('Access-Control-Allow-Headers', 'authorization,apikey,content-type,x-client-info,x-supabase-api-version')
+  res.setHeader('Access-Control-Allow-Headers', 'authorization,content-type')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS')
   res.setHeader('Cache-Control', 'no-store')
   res.setHeader('Content-Type', 'application/json')
@@ -40,8 +36,8 @@ const server = createServer(async (req, res) => {
   if (path === '/__reset' && req.method === 'POST') { state = { ...initialState(), ...JSON.parse(body || '{}') }; return send(state) }
   if (path === '/__state') return send(state)
   if (path === '/analytics/event' && req.method === 'POST') { state.events.push(JSON.parse(body)); return send({ ok: true }, 202) }
-  if (path === '/auth/v1/user') return send(user(identity(req)))
-  if (path === '/auth/v1/logout') return send({})
+  if (path === '/auth/refresh' && req.method === 'POST') return send({ error: 'session_expired' }, 401)
+  if (path === '/auth/logout' && req.method === 'POST') { res.statusCode = 204; res.end(); return }
   if (path === '/search') return send({ data: { items: [book], total: 1, page: 1, pageSize: 10 } }, state.searchStatus)
   if (path === '/search/suggest') return send({ data: [book] })
   if (path === `/books/${isbn}`) return send(book)

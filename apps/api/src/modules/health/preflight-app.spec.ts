@@ -18,7 +18,7 @@ describe('actual AppModule preflight wiring', () => {
     const { AppModule } = await import('../../app.module')
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ConfigService).useValue({
-        get: (key: string) => key === 'SUPABASE_JWT_SECRET' ? 'isolated-test-only' : undefined,
+        get: (key: string) => key === 'AUTH_JWT_SECRET' ? 'isolated-test-only' : undefined,
       })
       .overrideProvider(SearchIndexRepository).useValue({
         snapshot: async (fn: (reader: object) => Promise<unknown>) => fn({}),

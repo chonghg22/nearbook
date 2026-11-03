@@ -1,16 +1,18 @@
 import { test, expect, type BrowserContext } from '@playwright/test'
+import { createHmac } from 'node:crypto'
 
 const isbn = '9791161571195'
 const title = '회귀 검증을 위한 책'
 const fixture = 'http://127.0.0.1:4101'
 const base = 'http://127.0.0.1:3100'
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url')
+// Must match AUTH_JWT_SECRET in playwright.config.ts (isolated test value, not an account secret).
+const E2E_AUTH_SECRET = 'isolated-e2e-auth-secret-0123456789abcdef'
 async function signIn(context: BrowserContext, id: string) {
   const exp = Math.floor(Date.now() / 1000) + 3600
-  const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: id, exp, aud: 'authenticated', role: 'authenticated' })}.isolated-fixture-signature`
-  const session = { access_token: token, refresh_token: 'isolated-refresh', token_type: 'bearer', expires_in: 3600, expires_at: exp,
-    user: { id, aud: 'authenticated', role: 'authenticated', email: `${id}@example.test`, app_metadata: {}, user_metadata: {} } }
-  await context.addCookies([{ name: 'sb-127-auth-token', value: `base64-${encode(session)}`, url: base, sameSite: 'Lax' }])
+  const unsigned = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: id, sid: `session-${id}`, prv: 'kakao', nick: '검증 독자', exp, iss: 'nearbook-api', aud: 'nearbook' })}`
+  const token = `${unsigned}.${createHmac('sha256', E2E_AUTH_SECRET).update(unsigned).digest('base64url')}`
+  await context.addCookies([{ name: 'nb_at', value: token, url: base, sameSite: 'Lax', httpOnly: true }])
 }
 
 test.beforeEach(async ({ request, context }) => {
@@ -149,9 +151,10 @@ test('anonymous wishlist returns to the requested book and OAuth failure can ret
   await expect(page).toHaveURL(new RegExp(`next=.*book`))
   const login = page.getByRole('button', { name: /카카오로 시작하기/ })
   await login.click()
-  // Local HTTP fixture is deliberately rejected as an OAuth HTTPS destination.
-  await expect(page.getByRole('alert').filter({ hasText: '로그인을 시작하지 못했습니다' })).toBeVisible()
-  await expect(login).toBeEnabled()
+  // No Kakao client is configured in the isolated fixture, so login returns to a safe retry page.
+  await expect(page).toHaveURL(/\/login\?error=auth&next=.*book/)
+  await expect(page.getByText('로그인이 완료되지 않았습니다')).toBeVisible()
+  await expect(page.getByRole('button', { name: /카카오로 시작하기/ })).toBeEnabled()
 })
 
 test('authenticated save failure requires state recheck and duplicate clicks save once', async ({ page, context, request }) => {
@@ -220,7 +223,9 @@ test('native ISBN detection navigates to the exact book', async ({ page }) => {
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => new MediaStream() })
     HTMLMediaElement.prototype.play = async () => {}
   }, isbn)
-  await page.goto('/scan')
+  // The fixture's empty MediaStream never yields frames, and a <video> awaiting data delays the
+  // document load event by spec, so wait for DOM readiness instead of `load`.
+  await page.goto('/scan', { waitUntil: 'domcontentloaded' })
   await expect(page).toHaveURL(new RegExp(`/book/${isbn}\\?source=scan`))
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
 })

@@ -22,7 +22,7 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         INTERNAL_API_URL: 'http://127.0.0.1:4101', NEXT_PUBLIC_API_BASE_URL: '/api',
-        NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:4101', NEXT_PUBLIC_SUPABASE_ANON_KEY: 'isolated-e2e-key',
+        AUTH_JWT_SECRET: 'isolated-e2e-auth-secret-0123456789abcdef', KAKAO_REST_API_KEY: '',
         APP_ENV: 'test', VERCEL_ENV: 'development',
         DATABASE_URL: 'postgres://unused:unused@127.0.0.1:1/unused',
         NEXT_PUBLIC_NAVER_MAP_CLIENT_ID: '', NEXT_PUBLIC_GA_ID: '',

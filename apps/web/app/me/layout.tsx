@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { createServerClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/auth/server'
 import { MeNav } from '@/components/me/me-nav'
 
 // 로그인한 사용자의 개인 데이터 화면. 색인도 링크 추적도 하지 않는다.
@@ -14,12 +14,9 @@ export default async function MeLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const session = await getServerSession()
 
-  if (!user) {
+  if (!session) {
     redirect('/login?next=/me')
   }
 

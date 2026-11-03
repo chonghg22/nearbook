@@ -1,18 +1,12 @@
-import { createServerClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/auth/server'
 import Link from 'next/link'
 
 export const metadata = { title: '마이페이지 | 우리동네책' }
 
 export default async function MePage() {
-  const supabase = await createServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = (await getServerSession())?.user
 
-  const nickname =
-    (user?.user_metadata?.name as string | undefined) ??
-    user?.email?.split('@')[0] ??
-    '독서가'
+  const nickname = user?.user_metadata.nickname ?? '독서가'
 
   return (
     <div>

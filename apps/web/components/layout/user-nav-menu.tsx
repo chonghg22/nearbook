@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { userNavItems } from '@/lib/nav/user-nav.config'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/auth/client'
 import { clearPwaCaches } from '@/lib/pwa-privacy.mjs'
 
 interface Props {
@@ -22,14 +22,12 @@ interface Props {
 
 export function UserNavMenu({ nickname, avatarUrl }: Props) {
   async function handleLogout() {
-    const supabase = createClient()
+    const client = createClient()
     document.documentElement.dataset.accountLogout = 'true'
     document.body.style.visibility = 'hidden'
     await clearPwaCaches(window.caches, true).catch(() => {})
-    await Promise.allSettled([
-      supabase.auth.signOut(),
-      fetch('/auth-api/logout', { method: 'POST', cache: 'no-store' }),
-    ])
+    // Revokes the server session and clears the httpOnly session cookies.
+    await client.auth.signOut().catch(() => {})
 
     window.location.replace('/')
   }
