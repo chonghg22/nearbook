@@ -1,7 +1,7 @@
 # P1-01 보유·대출 상태 모델 정리
 
 작성일: 2026-10-14
-상태: 구현/로컬 회귀 검증 중. 운영 미변경.
+상태: 전체 CI346개/프리뷰 검증 후 운영 웹/API 반영 및 읽기 전용 운영 검증 완료.
 
 ## 근거와 범위
 
@@ -28,6 +28,25 @@
 - Node: 새 응답 계약/기존 응답 거부,4상태/범위 집계, 진짜미소장·미확인 구분, TTL 경과, HTTP404/429/5xx/네트워크/본문·요청timeout/라이프사이클 취소와 재시도.
 - React SSR:4상태/권수 표현 없음/부분결과/확인범위/시각/오래된 자료/재시도.
 - 전체 CI와 실제 프리뷰, 승인된 운영 배포 후 실제 응답·대표 책·지역 변경·모바일·health를 읽기 전용으로 확인한다. 실제 장애 유발/DB 갱신/강제 API 호출은 하지 않는다.
+
+## 구현·프리뷰 검증
+
+- [PR #8](https://github.com/chonghg22/nearbook/pull/8), 최종 head `aee21df9138cd6ae565f85c1a6bb5f14fd352bfd`.
+- [CI #17](https://github.com/chonghg22/nearbook/actions/runs/38494199124) lint/type-check/build/test 통과: Node172·Web120·API54 = **346개**. parser/observation 로컬 strict 검증 및 diff-check 통과.
+- 최초 CI345개 성공 후 PWA의5초 캐시 대체 충돌을 발견했다. holdings 경로만 SW intercept에서 제외하고 실제 handler VM 테스트를 추가해 전체 CI를 다시 통과시켰다.
+- [최종 프리뷰](https://nearbook-1p44up5i0-chonghg22s-projects.vercel.app/) sourceaee21df Ready. 루트의 도서 링크에서 책 상세로 이동, 메타데이터 정상/보유 오류 분리 확인.
+- 앞선 프리뷰에서 재시도→로딩→오류, 수동 지역변경→새로딩, 390px body384/384, 운영 canonical 확인. 새 API 경로가 아직 운영에 없어 프리뷰404는 오류로 표시됐으며 정상/부분결과는 회귀로 검증했다. 운영 배포 후 실제 결과를 추가 확인한다.
+- 사용자 승인 후 merge `02a5c67fbb52259364530eea810d7b11545923f5`. 운영 배포 확인 중. 다음 항목은 착수하지 않았다.
+
+## 운영 검증 완료
+
+- 웹/API 모두02a5c67 운영 배포. CD 성공·빌드/pull digest 일치, Vercel Production Ready 및 운영 도메인 확인.
+- API 교체 전 보유 조회 오류에도 책 메타데이터·이용 분석은 정상 유지. 교체 후 재시도로 서울후보30/확인10/소장10/대출가능9 복구. 나머지20곳 미확인 안내, 대출불가도서관 유지, 실제권수 표현 없음.
+- 새 모바일탭 재조회 시10:21의 기존 확인 시각 유지.390px client/scroll384/384, canonical 유지, errorlog 없음.
+- 실제5분 경과 후 전역/카드 이전 조회 경고와 재확인 버튼도 표시됐다. 클릭→로딩→새10:26 확인시각/정상집계 및 이전조회경고 해제 확인.
+- 수동 부산지역 선택 시 이전서울결과를 로딩으로 숨긴 뒤 부산후보19/확인10/소장10/대출가능9·미확인9로 변경. 검증 후 원래 서울전체 및 viewport복구.
+- health status:ok. 새 API 직접탭 열기는 Browser Use의 ERR_BLOCKED_BY_CLIENT로 차단돼 우회하지 않았다. 정상 응답 계약은 실제 운영 UI의 strict parser 통과·집계/카드 및 CI로 확인했다. 운영 장애/한도 초과를 인위적으로 유발하지 않았다.
+- [운영 검증 상세](deploy-verification-p1-01-2026-10-14.md). P1-01 완료, P1-02는 별도 착수한다.
 
 ## 다음 범위
 

@@ -13,3 +13,7 @@ main c48a91b에서 분기했다. P1-15 PR22는 별도 검토 중이며 포함하
 검증은 별도 기록한다. 병합·운영 배포 전에는 새 이벤트가 운영에서 수집된다고 표시하지 않는다.
 
 로컬 검증: frozen lockfile 설치, 웹388개(기존365+추가23)·웹 lint/type-check·diff check 통과. 격리 PostgreSQL17의 임시 events 테이블에서 집계 SQL6개 및 순서/ISBN/재시도/7일 코호트 fixture 통과. CI에 같은 SQL 회귀용 PostgreSQL service를 추가했다. 기존 API용 실제 PG15개와 이 SQL 검증을 구분한다. 실제 운영 계정·이벤트 저장·수집 지표는 실행/조회하지 않았다.
+
+최종 원격 검증: [PR24](https://github.com/chonghg22/nearbook/pull/24), head `1fbfaebc28ed0fce24bc8f944c2848ea5f3dc620`. [CI39342645093](https://github.com/chonghg22/nearbook/actions/runs/39342645093)와 Vercel preview 성공. CI SQL6개/격리 PostgreSQL fixture 실제 실행·웹388·API243·Node237 통과, 기존 API PG15개 생략. KAN-121 검토 중, Confluence458753 v5 재조회 확인. 미병합·미배포.
+
+2026-10-20 운영 완료: [PR24](https://github.com/chonghg22/nearbook/pull/24) merge `defc8a449964e3a32bb7b9161d41fd30f49e4a1c`, Vercel production `dpl_HFZk4cjVhrXNj1f7YAqtQZfZcdoQ` READY/두 도메인·source 일치. API d619481 유지. 운영 GET8개200·익명 개인 API401, 실제 익명 브라우저 v2 이벤트12건202/ok:true·보유/클릭 requestId 일치. unknown/확인0은 확인 불가로 구분. DB 행 재조회·운영 TimeZone 미확인/분석 SQL 미실행. [배포 검증](docs/deploy-verification-p2-02-2026-10-20.md). KAN-121 완료·Confluence458753 v6. PR22 미병합 유지.

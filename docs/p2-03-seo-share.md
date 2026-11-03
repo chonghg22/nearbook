@@ -35,3 +35,13 @@ API/DB/크론/외부 API 예산·인증·요금·발송을 변경하지 않는�
 Chromium1280/390px에서 지역 선택·도서관3개 anchor·가로 넘침 없음·pageerror0을 확인하고 스크린샷을 육안 검토했다. 모든 외부 요청과 실제 계정/발송은 차단했다. 외부 공유 미리보기 서비스에서 직접 게시한 검증은 아니다.
 
 로컬 빌드는 APP_ENV/VERCEL_ENV 비설정, 운영 site URL과 NODE_ENV=production으로 SEO의 운영 판정을 실행했다. 실제 API는 localhost fixture, Supabase는 가짜 URL/키다. APP_ENV=production의 loopback API 차단을 우회하는 제품 코드는 추가하지 않았다. 최종 원격 CI/preview는 PR에 연결한다.
+
+## 최종 원격 검증·추적
+
+[PR25](https://github.com/chonghg22/nearbook/pull/25) head `b62d0d793be0e51978084e49ac96efa4ef800dcc`, [CI39375734121](https://github.com/chonghg22/nearbook/actions/runs/39375734121) 성공. 웹402·API243·Node237·격리 PostgreSQL SQL6개 성공, 기존 API 실제 PG15개 생략. Vercel preview `nearbook-imvgyyeol-chonghg22s-projects.vercel.app` READY/source 일치. 실제 서울352개 링크, self canonical·noindex/nofollow·preview JSON-LD 미출력·robots 전체 차단·빈 sitemap·공유 PNG1200×630(55,005bytes) 확인.
+
+KAN-122 검토 중, Confluence458753 v7 재조회. 미병합/운영 미반영이며 main/web defc8a4/API d619481을 유지한다. 로드맵23개 기준 완료19·보류1·검토2(PR22/25)·미착수1(P2-04). 시군구 전용 URL·검색엔진 실제 색인·외부 공유 서비스 캐시 검증은 이번에 포함하지 않았다.
+
+## 운영 반영 완료 — 2026-10-20
+
+PR25 병합/source56f523988823b3c2aeee959cf6e00bf7af965f06, Vercel production dpl_GRQH9hjRDnKecKLcMDzMvbfYtzR2 READY·운영 도메인 연결. 시도17개 목록·대표 서울352/강원51/세종10개의 실제 링크와 JSON-LD/canonical, sitemap 지역17개·검색 제외, 정상 책 실제 표지/도서관 공유 카드·noindex 경계·브라우저 탐색 검증을 통과했다. KAN-122 완료·Confluence v8 재조회. 위의 검토 중·운영 미반영 문구는 배포 전 이력이다. [배포 검증](deploy-verification-p2-03-2026-10-20.md).

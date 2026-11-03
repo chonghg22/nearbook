@@ -46,3 +46,7 @@
 - P1-15 [PR #22](https://github.com/chonghg22/nearbook/pull/22)는 별도의 검토 중 작업이며 이 PR에 포함하지 않는다.
 - 로컬 검증: frozen lockfile 설치, 웹 Vitest 365개, 웹 lint·type-check, 변경한 두 TSX 파일의 Prettier와 git diff --check 통과. 새 worktree의 shared-types를 먼저 빌드한 뒤 실행했다.
 - CI 빌드·회귀 결과는 PR checks에 기록한다. 병합·운영 반영 전에는 완료된 운영 정책으로 인용하지 않는다.
+
+로컬 후속 기록: [PR23](https://github.com/chonghg22/nearbook/pull/23), head `8797df92fc3b379329fb1c7e8fc635345548e1ed`. [CI39233248557](https://github.com/chonghg22/nearbook/actions/runs/39233248557) 및 Vercel preview 성공. CI 웹365·API243·Node237 통과, 기존 실제 PG15개 생략. KAN-116 검토 중. 미병합·미배포.
+
+2026-10-20 운영 반영 완료: PR23 merge `c48a91bbbd9a89f0027e8d680866bd00070f1a31`, Vercel production `dpl_5BGpMzDyCbKkd6DrDvVtUgqGwv6a` READY/두 도메인 연결·source 일치. API d619481 유지/API CD 없음. 운영 GET8개200·개인 화면 로그인 이동·개인 API401 확인. KAN-116 완료, Confluence458753 v4 재조회. [배포 기록](docs/deploy-verification-p2-01-2026-10-20.md). PR22는 미병합 유지.

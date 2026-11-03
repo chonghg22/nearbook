@@ -4,6 +4,10 @@
 
 [PR22](https://github.com/chonghg22/nearbook/pull/22). 원격 CI의 실행 결과와 현재 head는 [PR 검사](https://github.com/chonghg22/nearbook/pull/22/checks)에서 확인한다. P1-14 운영 반영 이후 작성한 테스트·문서·CI 변경이다. 10월19일 검증 이후 최신 P2-01~03 코드를 통합한 후속 결과는 다음 절에 기록한다.
 
+## 병합 완료 — 2026-10-20
+
+최종 head `c2212e75ab75db747dce13c96f2dc8e0015fa694`, [CI39386995419](https://github.com/chonghg22/nearbook/actions/runs/39386995419)·Vercel preview 성공 후 PR22를 main `2735187739f4fefd883998002998c5370bf6dcf0`으로 병합했다. 원격 E2E32개/1.6분, 웹402/API243·실PG15skip/격리 SQL6개·전체 검사 성공. KAN-120 완료. 아래 CI 대기 문구는 병합 전 기록이다.
+
 ## 최신 코드 통합 — 2026-10-20
 
 운영 main `56f5239`의 P2-01 재방문 안내·P2-02 이벤트·P2-03 지역 SEO를 병합했다. 기존 PostgreSQL 분석 SQL 검증6개와 배포 실패/준비 상태 계약은 CI에 유지하고, 이후 Chromium E2E를 실행한다. 앱 동작·API·DB 스키마 변경은 없다.
