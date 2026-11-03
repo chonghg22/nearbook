@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/auth/client'
 import { accountBoundary, clearPwaCaches } from '@/lib/pwa-privacy.mjs'
 
 export function RegisterSW() {

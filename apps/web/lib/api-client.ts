@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/auth/client'
 import { PUBLIC_API_BASE_URL } from '@/lib/constants'
 import { ApiRequestError, requestApiResponse } from './api-request.mjs'
 

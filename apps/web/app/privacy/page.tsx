@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { buildPageMetadata } from '@/lib/seo/metadata'
 
 const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'chonghg22@gmail.com'
-const UPDATED_AT = '2026년 5월 7일'
+const UPDATED_AT = '2026년 11월 3일'
 
 export const metadata: Metadata = buildPageMetadata({
   path: '/privacy',
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-lg font-semibold text-gray-900">1. 처리하는 개인정보 항목</h2>
           <p className="mt-2">
-            로그인 시 Supabase 인증을 통해 사용자 식별자, 이메일, 닉네임 정보가 처리될 수 있습니다.
+            로그인 시 카카오 로그인을 통해 카카오 회원 식별자와 닉네임 정보가 처리되며, 로그인 유지를 위한 세션 쿠키가 사용됩니다.
             위시리스트, 내 도서관 카드, 피드백 작성 내용, 선택 입력한 답변 받을 이메일도 서비스 기능 제공을 위해 저장됩니다.
           </p>
         </section>
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-lg font-semibold text-gray-900">6. 제3자 서비스</h2>
           <p className="mt-2">
-            인증에는 Supabase가 사용되며, 광고 제공을 위해 Google AdSense가 쿠키 등 식별 기술을 사용할 수 있습니다.
+            로그인에는 카카오 로그인이 사용되며, 광고 제공을 위해 Google AdSense가 쿠키 등 식별 기술을 사용할 수 있습니다.
             도서 정보와 도서관 정보는 도서관 정보나루, 알라딘 등 외부 데이터 제공처를 통해 조회될 수 있습니다.
           </p>
         </section>

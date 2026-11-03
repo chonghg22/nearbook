@@ -1,24 +1,58 @@
 import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
 import { safeReturnPath } from '@/lib/auth-return-path'
+import { openKakaoSession } from '@/lib/auth/api'
+import {
+  LEGACY_COOKIE,
+  OAUTH_STATE_COOKIE,
+  writeSessionCookies,
+} from '@/lib/auth/session-cookies'
+import { publicOrigin } from '@/lib/auth/origin'
+
+function readState(raw: string | undefined): { state: string; next: string } | null {
+  if (!raw) return null
+  try {
+    const value = JSON.parse(raw) as { state?: unknown; next?: unknown }
+    if (typeof value.state !== 'string' || value.state.length < 16) return null
+    return { state: value.state, next: safeReturnPath(typeof value.next === 'string' ? value.next : null) }
+  } catch {
+    return null
+  }
+}
+
+function sameState(a: string, b: string) {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams } = new URL(request.url)
+  const origin = publicOrigin(request)
+  const secure = origin.startsWith('https:')
+  const store = await cookies()
+  const expected = readState(store.get(OAUTH_STATE_COOKIE)?.value)
   const code = searchParams.get('code')
-  const next = safeReturnPath(searchParams.get('next'))
+  const state = searchParams.get('state')
 
-  if (code) {
-    try {
-      const response = NextResponse.redirect(`${origin}${next}`)
-      const supabase = await createRouteHandlerClient(response)
-      const { error } = await supabase.auth.exchangeCodeForSession(code)
-      if (!error) {
-        return response
-      }
-    } catch {
-      /* Show a safe retry page, never provider credentials/errors. */
-    }
+  const fail = () => {
+    const retry = expected && expected.next !== '/' ? `&next=${encodeURIComponent(expected.next)}` : ''
+    const response = NextResponse.redirect(`${origin}/login?error=auth${retry}`)
+    response.cookies.set(OAUTH_STATE_COOKIE, '', { path: '/auth', maxAge: 0 })
+    return response
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth`)
+  if (!code || code.length > 512 || !state || !expected || !sameState(state, expected.state)) return fail()
+
+  const result = await openKakaoSession(code, `${origin}/auth/callback`, request.headers.get('user-agent'))
+  if (result.status !== 'ok') return fail()
+
+  const response = NextResponse.redirect(`${origin}${expected.next}`)
+  response.headers.set('Cache-Control', 'no-store')
+  response.cookies.set(OAUTH_STATE_COOKIE, '', { path: '/auth', maxAge: 0 })
+  writeSessionCookies(response.cookies, result.session, secure)
+  for (const legacy of store.getAll().filter((c) => LEGACY_COOKIE.test(c.name)))
+    response.cookies.set(legacy.name, '', { path: '/', maxAge: 0 })
+  return response
 }

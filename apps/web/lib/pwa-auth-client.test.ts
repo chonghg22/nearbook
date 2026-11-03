@@ -2,7 +2,7 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import { apiFetch, authFetch, personalApiFetch } from './api-client'
 
 vi.mock('@/lib/constants', () => ({ PUBLIC_API_BASE_URL: '/api' }))
-vi.mock('@/lib/supabase/client', () => ({
+vi.mock('@/lib/auth/client', () => ({
   createClient: () => ({
     auth: {
       getSession: async () => ({ data: { session: { access_token: 'test-token' } } }),

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { UserNavMenu } from './user-nav-menu'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/auth/client'
 
 export function UserNav() {
   const [state, setState] = useState<'loading' | 'logged-out' | 'logged-in'>('loading')
@@ -11,8 +11,8 @@ export function UserNav() {
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>()
 
   useEffect(() => {
-    const supabase = createClient()
-    function applyUser(user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']) {
+    const client = createClient()
+    function applyUser(user: Awaited<ReturnType<typeof client.auth.getUser>>['data']['user']) {
       if (!user) {
         setNickname('')
         setAvatarUrl(undefined)
@@ -31,13 +31,13 @@ export function UserNav() {
       setState('logged-in')
     }
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    client.auth.getUser().then(({ data: { user } }) => {
       applyUser(user)
     })
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = client.auth.onAuthStateChange((_event, session) => {
       applyUser(session?.user ?? null)
     })
 

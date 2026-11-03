@@ -2,10 +2,19 @@ import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { db, users, eq } from '@nearbook/db'
 import type { AuthUser } from './jwt-payload.interface'
+import { SessionService } from './session.service'
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly sessions: SessionService,
+  ) {}
+
+  /** Legacy Supabase verification stays only while SUPABASE_URL/SERVICE_ROLE_KEY are configured. */
+  private legacySupabaseEnabled() {
+    return Boolean(this.getSupabaseOrigin() && this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY'))
+  }
 
   private getSupabaseOrigin() {
     const rawUrl = this.config.get<string>('SUPABASE_URL') ?? ''
@@ -39,10 +48,23 @@ export class AuthService {
   }
 
   async verifyAccessToken(accessToken: string): Promise<AuthUser | null> {
+    const claims = await this.sessions.verify(accessToken)
+    if (claims) {
+      return {
+        supabaseUserId: claims.sub,
+        email: '',
+        provider: claims.prv,
+        nickname: claims.nick,
+      }
+    }
+    return this.verifyLegacySupabaseToken(accessToken)
+  }
+
+  private async verifyLegacySupabaseToken(accessToken: string): Promise<AuthUser | null> {
     const supabaseOrigin = this.getSupabaseOrigin()
     const serviceRoleKey = this.config.get<string>('SUPABASE_SERVICE_ROLE_KEY')
 
-    if (!supabaseOrigin || !serviceRoleKey) {
+    if (!this.legacySupabaseEnabled() || !serviceRoleKey) {
       return this.config.get<string>('NODE_ENV') === 'production'
         ? null
         : this.decodeJwtFallback(accessToken)
@@ -85,7 +107,7 @@ export class AuthService {
 
     const [created] = await db.insert(users).values({
       supabaseUserId,
-      email: email ?? null,
+      email: email?.trim() || null,
       nickname: nickname ?? null,
     }).onConflictDoNothing({ target: users.supabaseUserId }).returning()
 

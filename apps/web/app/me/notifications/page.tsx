@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createServerClient } from '@/lib/supabase/server'
+import { getServerSession } from '@/lib/auth/server'
 import { NotificationSettingsForm } from './_components/notification-settings-form'
 import { SERVER_API_BASE_URL } from '@/lib/server-api'
 
@@ -8,10 +8,7 @@ const API_URL = SERVER_API_BASE_URL
 export const metadata = { title: '알림 설정 | 우리동네책' }
 
 export default async function NotificationsPage() {
-  const supabase = await createServerClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const session = await getServerSession()
 
   if (!session) {
     redirect('/login?next=/me/notifications')

@@ -4,15 +4,9 @@ import { SERVER_API_BASE_URL } from '@/lib/server-api'
 export const runtime = 'nodejs'
 
 async function getAccessToken() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return null
-  }
-
   try {
-    const { createClient } = await import('@/lib/supabase/server')
-    const supabase = await createClient()
-    const { data } = await supabase.auth.getSession()
-    return data.session?.access_token ?? null
+    const { getServerSession } = await import('@/lib/auth/server')
+    return (await getServerSession())?.access_token ?? null
   } catch {
     return null
   }

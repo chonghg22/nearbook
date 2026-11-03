@@ -1,5 +1,4 @@
 'use client'
-import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
 import { useRef, useState } from 'react'
 import { safeReturnPath } from '@/lib/auth-return-path'
@@ -13,38 +12,13 @@ export function LoginInner() {
   )
   const busy = useRef(false)
 
-  async function handleKakaoLogin() {
+  function handleKakaoLogin() {
     if (busy.current) return
     busy.current = true
     setPending(true)
     setErrorMessage(null)
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'kakao',
-        options: {
-          skipBrowserRedirect: true,
-          scopes: 'profile_nickname',
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        },
-      })
-
-      if (error || !data.url) {
-        throw new Error('login-unavailable')
-      }
-
-      // Supabase가 붙인 scope를 profile_nickname 으로 덮어쓰기
-      const url = new URL(data.url)
-      if (url.protocol !== 'https:') throw new Error('login-unavailable')
-      url.searchParams.set('scope', 'profile_nickname')
-
-      window.location.href = url.toString()
-    } catch {
-      setErrorMessage('로그인을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.')
-    } finally {
-      busy.current = false
-      setPending(false)
-    }
+    // The server route binds a one-time state to this browser and redirects to Kakao (profile_nickname only).
+    window.location.href = `/auth/kakao?next=${encodeURIComponent(next)}`
   }
 
   return (

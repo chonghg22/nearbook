@@ -12,6 +12,8 @@ import {
   primaryKey,
   customType,
   doublePrecision,
+  uuid,
+  char,
 } from 'drizzle-orm/pg-core'
 import { relations, sql } from 'drizzle-orm'
 
@@ -354,6 +356,35 @@ export const pushSubscriptions = nearbookSchema.table('push_subscriptions', {
 
 export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
   user: one(users, { fields: [pushSubscriptions.userId], references: [users.id] }),
+}))
+
+// 외부 로그인 계정(카카오) ↔ 사용자. users.supabaseUserId 는 내부 사용자 식별자(JWT sub)로 유지.
+export const authIdentities = nearbookSchema.table('auth_identities', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  provider: varchar('provider', { length: 32 }).notNull(),
+  providerUserId: varchar('provider_user_id', { length: 128 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  lastSignInAt: timestamp('last_sign_in_at').notNull().defaultNow(),
+}, (t) => ({
+  providerUserIdx: uniqueIndex('auth_identities_provider_user_key').on(t.provider, t.providerUserId),
+  userIdx: index('auth_identities_user_idx').on(t.userId),
+}))
+
+// 로그인 세션. 리프레시 토큰 원문은 저장하지 않고 SHA-256 hex만 보관한다.
+export const authSessions = nearbookSchema.table('auth_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  refreshTokenHash: char('refresh_token_hash', { length: 64 }).notNull().unique(),
+  provider: varchar('provider', { length: 32 }).notNull(),
+  userAgent: varchar('user_agent', { length: 256 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  lastUsedAt: timestamp('last_used_at').notNull().defaultNow(),
+  expiresAt: timestamp('expires_at').notNull(),
+  revokedAt: timestamp('revoked_at'),
+}, (t) => ({
+  userIdx: index('auth_sessions_user_idx').on(t.userId),
+  expiresIdx: index('auth_sessions_expires_idx').on(t.expiresAt),
 }))
 
 // 19. 검색 통계 (정보나루 실제 총 건수 캐시)

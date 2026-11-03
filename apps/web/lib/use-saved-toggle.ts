@@ -7,7 +7,7 @@ import {
   personalErrorMessage,
   PersonalApiError,
 } from './personal-data'
-import { createClient } from './supabase/client'
+import { createClient } from './auth/client'
 
 type Options = {
   statusPath: string

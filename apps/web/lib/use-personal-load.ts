@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { personalJson, PersonalApiError } from './personal-data'
-import { createClient } from './supabase/client'
+import { createClient } from './auth/client'
 
 export function usePersonalLoad<T>(path: string, parse: (value: unknown) => T) {
   const [state, setState] = useState<{ data: T | null; loading: boolean; error: unknown }>({
