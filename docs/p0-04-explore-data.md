@@ -1,7 +1,7 @@
 # P0-04 인기·분야·신착도서 상태 복구
 
 작성일: 2026-10-13  
-상태: 구현 적용·로컬 Node143개/공통 JS strict 검증 통과, 전체 CI·프리뷰 검증 준비. 운영 미변경.
+상태: 전체 CI 273개·프리뷰 검증 통과 후 운영 웹/API 반영 및 읽기 전용 운영 검증 완료.
 
 ## 범위와 역할
 
@@ -53,3 +53,25 @@
 - 분야 집계 오류에서도 책/내부 링크를 유지한다. 빈 분야 목록과 전체0 집계는6시간 메모 cache에 넣지 않는다.
 - Node 기존120+새23 = **143개 통과**. `explore-data.mjs` strict checkJs 및 diff-check 통과. 전체 JSX/앱 타입·Jest/Vitest·빌드는 CI에서 확인한다.
 - 사용자 승인: 수정·전체 CI·프리뷰 검증 통과 후 운영 웹/API까지 반영한다. 실제 데이터 강제 수집/DB 갱신은 포함하지 않는다.
+
+### PR/첫 CI 보완
+
+- [PR #7](https://github.com/chonghg22/nearbook/pull/7), 최초 구현 `2c9c935`.
+- [첫 CI](https://github.com/chonghg22/nearbook/actions/runs/38360148431)는 install/lint/type-check/build 통과 후 새 JSX 서버 렌더 테스트에서 실패했다. 빌드 로그에도 `.mjs`와 `.ts` 같은 이름으로 인한 잘못된 loader import 경고가 있었다. Ready 상태나 build 성공만으로 배포하지 않았다.
+- 서버 loader를 `explore-server.ts`로 분리했다. Next의 jsx:preserve 설정은 유지하고 기존 TypeScript compiler로 테스트에서만 JSX를 낮춰 Vite import analysis 전에 처리한다. 새로운 dependency나 lock 변경은 없다.
+- 보완 커밋 `19196d680a45dd67ad0440cfb1f8535c507f8fd2`의 프리뷰에서 인기20/분야40/소설40 카드, 이전 저장 자료 안내, 신착 API 오류와 재시도를 확인했다. 마지막 커밋 `f1b71dddac84b5d073580e6245ed9ad05a78a554`은 canonical 테스트의 설정 host 독립성만 보완하며 runtime 변경은 없다.
+
+## 최종 CI·프리뷰 및 운영 반영 착수
+
+- [CI #15](https://github.com/chonghg22/nearbook/actions/runs/38364026580): lint/type-check/build 및 Node143·Web114·API16 = **273개 통과**. 실제 Drizzle0.33에서 기존 alias 오류 재현과 수정 SQL 생성 검증 통과.
+- 최종 [프리뷰](https://nearbook-r35d0k6pe-chonghg22s-projects.vercel.app/) Ready/source f1b71dd 확인. 실제 API 프리뷰 환경은 없어 신착 정상 응답은 SQL/SSR 회귀로 검증하고 운영 배포 후 추가 확인한다.
+- 분야 2026-07 저장 기간·오래된 자료 경고, 신착 기존 API500의 오류/전체 문서 재시도, canonical 유지 확인. 390×844에서 body client/scroll 384/384, 재시도 버튼 표시.
+- 사용자 운영 반영 승인 후 PR #7 병합: `1961f0784902f0c3a47094a2534c9b4e51be3dcb`. [API CD](https://github.com/chonghg22/nearbook/actions/runs/38366149303) 및 Vercel 운영 배포 확인 중. 실제 데이터 강제 갱신/마이그레이션은 하지 않는다.
+
+## 운영 검증 완료
+
+- 웹/API 모두 `1961f07` 배포 완료. API 빌드·서버 pull digest 일치 및 CD 성공 확인.
+- 신착 featured 집계500 → 도서관12곳 정상. 오류 화면의 재시도로 실제 도서관/책 목록 복구 확인. 기본 대치10권에서 즐거운도서관 선택 시 query·제목·책10권·수집 시점이 변경된다.
+- 인기20/분야40/소설40, canonical 및 실제 저장기간/수집 시각 유지. 인기2026-05-07, 분야2026-07, 선택한 즐거운도서관2026-07 자료로 이전 자료 경고가 표시된다. 자료를 강제 갱신하지 않았다.
+- 운영390×844에서 신착 선택·2열 카드, client/scroll384/384. 새 운영 검증 탭의 error log 없음. 최종 `/api/health` status:ok.
+- 상세 증거와 남은 데이터 최신화 과제는 [운영 검증 기록](deploy-verification-p0-04-2026-10-13.md)에 기록했다. TODO P0-04 완료 처리. P1-12의 job 상태/수집 운영 개선은 별도로 남긴다.

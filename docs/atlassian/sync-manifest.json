@@ -1,0 +1,679 @@
+{
+  "schema_version": 1,
+  "prepared_at": "2026-10-19",
+  "project": "Nearbook",
+  "requested_account": "chonghg22",
+  "synchronization": {
+    "state": "published_and_verified",
+    "reason": "All 23 roadmap items and 2 Confluence pages were written through connected Atlassian MCP and read back. Existing KAN-13 and KAN-56 through KAN-67 fields and meeting draft snapshot were preserved; 2 evidence comments were added and verified.",
+    "jira_updates_verified": 23,
+    "confluence_updates_verified": 2,
+    "existing_jira_comments_verified": 2,
+    "jira_item_count_semantics": "jira_updates_verified counts the 23 mapped roadmap issues, excluding the 2 existing-issue comments",
+    "remote_content_imported": true,
+    "remote_context_path": "docs/atlassian/remote-context.md",
+    "verified_on": "2026-10-19",
+    "verification_method": "Atlassian MCP readback: all 23 issues, parent KAN-13, stable IDs, PR links and statuses; both published page bodies and version 1; 2 comments; all 13 existing issue field sets unchanged; meeting draft remains d1:2.",
+    "status_mapping": {
+      "completed": "완료(10004)",
+      "deferred": "아이디어(10000) + deferred label; no dedicated deferred status",
+      "planned": "아이디어(10000) + planned label",
+      "in_progress": "진행 중(10002)",
+      "in_review": "검토 중(10003)"
+    },
+    "followup": {
+      "verified_on": "2026-10-20",
+      "completed": [
+        "KAN-119",
+        "KAN-116",
+        "KAN-121",
+        "KAN-122",
+        "KAN-120"
+      ],
+      "in_progress": [
+        "KAN-123"
+      ],
+      "production_source": "d619481242a89a3e39e68dcf848561def267a218",
+      "confluence_versions": {
+        "393218": 2,
+        "458753": 10
+      },
+      "note": "PR22 merged2735187 after exact-head CI39386995419 success: E2E32, web402/API243(realPG15skip), isolated SQL6. Vercel production Ready, www/apex source verified and public GETs healthy. KAN-120 complete. KAN-123 ongoing: user handles Instagram publication, no permalink/time or production DB readback yet. P1-11 deferred; API d619481 unchanged.",
+      "review": [],
+      "production_web_source": "2735187739f4fefd883998002998c5370bf6dcf0"
+    }
+  },
+  "targets": {
+    "jira_site_url": "https://chonghg22-1791900037339.atlassian.net",
+    "jira_cloud_id": "7da1de5f-ce05-46fc-8d51-d40792fc784d",
+    "jira_project_key": "KAN",
+    "jira_project_url": "https://chonghg22-1791900037339.atlassian.net/jira/software/projects/KAN/list/",
+    "jira_assignee_account_id": null,
+    "confluence_space_id": "65824",
+    "confluence_space_key": "~5e9a693934f7b90c0fd20d8d",
+    "confluence_reference_page_id": "131081",
+    "confluence_reference_edit_url": "https://chonghg22-1791900037339.atlassian.net/wiki/spaces/~5e9a693934f7b90c0fd20d8d/pages/edit-v2/131081",
+    "confluence_reference_title_from_user_screenshot": "2026-10-18 회의록",
+    "target_identifiers_source": "Atlassian MCP resources, current user, Jira issues and Confluence content verified 2026-10-19",
+    "confluence_parent_page_id": "229425",
+    "verified_current_user_account_id": "5e9a693934f7b90c0fd20d8d",
+    "jira_parent_epic_key": "KAN-13"
+  },
+  "source": {
+    "repository_url": "https://github.com/chonghg22/nearbook",
+    "remote_main_checked_on": "2026-10-20",
+    "remote_main_sha": "2735187739f4fefd883998002998c5370bf6dcf0",
+    "work_period_start": "2026-10-12",
+    "work_period_end": "2026-10-16",
+    "latest_production_verification_on": "2026-10-20",
+    "local_backlog": "TODO.md",
+    "local_release_log": "docs/deploy-log.md",
+    "production_api_sha": "d619481242a89a3e39e68dcf848561def267a218",
+    "production_web_sha": "2735187739f4fefd883998002998c5370bf6dcf0"
+  },
+  "synchronization_rules": {
+    "search_existing_before_create": true,
+    "stable_id_prefix": "nearbook:",
+    "preserve_unrelated_fields_comments_and_newer_decisions": true,
+    "resolve_real_workflow_before_transition": true,
+    "do_not_backdate_jira_audit_events": true,
+    "do_not_assume_github_handle_is_jira_account_id": true,
+    "credentials_in_content": false,
+    "publish_excludes_raw_logs_credentials_and_private_account_data": true
+  },
+  "items": [
+    {
+      "stable_id": "nearbook:P0-01",
+      "local_id": "P0-01",
+      "summary": "서버·브라우저 API 주소 분리 및 운영 설정 검증",
+      "state_intent": "completed",
+      "description": "서버 절대 upstream과 브라우저 same-origin API를 분리하고 운영 환경 조합·대표 상세를 검증했다.",
+      "acceptance_criteria": "같은 책/도서관을 SSR 페이지와 공개 API에서 일관되게 조회하고 환경변수 조합 테스트가 통과한다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p0-01"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/4"
+      ],
+      "jira_issue_key": "KAN-101",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-101",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P0-02",
+      "local_id": "P0-02",
+      "summary": "책·도서관 상세의 잘못된 not-found 처리 수정",
+      "state_intent": "completed",
+      "description": "실제404와 timeout/429/5xx를 분리하고 기본 상세·부가 조회·재시도/noindex 처리를 보완했다.",
+      "acceptance_criteria": "`/book/9791161571195`, `/library/111314`가 정상 표시되고 부가 API 실패가 기본 상세나 색인 정책을 잘못 바꾸지 않는다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p0-02"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/4",
+        "https://github.com/chonghg22/nearbook/pull/5"
+      ],
+      "jira_issue_key": "KAN-102",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-102",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P0-03",
+      "local_id": "P0-03",
+      "summary": "도서관 지도 목록·지역 중심 프록시 복구",
+      "state_intent": "completed",
+      "description": "지도 목록·지역 중심 프록시, 지역 선택·마커·목록 대체 및 장애 재시도 경로를 복구했다.",
+      "acceptance_criteria": "`/libraries`의 지도·목록·분할 모드와 시도/시군구 변경에서 도서관 목록이 표시된다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p0-03"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/6"
+      ],
+      "jira_issue_key": "KAN-103",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-103",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P0-04",
+      "local_id": "P0-04",
+      "summary": "인기·분야·신착도서의 빈 화면 원인 확인 및 복구",
+      "state_intent": "completed",
+      "description": "인기·분야·신착 화면과 신착 집계를 복구하고 실제 기준 기간/수집 시각·오류·이전 자료를 구분했다.",
+      "acceptance_criteria": "`/popular`는 정상 API 데이터를 표시하고, `/category`, `/category/novel`, `/new-books`는 실제 데이터 유무에 맞는 화면을 표시한다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p0-04"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/7"
+      ],
+      "jira_issue_key": "KAN-104",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-104",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-01",
+      "local_id": "P1-01",
+      "summary": "보유·대출 상태 모델 정리",
+      "state_intent": "completed",
+      "description": "available/borrowed/not_held/unknown과 확인 시각·출처·조회 범위를 도입하고 unknown은 미소장/성공 캐시로 취급하지 않는다.",
+      "acceptance_criteria": "외부 API 실패·한도 초과·정상 미소장·대출 중을 각각 올바르게 표시한다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-01"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/8"
+      ],
+      "jira_issue_key": "KAN-105",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-105",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-02",
+      "local_id": "P1-02",
+      "summary": "PWA 개인 데이터 캐시 제외",
+      "state_intent": "completed",
+      "description": "개인 화면/API·대출 상태를 오프라인 캐시에서 제외하고 기존 민감 캐시 정리와 보호 프리뷰 CSS/JS 호환을 보완했다.",
+      "acceptance_criteria": "계정 A → 로그아웃 → 계정 B/오프라인 시나리오에서 이전 개인 정보가 노출되지 않는다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-02"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/9"
+      ],
+      "jira_issue_key": "KAN-106",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-106",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-03",
+      "local_id": "P1-03",
+      "summary": "API client·응답 타입·오류 처리 공통화",
+      "state_intent": "completed",
+      "description": "공개/인증/서버 요청과 응답 계약·오류를 공통화하고 운영시간·휴관일의 실제 타입을 맞췄다.",
+      "acceptance_criteria": "`{text, closed}` 형태의 운영시간이 표시되고 API 오류가 정상 빈 결과와 구분된다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-03"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/10"
+      ],
+      "jira_issue_key": "KAN-107",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-107",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-04",
+      "local_id": "P1-04",
+      "summary": "홈 검색창·기준 지역 선택 개선",
+      "state_intent": "completed",
+      "description": "홈 검색·ISBN 스캔 진입, 명시적 기준 지역/도서관 변경, GPS 거부 수동 경로를 제공한다.",
+      "acceptance_criteria": "처음 방문한 비로그인 사용자도 홈에서 바로 검색하고 GPS 없이 지역을 변경할 수 있다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-04"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/11"
+      ],
+      "jira_issue_key": "KAN-108",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-108",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-05",
+      "local_id": "P1-05",
+      "summary": "도서관 공식 사이트·길찾기 CTA 연결",
+      "state_intent": "completed",
+      "description": "도서관 공식 사이트·길찾기 CTA 및 안전한 URL/누락 대체 경로를 연결했다. 자동 예약은 하지 않는다.",
+      "acceptance_criteria": "책 상세에서 도서관 공식 확인과 길찾기로 바로 이동할 수 있으며 자동 예약을 암시하지 않는다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-05"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/12"
+      ],
+      "jira_issue_key": "KAN-109",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-109",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-06",
+      "local_id": "P1-06",
+      "summary": "검색 순위·검색 유형·판본 구분 개선",
+      "state_intent": "completed",
+      "description": "제목·저자·출판사·통합 검색 의미, 정확도 순위·ISBN10/13 정규화·판본 표기를 정리했다.",
+      "acceptance_criteria": "대표 제목 검색에서 관련성이 높은 책이 우선하고 ISBN·저자·판본 테스트가 통과한다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-06"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/13"
+      ],
+      "jira_issue_key": "KAN-110",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-110",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-07",
+      "local_id": "P1-07",
+      "summary": "검색 응답 시간·페이지 정합성·오류 UI 개선",
+      "state_intent": "completed",
+      "description": "로컬 검색 우선/제한된 배경 보충, 동일 집합 total, bounded cache와 pending/failure·페이지 복구를 적용했다.",
+      "acceptance_criteria": "외부 timeout에도 기존 결과를 사용할 수 있고 오류/0건이 구분되며 잘못된 총건수로 빈 페이지를 만들지 않는다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-07"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/14"
+      ],
+      "jira_issue_key": "KAN-111",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-111",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-08",
+      "local_id": "P1-08",
+      "summary": "보유 책이 없을 때의 대안 제공",
+      "state_intent": "completed",
+      "description": "5/10/20km의 사용자 선택 확대와 다른 지역/판본·찜·공식 확인 대안을 제공한다. 자동 확대/알림 설정은 하지 않는다.",
+      "acceptance_criteria": "미소장/조회 실패 화면에서 사용자가 다음 행동을 선택할 수 있고 외부 API 호출이 무제한 증가하지 않는다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-08"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/15"
+      ],
+      "jira_issue_key": "KAN-112",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-112",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-09",
+      "local_id": "P1-09",
+      "summary": "모바일·접근성 검증",
+      "state_intent": "completed",
+      "description": "자동완성 ARIA/IME/키보드, 모바일 viewport/focus·터치 타깃·설치 안내 겹침을 보완했다. 사용자 휴대폰 확인과 자동DOM/HTTP 증거를 구분한다.",
+      "acceptance_criteria": "핵심 흐름이 모바일에서 잘리거나 가려지지 않고 키보드로도 조작 가능하다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-09"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/16"
+      ],
+      "jira_issue_key": "KAN-113",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-113",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-10",
+      "local_id": "P1-10",
+      "summary": "위시리스트·기본 도서관 흐름 개선",
+      "state_intent": "completed",
+      "description": "찜·기본 도서관 선택/실패 복구·계정 경계·원자적 저장과 로그인 복귀를 정리하고 실제 로그인 route 연결 누락을 후속 보완했다.",
+      "acceptance_criteria": "로그인 → 기본 도서관 → 찜 → 상태 확인 흐름과 저장 실패 시나리오가 검증된다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-10"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/17",
+        "https://github.com/chonghg22/nearbook/pull/18"
+      ],
+      "jira_issue_key": "KAN-114",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-114",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-11",
+      "local_id": "P1-11",
+      "summary": "이메일·푸시 채널 독립 및 발송 주기 정합성 확보",
+      "state_intent": "deferred",
+      "description": "사용자 지시로 이메일·푸시·알림 발송 개선을 보류한다. 기존 설정/동의/발송 주기 변경이나 수동 발송을 하지 않는다.",
+      "acceptance_criteria": "이메일 끔+푸시 켬을 포함한 조합 테스트가 통과하고 UI가 실제 발송 주기를 설명한다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-11"
+      ],
+      "pull_requests": [],
+      "jira_issue_key": "KAN-115",
+      "remote_sync_verified": true,
+      "jira_status": "아이디어",
+      "jira_status_id": "10000",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-115",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P2-01",
+      "local_id": "P2-01",
+      "summary": "비로그인 재방문·요금 정책 검토",
+      "state_intent": "completed",
+      "description": "PR23 운영 반영 및 Vercel source/두 도메인·공개 경로 검증 완료. 최근 본 책은 실험안만 문서화.",
+      "acceptance_criteria": "실험/정책 결정이 문서화되고 실제 동작하지 않는 유료 CTA가 남지 않는다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p2-01"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/23"
+      ],
+      "jira_issue_key": "KAN-116",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-116",
+      "verified_on": "2026-10-20",
+      "implementation_branch": "fix/p2-01-return-policy-20261019",
+      "implementation_head": "8797df92fc3b379329fb1c7e8fc635345548e1ed",
+      "local_implementation_record": "docs/p2-01-return-policy.md",
+      "ci_url": "https://github.com/chonghg22/nearbook/actions/runs/39233248557",
+      "ci_conclusion": "success",
+      "production_source_sha": "c48a91bbbd9a89f0027e8d680866bd00070f1a31",
+      "production_verification_record": "docs/deploy-verification-p2-01-2026-10-20.md"
+    },
+    {
+      "stable_id": "nearbook:P1-12",
+      "local_id": "P1-12",
+      "summary": "외부 API 한도·작업 등록·갱신 상태 통일",
+      "state_intent": "completed",
+      "description": "계정확인500건/일, durable 예약·실패 포함 예산·경합/재시작·LOW475와 HIGH500 제한, 상태 조회/작업 등록을 통일했다.",
+      "acceptance_criteria": "한도 초과와 갱신 실패가 감지되고 운영자가 실제 동작 상태를 확인할 수 있다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-12"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/19"
+      ],
+      "jira_issue_key": "KAN-117",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-117",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-13",
+      "local_id": "P1-13",
+      "summary": "캐시·검색 인덱스 운영 정리",
+      "state_intent": "completed",
+      "description": "동일 캐시 singleton, DB repeatable-read generation 교체, PK 순환 replay와 인기 점수 일관성·운영 검색 상태 조회를 구현하고 배포했다.",
+      "acceptance_criteria": "컨테이너 재생성·전체 rebuild·일반 upsert 이후 검색과 인기 정렬이 일관된다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-13"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/20"
+      ],
+      "jira_issue_key": "KAN-118",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-118",
+      "verified_on": "2026-10-19"
+    },
+    {
+      "stable_id": "nearbook:P1-14",
+      "local_id": "P1-14",
+      "summary": "준비 상태·배포 검증·롤백 마련",
+      "state_intent": "completed",
+      "description": "P1-14 PR21/main d619481 운영 반영 및 direct/proxy readiness·대표 상세 검증 완료. 실제 로컬 Docker 복구 리허설 통과, 무중단/Oracle 장애 주입/최대RSS 검증과 구분.",
+      "acceptance_criteria": "실패한 배포가 정상 배포로 판정되지 않고 이전 버전으로 복구하는 절차가 검증된다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-14"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/21"
+      ],
+      "jira_issue_key": "KAN-119",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-119",
+      "verified_on": "2026-10-19",
+      "local_implementation_record": "docs/p1-14-readiness-rollback.md",
+      "implementation_branch": "fix/p1-14-readiness-rollback-20261019",
+      "production_source_sha": "d619481242a89a3e39e68dcf848561def267a218",
+      "production_verification_record": "docs/deploy-verification-p1-14-2026-10-19.md"
+    },
+    {
+      "stable_id": "nearbook:P1-15",
+      "local_id": "P1-15",
+      "summary": "핵심 기능 회귀·E2E 테스트 추가",
+      "state_intent": "completed",
+      "description": "PR22 최신 main 통합·E2E32 및 최종 CI 성공 후 병합. 운영 공개 경로 정상·API 변경 없음.",
+      "acceptance_criteria": "핵심 사용자 흐름과 장애 시나리오가 CI 또는 문서화된 기기 검증에서 통과한다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p1-15"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/22"
+      ],
+      "jira_issue_key": "KAN-120",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-120",
+      "verified_on": "2026-10-20",
+      "local_implementation_record": "docs/p1-15-core-e2e.md",
+      "implementation_head": "c2212e75ab75db747dce13c96f2dc8e0015fa694",
+      "ci_url": "https://github.com/chonghg22/nearbook/actions/runs/39386995419",
+      "ci_conclusion": "success",
+      "merged_sha": "2735187739f4fefd883998002998c5370bf6dcf0",
+      "production_web_sha": "2735187739f4fefd883998002998c5370bf6dcf0",
+      "production_deployment_id": "dpl_9xT2CKVM725Sgqtu87RXk7wGD5nK",
+      "completion_record": "docs/p1-15-completion-2026-10-20.md"
+    },
+    {
+      "stable_id": "nearbook:P2-02",
+      "local_id": "P2-02",
+      "summary": "행동 이벤트와 핵심 지표 보정",
+      "state_intent": "completed",
+      "description": "PR24 운영 반영·Vercel source/도메인·GET8개·실제 익명 이벤트12건202/ok:true 검증. DB행 재조회/TimeZone 미확인과 구분.",
+      "acceptance_criteria": "방문→검색→책 선택→조회 완료→다음 행동→7일 재방문을 구분해서 분석할 수 있다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p2-02"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/24"
+      ],
+      "jira_issue_key": "KAN-121",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-121",
+      "verified_on": "2026-10-20",
+      "implementation_branch": "feat/p2-02-core-analytics-20261020",
+      "implementation_head": "1fbfaebc28ed0fce24bc8f944c2848ea5f3dc620",
+      "local_implementation_record": "docs/p2-02-core-analytics.md",
+      "ci_url": "https://github.com/chonghg22/nearbook/actions/runs/39342645093",
+      "ci_conclusion": "success",
+      "production_source_sha": "defc8a449964e3a32bb7b9161d41fd30f49e4a1c",
+      "production_verification_record": "docs/deploy-verification-p2-02-2026-10-20.md"
+    },
+    {
+      "stable_id": "nearbook:P2-03",
+      "local_id": "P2-03",
+      "summary": "정상 콘텐츠 기반 SEO·공유 개선",
+      "state_intent": "completed",
+      "description": "정상 콘텐츠의 canonical/sitemap/JSON-LD/OG 및 지역 랜딩을 검증한다. 오류/빈 페이지를 대량 유입 자산으로 확장하지 않는다.",
+      "acceptance_criteria": "빈/오류 화면을 성장 자산으로 확대하지 않고 검색 유입 URL이 정상 정보를 제공한다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p2-03"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/25"
+      ],
+      "jira_issue_key": "KAN-122",
+      "remote_sync_verified": true,
+      "jira_status": "완료",
+      "jira_status_id": "10004",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-122",
+      "verified_on": "2026-10-20",
+      "implementation_branch": "feat/p2-03-seo-share-20261020",
+      "implementation_head": "b62d0d793be0e51978084e49ac96efa4ef800dcc",
+      "local_implementation_record": "docs/p2-03-seo-share.md",
+      "ci_url": "https://github.com/chonghg22/nearbook/actions/runs/39375734121",
+      "ci_conclusion": "success",
+      "preview_verified": true,
+      "production_deployed": true,
+      "production_source_sha": "56f523988823b3c2aeee959cf6e00bf7af965f06",
+      "production_verification_record": "docs/deploy-verification-p2-03-2026-10-20.md"
+    },
+    {
+      "stable_id": "nearbook:P2-04",
+      "local_id": "P2-04",
+      "summary": "소규모 유입 실험",
+      "state_intent": "in_progress",
+      "description": "독서·지역 커뮤니티의 소규모 유입 실험을 검토한다. 외부 게시/메시지·비용 집행은 별도 승인 전 실행하지 않는다.",
+      "acceptance_criteria": "방문자 수뿐 아니라 실제 핵심 행동과 반복 피드백을 바탕으로 다음 개선을 결정한다.",
+      "labels": [
+        "nearbook",
+        "codex-history",
+        "p2-04"
+      ],
+      "pull_requests": [
+        "https://github.com/chonghg22/nearbook/pull/26"
+      ],
+      "jira_issue_key": "KAN-123",
+      "remote_sync_verified": true,
+      "jira_status": "진행 중",
+      "jira_status_id": "10002",
+      "jira_issue_url": "https://chonghg22-1791900037339.atlassian.net/browse/KAN-123",
+      "verified_on": "2026-10-20",
+      "implementation_branch": "docs/p2-04-instagram-experiment-20261020",
+      "implementation_head": "34ac3ad10dd7d47cae8928bd413134bf51204cc4",
+      "local_implementation_record": "docs/p2-04-instagram-experiment.md",
+      "ci_url": "https://github.com/chonghg22/nearbook/actions/runs/39383183120",
+      "ci_conclusion": "success",
+      "preview_verified": true,
+      "publication_approved": true,
+      "publication_account": "jack.made.tools",
+      "publication_status": "pending_user_publication",
+      "campaign_started_at": null,
+      "budget_krw": 0,
+      "db_row_readback_verified": false,
+      "local_artifact_dir": "../nearbook-instagram-p2-04-20261020",
+      "publication_owner": "user"
+    }
+  ],
+  "existing_jira_comment_updates": [
+    {
+      "issue_key": "KAN-13",
+      "comment_id": "10000",
+      "stable_id": "nearbook:history-sync-2026-10-19",
+      "remote_sync_verified": true,
+      "verified_on": "2026-10-19"
+    },
+    {
+      "issue_key": "KAN-67",
+      "comment_id": "10001",
+      "stable_id": "nearbook:deploy-followup-2026-10-19",
+      "remote_sync_verified": true,
+      "verified_on": "2026-10-19"
+    }
+  ],
+  "confluence_pages": [
+    {
+      "local_path": "docs/atlassian/confluence-status.md",
+      "page_id": "458753",
+      "title": "Nearbook 고도화 현황 — 2026-10-12~16",
+      "version": 10,
+      "parent_page_id": "229425",
+      "url": "https://chonghg22-1791900037339.atlassian.net/wiki/spaces/~5e9a693934f7b90c0fd20d8d/pages/458753",
+      "remote_sync_verified": true,
+      "verified_on": "2026-10-20"
+    },
+    {
+      "local_path": "docs/atlassian/confluence-operations.md",
+      "page_id": "393218",
+      "title": "Nearbook 운영 구조·검증·안전한 후속 작업",
+      "version": 2,
+      "parent_page_id": "229425",
+      "url": "https://chonghg22-1791900037339.atlassian.net/wiki/spaces/~5e9a693934f7b90c0fd20d8d/pages/393218",
+      "remote_sync_verified": true,
+      "verified_on": "2026-10-19"
+    }
+  ]
+}

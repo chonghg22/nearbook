@@ -1,14 +1,14 @@
 # P0-03 지도·지역 목록 복구 — Claude Code 구현 인계
 
 작성일: 2026-10-13  
-상태: **Claude Code 구현·보완 반영 / 전체 CI 및 목록·SDK 실패·모바일 프리뷰 검증 통과 / 정상 지도 실동작·운영 반영 대기**
+상태: **완료 — 전체 CI 237개·인증 지도/SDK 실패/390px 회귀 통과, PR #6 병합 및 웹/API 운영 반영·실서비스 검증 완료**
 
 ## 역할
 
 - Claude Code: 구현, 회귀 테스트 코드 작성, 검토 지적사항 수정.
 - Codex: 요구사항·완료 기준 정리, 독립 코드 검토, 테스트 실행·브라우저 검증.
 - 이번 항목의 구현은 완료 기준 검증 전까지 TODO에서 완료 처리하지 않는다.
-- 이번 문서는 배포 승인이나 배포 완료 기록이 아니다.
+- 초기 계획·인계 이후 구현/검증 기록을 함께 보존한다. 최종 운영 배포 결과는 [별도 검증 기록](deploy-verification-p0-03-2026-10-13.md)을 참조한다.
 
 ## 확인한 운영 증상
 
@@ -161,3 +161,22 @@ node --test apps/web/scripts/api-config.test.mjs apps/web/scripts/detail-request
 - 지도 크기는 SDK가 관리하는 요소가 아닌 React 래퍼의 ResizeObserver로 관찰한다. 양수·변경된 크기만 `setSize`에 반영하고 중심 유지 후 bounds를 알린다. 부모 패널 `min-w-0`로 분할 전환 시 축소를 허용한다. SDK 인증 실패/언마운트 시 observer를 먼저 끊고, `setSize` 중 정리되면 `setCenter`도 호출하지 않는다.
 - 로컬 Node **120개 통과**(기존 103 + 새 회귀 17), 공통 JS strict 및 diff-check 통과. 새 테스트는 팝업/마커 identity·범위 변경·SDK null/예외·리사이즈/observer lifecycle을 모사하며 실제 브라우저 검증을 대체하지 않는다.
 - 전체 CI와 인증된 수정 프리뷰 재검증은 아직 진행 전이며 운영은 미변경이다.
+
+### 최종 49cecde 검증 및 운영 반영 시작
+
+- [CI](https://github.com/chonghg22/nearbook/actions/runs/38353116941) 성공: 의존성 설치·lint·전체 타입 검사·build·test. Node 120(35+19+66) + Vitest 106 + API Jest 11 = **237개 통과**.
+- [Vercel](https://vercel.com/chonghg22s-projects/nearbook-web/7worpEx1RAWWXK6gAZpZzsRuGsEb) Ready와 구현 커밋 일치 확인. 고정 프리뷰를 직접 reload해 `min-w-0` 수정 빌드가 적용된 뒤 검증했다. 이전 코드가 남은 탭의 결과는 수정본 결과로 취급하지 않았다.
+- 성북길빛도서관111492 상단 마커 클릭 → 자동 pan·재조회 이후에도 팝업 유지, 상세 링크 실제 이동 성공. [증거](../../.tools/nearbook-evidence/p0-03-preview-edge-popup-fixed.jpg)
+- 해운대구 목록/마커 각6, 지도 drag 후 필터/목록6 유지, 지도 전체1914px ↔ 분할1514px 반복 전환에서 타일 정상. 강원 변경 시 기존 팝업 제거, 목록/마커 각51. [이동·분할 증거](../../.tools/nearbook-evidence/p0-03-preview-region-pan-and-split.jpg)
+- 390×844에서126024 상세 → 하단 지역별 도서관 링크로 캐시 SDK 클라이언트 재진입: 실제384px 패널/지도 내부폭 일치,44마커, 수평 overflow없음. 모바일 목록/지도 왕복 해운대구6 유지, viewport 복원. [증거](../../.tools/nearbook-evidence/p0-03-preview-mobile-cached-sdk-fixed.jpg)
+- 최종 immutable 프리뷰(허용 URL 미등록)에서 SDK 인증 실패 → 상단 목록 보기 → 같은 해운대구6 복구 재확인. 정리 예외·error/warn 관찰 없음. [증거](../../.tools/nearbook-evidence/p0-03-final-preview-sdk-failure-list.jpg)
+- 사용자 요청에 따라 [PR #6](https://github.com/chonghg22/nearbook/pull/6)을 검증 head에 대한 SHA 조건으로 병합했다. 병합 SHA `b240462b06ac4e3589d79f3b82f574487c27c399`. 웹/API 자동 운영 배포 모니터링 중이며 배포 성공만으로 완료하지 않는다.
+- 미수행: 실제 모바일 기기, React UI HTTP 장애 주입. viewport 브라우저·공통 요청/프록시 모사 회귀 테스트 통과와 구분한다.
+
+### 운영 완료
+
+- main `b240462`의 Vercel Production Ready 및 Oracle API CD 성공 확인. 운영 도메인에서 수정 CSS/팝업 유지, 해운대구 주소 포함6개 목록과6마커, 강원51개/51마커 확인.
+- 운영 390×844 상세126024 → 지도 클라이언트 재진입도 실제384px 전체 지도/44마커, 수평 overflow없음, 콘솔 error/warn없음. viewport 복원했다.
+- API 교체 중 실제 목록 요청 실패를 관찰했고 재시도 안내가 유지됐다. API 정상화 뒤 같은 화면의 `다시 시도`로100개 목록/마커 복구 확인. 상세 보조 인기도서20개도 재조회 후 회복했다. 이는 통제된 장애 주입은 아니지만 실제 실패/재시도 UI 검증이다.
+- 마지막 health: `status: ok`, `2026-10-13T06:08:10.706Z`. TODO P0-03 완료 처리. [최종 운영 화면](../../.tools/nearbook-evidence/p0-03-production-final-map.jpg)
+- 운영 코드/PR 검증 결과는 GitHub에 반영됐으며 이 마지막 운영 기록과 TODO 완료 표시는 로컬 프로젝트에 저장했다. 기존 dirty worktree는 그대로 보존했다.
