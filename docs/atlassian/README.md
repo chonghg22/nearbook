@@ -1,5 +1,7 @@
 # Nearbook — Jira·Confluence 기록 동기화
 
+최신(2026-11-03): 10/28 API 서버 Oracle VM→개인 서버(Cloudflare Tunnel) 이관 [KAN-124](https://chonghg22-1791900037339.atlassian.net/browse/KAN-124) 완료, 개인 서버 API 자동 배포 [KAN-125](https://chonghg22-1791900037339.atlassian.net/browse/KAN-125) 할 일. KAN-123(P2-04) 미게시·보관 결정으로 보류(deferred), Threads 초안 미게시 기록(코멘트 10033). Confluence 운영 구조393218 v3·현황458753 v11. 로컬 기록 보관 PR28.
+
 최신(2026-10-20): P1-15 [PR22](https://github.com/chonghg22/nearbook/pull/22) 병합2735187·최종 CI39386995419 및 Chromium E2E32개 성공, KAN-120 완료. 완료21(기능 운영20·회귀1)·보류1·진행1(P2-04)·검토0·미착수0. 운영 웹2735187/API d619481·공개 경로 정상, Confluence v10 재조회. 인스타 게시는 사용자 직접 진행·게시 URL/시각 미전달. 아래 집계는 이전 이력이다.
 
 최신(2026-10-20): KAN-123/P2-04 진행 중. 사용자 지정 @jack.made.tools·0원 인스타 피드/릴스 업로드 패키지 완성, PR26 CI39383183120/preview 성공. 접근 승인 거절로 미게시·DB 수집 확인도 미완료. Confluence v9 재조회. 완료20·보류1·검토1·진행1·미착수0. 제품 운영 웹56f5239/API d619481 유지.
