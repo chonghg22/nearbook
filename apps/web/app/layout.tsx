@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Analytics } from '@vercel/analytics/next'
 import '@fontsource/pretendard/index.css'
 import './globals.css'
 import { SiteHeader } from '@/components/layout/site-header'
@@ -97,7 +96,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <InstallPrompt />
           <SiteFooter />
         </LocationProvider>
-        <Analytics />
       </body>
     </html>
   )

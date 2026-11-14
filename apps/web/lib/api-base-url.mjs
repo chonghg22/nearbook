@@ -11,8 +11,9 @@ function normalize(value) {
  * @param {string} value
  * @param {string} name
  * @param {boolean} production
+ * @param {boolean} [allowPrivateHost] server-only: allow HTTP to a single-label container host (e.g. nearbook-api)
  */
-function absoluteBase(value, name, production) {
+function absoluteBase(value, name, production, allowPrivateHost = false) {
   let url
   try {
     url = new URL(value)
@@ -26,8 +27,10 @@ function absoluteBase(value, name, production) {
   if (['near-book.com', 'www.near-book.com'].includes(url.hostname)) {
     throw new Error(`${name} must point to the API, not the frontend (proxy loop)`)
   }
-  if (production && (url.protocol !== 'https:' ||
-      /^(localhost\.?|127\.|\[::1\])/.test(url.hostname))) {
+  const loopback = /^(localhost\.?|127\.|\[::1\])/.test(url.hostname)
+  // Docker network aliases never leave the host, so plain HTTP is acceptable there.
+  const privateHost = allowPrivateHost && !loopback && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i.test(url.hostname)
+  if (production && !privateHost && (url.protocol !== 'https:' || loopback)) {
     throw new Error(`${name} must use a non-loopback HTTPS API URL in production`)
   }
   return url.toString().replace(/\/+$/, '')
@@ -50,7 +53,7 @@ export function resolvePublicApiBaseUrl(value, production = false) {
  */
 export function resolveServerApiBaseUrl({ internalUrl, publicUrl, production = false } = {}) {
   const internal = normalize(internalUrl)
-  if (internal) return absoluteBase(internal, 'INTERNAL_API_URL', production)
+  if (internal) return absoluteBase(internal, 'INTERNAL_API_URL', production, true)
   const browser = resolvePublicApiBaseUrl(publicUrl, production)
   return browser === '/api' ? DEFAULT_API_BASE_URL : browser
 }
