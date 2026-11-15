@@ -1,3 +1,4 @@
+import path from 'node:path'
 import type { NextConfig } from 'next'
 import { isProductionApiEnvironment, resolvePublicApiBaseUrl, resolveServerApiBaseUrl } from './lib/api-base-url.mjs'
 
@@ -14,6 +15,9 @@ const serverApiBaseUrl = resolveServerApiBaseUrl({
 })
 
 const nextConfig: NextConfig = {
+  // Self-hosted Docker image (apps/web/Dockerfile) runs the standalone server.
+  output: 'standalone',
+  outputFileTracingRoot: path.join(__dirname, '../../'),
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'image.aladin.co.kr' },

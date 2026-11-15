@@ -4,11 +4,25 @@
 
 | 서비스 | 플랫폼 | 배포 방식 |
 |--------|--------|-----------|
-| Web (Next.js) | Vercel | GitHub 연동 자동 배포 |
-| API (NestJS) | Oracle Cloud VM | GitHub Actions → Docker → SSH |
-| DB | Supabase | 관리형 |
+| Web (Next.js) | jack-server 자가호스팅 (Docker `nearbook-web`, Cloudflare Tunnel 뒤) | 서버에서 `scripts/deploy-web.sh` (git HEAD 빌드 → compose `web` 교체 → health/스모크) |
+| API (NestJS) | jack-server 자가호스팅 (Docker `nearbook-api`, Cloudflare Tunnel 뒤) | 이미지 `nearbook-api:<sha>` 컨테이너 운영. 기존 `.github/workflows/cd.yml`은 별도 Oracle 호스트(`~/nearbook`) 대상이라 jack-server 반영 경로는 **확인 필요** |
+| DB | jack-server 자가호스팅 (PostGIS 컨테이너 `nearbook-db`) | Docker (`/opt/stacks/nearbook-db`) |
+| 웹 트래픽 분석 | jack-server 자가호스팅 Umami (`/opt/stacks/umami`) | `analytics.near-book.com` (Cloudflare Tunnel) |
+
+> 과거에는 Web=Vercel / API=Oracle Cloud / DB=Supabase 였다. Web·DB·웹 트래픽 분석은 jack-server 자가호스팅으로 이관 완료, 인증도 Supabase → **Kakao OAuth + JWT** 자체 인증으로 전환됐다. API 컨테이너도 jack-server에서 운영 중이나 GitHub CD(`cd.yml`)는 아직 기존 Oracle 호스트를 가리켜 정리가 필요하다. 아래 날짜별 로그의 `Vercel ...` 항목은 이관 이전 이력이다.
 
 ---
+
+## 2026-11-15: 웹 자가호스팅 배포 체계 + Umami 트래픽 분석 도입
+
+- **웹 자가호스팅 운영 반영**: `apps/web`를 Vercel에서 jack-server로 이관해 Docker 컨테이너 `nearbook-web`(이미지 `nearbook-web:<git-sha>`)로 실행한다. Cloudflare Tunnel이 `www.near-book.com`/`near-book.com` → `nearbook-web:3000`으로 라우팅한다. 스택: `/opt/stacks/nearbook/compose.yaml`.
+- **서버 로컬 배포 스크립트 추가** (`scripts/deploy-web.sh`): jack-server에서 직접 실행하며(ssh/rsync 없음) 현재 git HEAD로 이미지를 빌드하고 compose의 `web` 이미지를 교체한 뒤 health check·스모크테스트(`/`·`/robots.txt`·`/api/health`)까지 수행한다. 직전 이미지는 `/opt/stacks/nearbook/.web-previous`에 저장되어 `scripts/deploy-web.sh --rollback`으로 복구한다. 빌드 공개값(`NEXT_PUBLIC_*`)은 `/opt/stacks/nearbook/.env.web-build`에서 build-arg로 주입된다.
+  - 배포 절차(서버): `cd ~/project/nearbook && git pull && scripts/deploy-web.sh`
+- **Umami 셀프호스팅 분석 도입** (Vercel Analytics 대체): jack-server에 Umami + 전용 PostgreSQL 스택(`/opt/stacks/umami`)을 기동하고 Cloudflare Tunnel로 `analytics.near-book.com` → `umami:3000` 공개. `apps/web/app/layout.tsx`에 추적 스크립트를 추가하고, website-id·스크립트 src는 `NEXT_PUBLIC_UMAMI_WEBSITE_ID`/`NEXT_PUBLIC_UMAMI_SRC` build-arg(+`apps/web/Dockerfile`의 ARG/ENV)로 주입한다.
+  - 대시보드: `https://analytics.near-book.com` (admin 비밀번호는 서버 `/opt/stacks/umami/.admin-password`).
+  - 제품 이벤트 분석(검색/보유 등 자체 파이프라인, `docs/analytics-runbook.md`)과는 별개의 **웹 트래픽 분석**이다.
+- 커밋(브랜치 `feat/self-host-web`): `81dda4e` layout 스크립트, `075dadf` Dockerfile build-arg, `03376a6` `deploy-web.sh`.
+- 검증: 운영 홈 HTML에 `data-website-id` 주입 확인, `analytics.near-book.com` 로그인·`/api/send` 라우팅 200, 배포 후 스모크 200, 실시간 방문 집계 확인.
 
 ## 2026-10-16: P1-13 캐시·검색 인덱스 운영 반영 완료
 

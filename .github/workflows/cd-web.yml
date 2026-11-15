@@ -1,0 +1,64 @@
+name: CD Web
+
+# Deploy apps/web to jack-server (self-hosted, behind Cloudflare Tunnel + Tailscale).
+#
+# The web image must be built ON jack-server: build-time prerendering reaches the
+# API at 127.0.0.1:3001, which only exists on the server. So this workflow does NOT
+# build in CI — it joins the tailnet, SSHes to jack-server, and runs the
+# server-local scripts/deploy-web.sh (build -> swap image -> health check -> smoke).
+#
+# ── Activation (one-time) ──────────────────────────────────────────────────
+# Repo → Settings → Secrets and variables → Actions:
+#   Variables:
+#     WEB_CD_ENABLED = true                 # until set, this job is skipped (inert)
+#   Secrets:
+#     TS_AUTHKEY     = <Tailscale auth key>  # Tailscale admin → Settings → Keys (reusable, ephemeral ok)
+#     JACK_SSH_KEY   = <private key authorized for jack@jack-server>
+# Adjust JACK_SSH_* below only if the tailnet IP / port / user change.
+# ───────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - '.github/workflows/cd-web.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: nearbook-web-production
+  cancel-in-progress: false
+
+env:
+  JACK_SSH_HOST: 100.120.239.28
+  JACK_SSH_PORT: "1008"
+  JACK_SSH_USER: jack
+
+jobs:
+  deploy-web:
+    name: Build & deploy web on jack-server
+    runs-on: ubuntu-latest
+    # Inert until you opt in (so the workflow can land on main without failing runs).
+    if: ${{ vars.WEB_CD_ENABLED == 'true' }}
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+
+      - name: Deploy web on jack-server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ env.JACK_SSH_HOST }}
+          username: ${{ env.JACK_SSH_USER }}
+          port: ${{ env.JACK_SSH_PORT }}
+          key: ${{ secrets.JACK_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -eu
+            cd ~/project/nearbook
+            git fetch origin main
+            git checkout main
+            git reset --hard origin/main
+            scripts/deploy-web.sh

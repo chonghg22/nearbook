@@ -51,6 +51,12 @@ for (const value of ['http://upstream.example', 'http://localhost:3001', 'https:
     assert.throws(() => resolveServerApiBaseUrl({ internalUrl: value, production: true }), /production/)
   })
 }
+test('production server URL may use HTTP to a single-label container host', () => {
+  assert.equal(resolveServerApiBaseUrl({ internalUrl: 'http://nearbook-api:3001/', production: true }), 'http://nearbook-api:3001')
+  assert.throws(() => resolvePublicApiBaseUrl('http://nearbook-api:3001', true), /production/)
+  assert.throws(() => resolveServerApiBaseUrl({ internalUrl: 'http://localhost:3001', production: true }), /production/)
+  assert.throws(() => resolveServerApiBaseUrl({ internalUrl: 'http://api.example', production: true }), /production/)
+})
 test('production allows HTTPS and same-origin browser proxy', () => {
   assert.equal(resolvePublicApiBaseUrl('/api', true), '/api')
   assert.equal(resolveServerApiBaseUrl({ publicUrl: '/api', production: true }), DEFAULT_API_BASE_URL)

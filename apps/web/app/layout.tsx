@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Analytics } from '@vercel/analytics/next'
 import '@fontsource/pretendard/index.css'
 import './globals.css'
 import { SiteHeader } from '@/components/layout/site-header'
@@ -68,6 +67,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const adsenseClient = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
+  const umamiWebsiteId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID
+  const umamiSrc = process.env.NEXT_PUBLIC_UMAMI_SRC ?? "https://analytics.near-book.com/script.js"
 
   return (
     <html lang="ko">
@@ -84,6 +85,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}`}
           />
         )}
+        {umamiWebsiteId && (
+          <script
+            key="umami"
+            defer
+            src={umamiSrc}
+            data-website-id={umamiWebsiteId}
+          />
+        )}
       </head>
       <body className="antialiased min-h-screen bg-canvas flex flex-col">
         <RegisterSW />
@@ -97,7 +106,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <InstallPrompt />
           <SiteFooter />
         </LocationProvider>
-        <Analytics />
       </body>
     </html>
   )
