@@ -5,11 +5,11 @@
 | 서비스 | 플랫폼 | 배포 방식 |
 |--------|--------|-----------|
 | Web (Next.js) | jack-server 자가호스팅 (Docker `nearbook-web`, Cloudflare Tunnel 뒤) | 서버에서 `scripts/deploy-web.sh` (git HEAD 빌드 → compose `web` 교체 → health/스모크) |
-| API (NestJS) | jack-server 자가호스팅 (Docker `nearbook-api`, Cloudflare Tunnel 뒤) | GitHub Actions → `ghcr.io` 이미지 → SSH 배포 (`.github/workflows/cd.yml`) |
+| API (NestJS) | jack-server 자가호스팅 (Docker `nearbook-api`, Cloudflare Tunnel 뒤) | 이미지 `nearbook-api:<sha>` 컨테이너 운영. 기존 `.github/workflows/cd.yml`은 별도 Oracle 호스트(`~/nearbook`) 대상이라 jack-server 반영 경로는 **확인 필요** |
 | DB | jack-server 자가호스팅 (PostGIS 컨테이너 `nearbook-db`) | Docker (`/opt/stacks/nearbook-db`) |
 | 웹 트래픽 분석 | jack-server 자가호스팅 Umami (`/opt/stacks/umami`) | `analytics.near-book.com` (Cloudflare Tunnel) |
 
-> 과거에는 Web=Vercel / API=Oracle Cloud / DB=Supabase 였으나, 프로젝트 전체를 jack-server로 이관했다. 아래 날짜별 로그의 `Vercel ...` 항목은 이관 이전 이력이다.
+> 과거에는 Web=Vercel / API=Oracle Cloud / DB=Supabase 였다. Web·DB·웹 트래픽 분석은 jack-server 자가호스팅으로 이관 완료, 인증도 Supabase → **Kakao OAuth + JWT** 자체 인증으로 전환됐다. API 컨테이너도 jack-server에서 운영 중이나 GitHub CD(`cd.yml`)는 아직 기존 Oracle 호스트를 가리켜 정리가 필요하다. 아래 날짜별 로그의 `Vercel ...` 항목은 이관 이전 이력이다.
 
 ---
 

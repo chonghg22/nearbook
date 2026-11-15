@@ -61,7 +61,7 @@
 - `TypeScript`
 - `Tailwind CSS`
 - `SWR`
-- `Supabase SSR`
+- 자체 세션/인증 클라이언트 (Kakao OAuth + JWT)
 
 ### Backend
 - `NestJS`
@@ -74,7 +74,7 @@
 - `PostgreSQL`
 - `Drizzle ORM`
 - `PostGIS`
-- `Supabase` 인증/DB 연동
+- self-hosted (Docker 컨테이너 `nearbook-db`) — 자체 인증은 API의 Kakao OAuth + JWT(`AUTH_JWT_SECRET`)
 
 ### External Services
 - `도서관 정보나루` API
@@ -126,7 +126,7 @@
 ### 요구 사항
 - Node.js 20+
 - pnpm 9+
-- PostgreSQL / Supabase 연결 정보
+- PostgreSQL 연결 정보 (self-hosted PostGIS)
 
 ### 설치
 ```bash
