@@ -1,0 +1,36 @@
+name: CD API
+
+# Deploy apps/api to jack-server via the self-hosted runner that lives ON jack-server
+# (labels: self-hosted + nearbook). Mirrors cd-web.yml: the runner runs the server-local
+# scripts/deploy-api-server.sh against ~/project/nearbook (build -> swap compose `api` ->
+# /ready readiness check -> rollback on failure). No secrets needed.
+#
+# Note: the workflow's own path is intentionally NOT a trigger, so editing this file
+# does not kick off a production API deploy. It fires on apps/api / packages changes
+# to main, or manually via "Run workflow".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'packages/**'
+  workflow_dispatch: {}
+
+concurrency:
+  group: nearbook-api-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-api:
+    name: Build & deploy api on jack-server
+    runs-on: [self-hosted, nearbook]
+    steps:
+      - name: Deploy main via server-local script
+        run: |
+          set -eu
+          cd "$HOME/project/nearbook"
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+          scripts/deploy-api-server.sh

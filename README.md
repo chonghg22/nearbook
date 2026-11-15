@@ -186,12 +186,10 @@ pnpm --filter @nearbook/api refresh:curations --scope=categories,libraries
 - 포트: `3001`
 
 ### Backend 배포 방식
-- `GitHub Actions` 기반 CD
-- `main` 브랜치에 `apps/api/**`, `packages/**`, `.github/workflows/cd.yml` 변경이 푸시되면 실행
-- GitHub Container Registry(`ghcr.io`)에 API 이미지를 빌드/푸시
-- Oracle Cloud 서버에 SSH 접속 후 최신 이미지를 pull 해서 `nearbook-api` 컨테이너 재기동
-- 서버 env 파일 경로:
-  - `/home/<ORACLE_USER>/nearbook/apps/api/.env`
+- jack-server의 self-hosted GitHub Actions 러너가 `main`의 `apps/api/**`·`packages/**` 변경 시 `.github/workflows/cd-api.yml`로 배포
+- 러너가 서버 로컬 `scripts/deploy-api-server.sh` 실행: 이미지 빌드 → compose `api` 교체 → `/ready` 레디니스 확인 → 실패 시 자동 롤백(`--rollback`)
+- 스택/런타임 env: `/opt/stacks/nearbook/compose.yaml`, `/opt/stacks/nearbook/.env.api`
+- (구 `.github/workflows/cd.yml`의 ghcr→Oracle SSH 배포는 **폐기**, 수동 트리거만 남김)
 
 ### CI
 - Pull Request 기준으로 GitHub Actions에서 아래 항목 실행

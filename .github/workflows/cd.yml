@@ -1,13 +1,10 @@
 name: CD
 
+# LEGACY: deployed the API to a now-unused Oracle Cloud host via ghcr + SSH.
+# Disabled — the API now deploys to jack-server through cd-api.yml (self-hosted
+# runner + scripts/deploy-api.sh). Kept for reference (blue-green readiness/rollback).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/api/**'
-      - 'packages/**'
-      - '.github/workflows/cd.yml'
-      - 'scripts/deploy-api.sh'
+  workflow_dispatch: {}
 
 concurrency:
   group: nearbook-api-production
