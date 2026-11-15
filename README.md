@@ -173,12 +173,14 @@ pnpm --filter @nearbook/api refresh:curations --scope=categories,libraries
 ## 배포
 
 ### Frontend
-- 플랫폼: `Vercel`
+- 플랫폼: `jack-server` 자가호스팅 (Docker 컨테이너 `nearbook-web`, Cloudflare Tunnel 뒤)
 - 대상: `apps/web`
 - 운영 도메인: `https://www.near-book.com`
+- 배포: 서버에서 `scripts/deploy-web.sh` 실행 (현재 git HEAD로 이미지 빌드 → compose `web` 교체 → health check·스모크테스트, `--rollback` 지원)
+- 스택/설정: `/opt/stacks/nearbook/compose.yaml`, 빌드 공개값 `/opt/stacks/nearbook/.env.web-build`
 
 ### Backend
-- 플랫폼: `Oracle Cloud`
+- 플랫폼: `jack-server` 자가호스팅 (Cloudflare Tunnel 뒤)
 - 실행 형태: Docker 컨테이너
 - 대상: `apps/api`
 - 포트: `3001`
@@ -198,6 +200,13 @@ pnpm --filter @nearbook/api refresh:curations --scope=categories,libraries
   - type-check
   - build
 
+## 웹 트래픽 분석 (Umami)
+
+- 플랫폼: `jack-server` 자가호스팅 Umami (`/opt/stacks/umami`), Cloudflare Tunnel 뒤
+- 대시보드: `https://analytics.near-book.com`
+- 계측: `apps/web/app/layout.tsx`의 추적 스크립트. `NEXT_PUBLIC_UMAMI_WEBSITE_ID`/`NEXT_PUBLIC_UMAMI_SRC` build-arg로 주입 (Vercel Analytics 대체)
+- 참고: 검색·보유 등 **제품 이벤트 분석**은 자체 이벤트 파이프라인(별도)이며 `docs/analytics-runbook.md` 참고
+
 ## 광고 및 수익화
 
 ### AdSense
@@ -213,7 +222,7 @@ pnpm --filter @nearbook/api refresh:curations --scope=categories,libraries
 
 ## 운영 체크 포인트
 
-- Vercel Production env의 `NEXT_PUBLIC_SITE_URL`은 반드시 `https://www.near-book.com`
+- 웹 빌드 공개값(`/opt/stacks/nearbook/.env.web-build`)의 `NEXT_PUBLIC_SITE_URL`은 반드시 `https://www.near-book.com`
 - AdSense 검증 시 `ads.txt`, AdSense 스크립트, 크롤링 가능 여부 확인
 - Search Console에는 `https://www.near-book.com/sitemap.xml` 제출
 - 정보나루는 호출 한도와 IP 등록 여부에 따라 적재 성공 여부가 달라질 수 있음
