@@ -1,21 +1,13 @@
 name: CD Web
 
-# Deploy apps/web to jack-server (self-hosted, behind Cloudflare Tunnel + Tailscale).
+# Deploy apps/web to jack-server via a self-hosted runner that lives ON jack-server
+# (service: actions.runner.chonghg22-nearbook.jack-nearbook, labels: self-hosted + nearbook).
 #
-# The web image must be built ON jack-server: build-time prerendering reaches the
-# API at 127.0.0.1:3001, which only exists on the server. So this workflow does NOT
-# build in CI — it joins the tailnet, SSHes to jack-server, and runs the
-# server-local scripts/deploy-web.sh (build -> swap image -> health check -> smoke).
-#
-# ── Activation (one-time) ──────────────────────────────────────────────────
-# Repo → Settings → Secrets and variables → Actions:
-#   Variables:
-#     WEB_CD_ENABLED = true                 # until set, this job is skipped (inert)
-#   Secrets:
-#     TS_AUTHKEY     = <Tailscale auth key>  # Tailscale admin → Settings → Keys (reusable, ephemeral ok)
-#     JACK_SSH_KEY   = <private key authorized for jack@jack-server>
-# Adjust JACK_SSH_* below only if the tailnet IP / port / user change.
-# ───────────────────────────────────────────────────────────────────────────
+# The web image must be built ON the server: build-time prerendering reaches the API
+# at 127.0.0.1:3001, which only exists on jack-server. So the job does NOT build in a
+# cloud runner — it runs the server-local scripts/deploy-web.sh against ~/project/nearbook
+# (build -> swap compose image -> health check -> smoke). No secrets needed: the runner
+# already has filesystem/docker access as the jack user.
 
 on:
   push:
@@ -30,35 +22,16 @@ concurrency:
   group: nearbook-web-production
   cancel-in-progress: false
 
-env:
-  JACK_SSH_HOST: 100.120.239.28
-  JACK_SSH_PORT: "1008"
-  JACK_SSH_USER: jack
-
 jobs:
   deploy-web:
     name: Build & deploy web on jack-server
-    runs-on: ubuntu-latest
-    # Inert until you opt in (so the workflow can land on main without failing runs).
-    if: ${{ vars.WEB_CD_ENABLED == 'true' }}
+    runs-on: [self-hosted, nearbook]
     steps:
-      - name: Connect to Tailscale
-        uses: tailscale/github-action@v3
-        with:
-          authkey: ${{ secrets.TS_AUTHKEY }}
-
-      - name: Deploy web on jack-server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ env.JACK_SSH_HOST }}
-          username: ${{ env.JACK_SSH_USER }}
-          port: ${{ env.JACK_SSH_PORT }}
-          key: ${{ secrets.JACK_SSH_KEY }}
-          command_timeout: 30m
-          script: |
-            set -eu
-            cd ~/project/nearbook
-            git fetch origin main
-            git checkout main
-            git reset --hard origin/main
-            scripts/deploy-web.sh
+      - name: Deploy main via server-local script
+        run: |
+          set -eu
+          cd "$HOME/project/nearbook"
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+          scripts/deploy-web.sh
