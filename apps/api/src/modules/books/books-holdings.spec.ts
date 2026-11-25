@@ -7,7 +7,7 @@ describe('independent holdings endpoint', () => {
     const data = { libraries: [], holdings: { nearbyCount: 0 } }
     const libraries = { getNearbyHoldings: jest.fn().mockResolvedValue(data) }
     const affiliates = { getAffiliateOptions: jest.fn() }
-    const service = new BooksService({} as never, libraries as never, affiliates as never, {} as never, {} as never, {} as never)
+    const service = new BooksService({} as never, libraries as never, affiliates as never, {} as never, {} as never, {} as never, {} as never)
     jest.spyOn(service, 'getByIsbn').mockRejectedValue(new Error('metadata outage'))
     expect(await service.getHoldings('9788936434120', 37, 127)).toBe(data)
     expect(service.getByIsbn).not.toHaveBeenCalled()

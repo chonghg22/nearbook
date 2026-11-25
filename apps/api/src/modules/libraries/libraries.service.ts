@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common'
 import { db, libraries, sql, eq, and, gte, lte, ilike, asc } from '@nearbook/db'
 import { JeongbonaruService } from '../jeongbonaru/jeongbonaru.service'
 import { JeongbonaruClient } from '../jeongbonaru/jeongbonaru.client'
@@ -192,7 +192,7 @@ export class LibrariesService {
         libCode: libraryId,
         pageNo: 1,
         pageSize: limit,
-      })
+      }, { priority: 'LOW' })
       return res?.response?.docs?.map((d: any) => ({
         isbn: d.doc?.isbn13,
         title: d.doc?.bookname,
@@ -200,9 +200,10 @@ export class LibrariesService {
         publisher: d.doc?.publisher,
         coverUrl: d.doc?.bookImageURL ?? null,
         loanCount: Number(d.doc?.loan_count ?? 0),
+        cacheInfo: res.cacheInfo,
       })) ?? []
     } catch {
-      return []
+      throw new ServiceUnavailableException('도서관 인기 도서를 잠시 불러올 수 없습니다.')
     }
   }
 
@@ -217,16 +218,17 @@ export class LibrariesService {
         to,
         pageNo: 1,
         pageSize: limit,
-      })
+      }, { priority: 'LOW' })
       return res?.response?.docs?.map((d: any) => ({
         isbn: d.doc?.isbn13,
         title: d.doc?.bookname,
         author: d.doc?.authors,
         publisher: d.doc?.publisher,
         coverUrl: d.doc?.bookImageURL ?? null,
+        cacheInfo: res.cacheInfo,
       })) ?? []
     } catch {
-      return []
+      throw new ServiceUnavailableException('도서관 최근 도서를 잠시 불러올 수 없습니다.')
     }
   }
 
@@ -238,7 +240,7 @@ export class LibrariesService {
     try {
       return await this.jeongbonaru.getLibraryUsageTrend(libraryId)
     } catch {
-      return { dayOfWeek: [], hours: [] }
+      throw new ServiceUnavailableException('도서관 대출 추이를 잠시 불러올 수 없습니다.')
     }
   }
 

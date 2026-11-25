@@ -3,6 +3,7 @@ import {
   BOOK_RETRY_AFTER_SECONDS,
   bookIsbnFromPath,
   bookUnavailableResponse,
+  bookAvailability,
   isBookTemporarilyUnavailable,
 } from './book-availability'
 
@@ -34,6 +35,17 @@ describe('isBookTemporarilyUnavailable', () => {
     expect(await isBookTemporarilyUnavailable('9788936434120', respond(status))).toBe(true)
   })
 
+  it('distinguishes an unacquired book and links to an explicit action without fetching in the page', async () => {
+    const unacquired = vi.fn(async () => Response.json({ code: 'BOOK_NOT_ACQUIRED' }, { status: 409 })) as unknown as typeof fetch
+    expect(await bookAvailability('9788936434120', unacquired)).toBe('unacquired')
+    const response = bookUnavailableResponse('9788936434120', 'unacquired')
+    expect(response.status).toBe(503)
+    expect(await response.text()).toContain('/book-request?isbn=9788936434120')
+  })
+
+  it('does not reflect arbitrary path text into the HTML action', async () => {
+    expect(await bookUnavailableResponse('\"><script>alert(1)</script>', 'unacquired').text()).not.toContain('<script>')
+  })
   it('maps only the explicit unacquired metadata contract to temporary unavailability', async () => {
     const fetchImpl = vi.fn(async () => Response.json({
       code: 'BOOK_NOT_ACQUIRED', message: '도서 정보를 아직 가져오지 않았습니다.',

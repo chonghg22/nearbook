@@ -12,7 +12,12 @@ for (const apiStatus of [200, 409, 503]) {
     if (apiStatus === 409 || apiStatus === 503) {
       expect(response.headers()['retry-after']).toBe('3600')
       expect(response.headers()['cache-control']).toBe('no-store')
-      expect(html).toContain('도서 정보를 잠시 불러올 수 없습니다')
+      if (apiStatus === 409) {
+        expect(html).toContain('도서 정보가 아직 준비되지 않았습니다')
+        expect(html).toContain('/book-request?isbn=9791161571195')
+      } else {
+        expect(html).toContain('도서 정보를 잠시 불러올 수 없습니다')
+      }
       // Middleware stops the render before metadata/page can turn the conflict into a 500.
       const state = await (await request.get(`${fixture}/__state`)).json()
       expect(state.bookReads).toBe(1)

@@ -41,8 +41,9 @@ suite('durable quota: actual isolated PostgreSQL transactions', () => {
     await db.execute(sql`CREATE SCHEMA IF NOT EXISTS nearbook`)
     await db.execute(sql`CREATE TABLE IF NOT EXISTS nearbook.api_usage (
       id serial PRIMARY KEY, provider varchar(32) NOT NULL, endpoint varchar(128) NOT NULL,
-      status_code integer, cached_hit boolean NOT NULL DEFAULT false, duration_ms integer,
+      status_code integer, cached_hit boolean NOT NULL DEFAULT false, duration_ms integer, acquisition_scope varchar(16),
       created_at timestamp NOT NULL DEFAULT (now() AT TIME ZONE 'UTC'))`)
+    await db.execute(sql`ALTER TABLE nearbook.api_usage ADD COLUMN IF NOT EXISTS acquisition_scope varchar(16)`)
     await db.execute(
       sql`CREATE INDEX IF NOT EXISTS quota_test_provider_created_idx ON nearbook.api_usage(provider, created_at)`
     )

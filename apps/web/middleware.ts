@@ -10,7 +10,7 @@ import {
   type IssuedSession,
 } from '@/lib/auth/session-cookies'
 import { verifyAccessToken } from '@/lib/auth/token'
-import { bookIsbnFromPath, bookUnavailableResponse, isBookTemporarilyUnavailable } from '@/lib/book-availability'
+import { bookIsbnFromPath, bookUnavailableResponse, bookAvailability } from '@/lib/book-availability'
 
 /** Refresh the access token shortly before it expires so SSR and /auth-api/session see a valid one. */
 const REFRESH_BEFORE_SECONDS = 60
@@ -18,7 +18,10 @@ const REFRESH_BEFORE_SECONDS = 60
 export async function middleware(request: NextRequest) {
   // 책 메타데이터를 잠시 가져올 수 없으면 페이지가 500을 내기 전에 503 + Retry-After로 답한다.
   const isbn = ['GET', 'HEAD'].includes(request.method) ? bookIsbnFromPath(request.nextUrl.pathname) : null
-  if (isbn && (await isBookTemporarilyUnavailable(isbn))) return bookUnavailableResponse()
+  if (isbn) {
+    const state = await bookAvailability(isbn)
+    if (state !== 'ready') return bookUnavailableResponse(isbn, state)
+  }
 
   const secure = isSecureRequest(request.url)
   const access = request.cookies.get(ACCESS_COOKIE)?.value

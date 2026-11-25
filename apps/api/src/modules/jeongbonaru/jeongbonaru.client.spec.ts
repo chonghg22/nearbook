@@ -24,6 +24,7 @@ describe('provider dispatch: one durable reservation per actual attempt', () => 
     getStatus: jest.fn(),
     getLocalStatus: jest.fn(),
   }
+  const shared = { get: (_endpoint: string, _params: unknown, dispatch: () => Promise<unknown>) => dispatch() }
   beforeEach(() => {
     jest.clearAllMocks()
     quota.acquire.mockReset().mockResolvedValue(123)
@@ -34,7 +35,8 @@ describe('provider dispatch: one durable reservation per actual attempt', () => 
         JEONGBONARU_API_KEY: 'test-key-never-log',
         JEONGBONARU_TIMEOUT_MS: '30000',
       }),
-      quota as never
+      quota as never,
+      shared as never
     )
     client.onModuleInit()
   })
@@ -42,7 +44,7 @@ describe('provider dispatch: one durable reservation per actual attempt', () => 
     expect(await client.get('/bookExist', { isbn13: '9788954682152' })).toEqual({
       response: { result: 'ok' },
     })
-    expect(quota.acquire).toHaveBeenCalledWith('jeongbonaru', 'HIGH', '/bookExist')
+    expect(quota.acquire).toHaveBeenCalledWith('jeongbonaru', 'HIGH', '/bookExist', 'refresh')
     expect(quota.acquire.mock.invocationCallOrder[0]).toBeLessThan(get.mock.invocationCallOrder[0])
     expect(quota.complete).toHaveBeenCalledTimes(1)
     expect(quota.complete).toHaveBeenCalledWith(123, 200, expect.any(Number))
@@ -94,7 +96,7 @@ describe('provider dispatch: one durable reservation per actual attempt', () => 
       client.get('/bookExist', { isbn13: 'a' }, { timeoutMs: 5000 }),
     ])
     expect(quota.acquire).toHaveBeenCalledTimes(4)
-    expect(quota.acquire).toHaveBeenCalledWith('jeongbonaru', 'LOW', '/bookExist')
+    expect(quota.acquire).toHaveBeenCalledWith('jeongbonaru', 'LOW', '/bookExist', 'refresh')
   })
   it.each([
     {
@@ -130,6 +132,22 @@ describe('provider dispatch: one durable reservation per actual attempt', () => 
     expect(quota.complete).toHaveBeenCalledTimes(1)
     expect(quota.complete).toHaveBeenCalledWith(123, 422, expect.any(Number))
   })
+  it.each([
+    ['/usageTrend', { results: [null] }],
+    ['/usageTrend', { results: [{}] }],
+    ['/usageAnalysisList', { book: null, loanHistory: 'invalid' }],
+    ['/usageAnalysisList', { book: null, keywords: [null] }],
+    ['/loanItemSrch', { docs: [{}] }],
+  ])('rejects malformed shared-cache data from %s before successful caching', async (endpoint, response) => {
+    get.mockResolvedValue({ data: { response } })
+    await expect(client.get(endpoint as string)).rejects.toThrow('INVALID_PROVIDER_RESPONSE')
+    expect(quota.complete).toHaveBeenCalledWith(123, 500, expect.any(Number))
+  })
+  it('never treats a structured provider error with an empty docs array as genuine absence', async () => {
+    get.mockResolvedValue({ data: { response: { docs: [], error: { message: 'provider unavailable' } } } })
+    await expect(client.get('/srchBooks')).rejects.toThrow('JEONGBONARU_APP_ERROR')
+    expect(quota.complete).toHaveBeenCalledWith(123, 422, expect.any(Number))
+  })
   it('retries only on a later explicit request after a failed single-flight is removed', async () => {
     get.mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ data: { response: {} } })
     await expect(client.get('/bookExist')).rejects.toThrow('offline')
@@ -154,16 +172,35 @@ describe('provider dispatch: one durable reservation per actual attempt', () => 
     expect(() =>
       new JeongbonaruClient(
         new ConfigService({ JEONGBONARU_TIMEOUT_MS: 'NaN' }),
-        quota as never
+        quota as never,
+        shared as never
       ).onModuleInit()
     ).toThrow('Invalid provider numeric configuration')
     expect(axios.create).toHaveBeenCalled()
   })
   it('does not spend quota when the API key is missing', async () => {
-    const missing = new JeongbonaruClient(new ConfigService(), quota as never)
+    const missing = new JeongbonaruClient(new ConfigService(), quota as never, shared as never)
     missing.onModuleInit()
     await expect(missing.get('/bookExist')).rejects.toThrow('PROVIDER_NOT_CONFIGURED')
     expect(quota.acquire).not.toHaveBeenCalled()
+  })
+  it('can read shared success data without a configured provider key', async () => {
+    const payload = { response: { results: [] }, cacheInfo: { stale: true } }
+    const missing = new JeongbonaruClient(new ConfigService(), quota as never,
+      { get: jest.fn().mockResolvedValue(payload) } as never)
+    missing.onModuleInit()
+    await expect(missing.get('/usageTrend')).resolves.toEqual(payload)
+    expect(quota.acquire).not.toHaveBeenCalled()
+    expect(get).not.toHaveBeenCalled()
+  })
+  it('caps shared-cache transport below its cross-process lease even with a longer configured timeout', async () => {
+    const longer = new JeongbonaruClient(new ConfigService({
+      JEONGBONARU_API_KEY: 'test-key-never-log', JEONGBONARU_TIMEOUT_MS: '120000',
+    }), quota as never, shared as never)
+    longer.onModuleInit()
+    get.mockResolvedValue({ data: { response: { results: [] } } })
+    await longer.get('/usageTrend', {}, { timeoutMs: 120000 })
+    expect(get).toHaveBeenCalledWith('/usageTrend', expect.objectContaining({ timeout: 30000 }))
   })
   it('exposes status outages honestly as 503 instead of zero usage', async () => {
     quota.getStatus.mockRejectedValue(new Error('db-secret'))

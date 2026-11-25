@@ -14,6 +14,7 @@ import { buildLibraryJsonLd } from '@/lib/seo/json-ld'
 import { buildDetailMetadata, buildPageMetadata } from '@/lib/seo/metadata'
 import { splitRegion } from '@/lib/seo/region'
 import { fetchLibraryDetail, fetchOptionalDetail } from '@/lib/detail-data'
+import { CacheNote } from '@/components/cache-note'
 
 export const revalidate = 0 // Keep detail errors out of the persistent page cache.
 
@@ -175,6 +176,7 @@ export default async function LibraryPage({
                   ))}
                 </div>
               )}
+              <CacheNote info={popular[0]?.cacheInfo} />
             </section>
 
             {/* 신착도서 */}
@@ -279,6 +281,8 @@ function LibraryTrendCard({ trends }: { trends: any }) {
   return (
     <section className="rounded-2xl border border-border bg-white p-5 shadow-card">
       <h3 className="text-sm font-bold text-foreground">대출·반납 이용 패턴</h3>
+      <CacheNote label="요일 자료 확인" info={trends?.cacheInfo?.days} />
+      <CacheNote label="시간대 자료 확인" info={trends?.cacheInfo?.hours} />
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
         최근 30일 대출·반납량을 상대 비율로 보여드립니다.
       </p>

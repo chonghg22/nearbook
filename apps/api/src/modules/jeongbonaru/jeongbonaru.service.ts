@@ -1,4 +1,5 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
+import { HttpException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { HOLDING_TTL_MS, observeHolding } from '../libraries/holding-observation'
 import { db, bookCache, eq, sql, searchStats } from '@nearbook/db'
 import { CacheService } from '../../common/cache/cache.service'
@@ -19,20 +20,31 @@ export class JeongbonaruService {
 
   constructor(
     private readonly client: JeongbonaruClient,
-    private readonly cache: CacheService
+    private readonly cache: CacheService,
+    private readonly config: ConfigService = new ConfigService({ JEONGBONARU_SSR_DAILY_LIMIT: 0 })
   ) {}
 
   /**
    * ISBN으로 책 조회. 캐시 우선 (Layer 4 = book_cache).
    * 만료된 캐시도 API 실패 시 fallback으로 반환 (graceful degradation).
    */
-  async getBookByIsbn(isbn: string, priority: Priority = 'HIGH'): Promise<BookCacheRow | null> {
+  async getBookByIsbn(isbn: string, priority: Priority = 'HIGH', acquire = false): Promise<BookCacheRow | null> {
     // 1. DB 캐시 우선
     const cached = await db.query.bookCache.findFirst({
       where: eq(bookCache.isbn, isbn),
     })
-    if (cached && cached.expiresAt > new Date()) {
+    if (cached && (!acquire || cached.expiresAt > new Date())) {
       return cached as BookCacheRow
+    }
+
+    if (!acquire) {
+      const known = await this.client.peekBook(isbn)
+      if (known?.response?.docs?.length === 0) return null
+      const limit = Number(this.config.get('JEONGBONARU_SSR_DAILY_LIMIT') ?? 0)
+      if (!Number.isSafeInteger(limit) || limit < 0 || limit > 500)
+        throw new ServiceUnavailableException('도서 정보를 잠시 불러올 수 없습니다.')
+      if (limit === 0)
+        throw new HttpException({ code: 'BOOK_NOT_ACQUIRED', message: '도서 정보를 아직 가져오지 않았습니다.' }, 409)
     }
 
     // 2. API 호출
@@ -44,7 +56,7 @@ export class JeongbonaruService {
           pageNo: 1,
           pageSize: 1,
         },
-        { priority }
+        { priority: acquire ? priority : 'LOW', scope: !acquire ? 'ssr' : priority === 'LOW' ? 'refresh' : 'explicit' }
       )
 
       if (!Array.isArray(response.response?.docs)) {
@@ -60,6 +72,7 @@ export class JeongbonaruService {
       }
 
       const book = this.mapBookDoc(item, isbn)
+      if (book.isbn !== isbn) throw new Error('MISMATCHED_ISBN')
 
       await db
         .insert(bookCache)
@@ -265,31 +278,22 @@ export class JeongbonaruService {
   }
 
   async getBookUsageAnalysis(isbn: string) {
-    const cacheKey = `usage-analysis:${isbn}`
-    const cached = this.cache.get<any>(cacheKey)
-    if (cached) return cached
-
-    const response = await this.client.get<any>('/usageAnalysisList', { isbn13: isbn })
+    const response = await this.client.get<any>('/usageAnalysisList', { isbn13: isbn }, { priority: 'LOW' })
     const data = this.mapUsageAnalysis(response.response ?? response)
-    this.cache.set(cacheKey, data, 24 * 60 * 60 * 1000)
-    return data
+    return { ...data, cacheInfo: response.cacheInfo }
   }
 
   async getLibraryUsageTrend(libCode: string | number) {
-    const cacheKey = `library-trend:${libCode}`
-    const cached = this.cache.get<any>(cacheKey)
-    if (cached) return cached
-
     const [days, hours] = await Promise.all([
-      this.client.get<any>('/usageTrend', { libCode, type: 'D' }),
-      this.client.get<any>('/usageTrend', { libCode, type: 'H' }),
+      this.client.get<any>('/usageTrend', { libCode, type: 'D' }, { priority: 'LOW' }),
+      this.client.get<any>('/usageTrend', { libCode, type: 'H' }, { priority: 'LOW' }),
     ])
 
     const data = {
       dayOfWeek: this.mapTrendResults(days.response?.results),
       hours: this.mapTrendResults(hours.response?.results),
+      cacheInfo: { days: days.cacheInfo, hours: hours.cacheInfo },
     }
-    this.cache.set(cacheKey, data, 24 * 60 * 60 * 1000)
     return data
   }
 
@@ -347,7 +351,7 @@ export class JeongbonaruService {
 
   /** Alias methods for Cron/Compatibility */
   async getBookByIsbnAsCron(isbn: string) {
-    return this.getBookByIsbn(isbn, 'LOW')
+    return this.getBookByIsbn(isbn, 'LOW', true)
   }
 
   async searchBooksAsCron(keyword: string, page: number) {

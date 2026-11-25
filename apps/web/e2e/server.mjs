@@ -7,7 +7,7 @@ const library = { id: 111314, name: '검증 도서관', address: '서울시 검�
   operatingHours: { text: '평일 09:00~18:00', closed: '매주 월요일' } }
 const directory = [library, ...[111315, 111316].map((id) => ({ ...library, id, name: `지역 검증 도서관 ${id}` })),
   { ...library, id: 222001, name: '소규모 지역 도서관', region: '부산광역시 중구' }]
-const initialState = () => ({ added: {}, writes: 0, saveFailure: false, searchStatus: 200, events: [] })
+const initialState = () => ({ added: {}, writes: 0, saveFailure: false, searchStatus: 200, events: [], acquired: false, acquisitionWrites: 0 })
 let state = initialState()
 function identity(req) {
   try { return JSON.parse(Buffer.from(req.headers.authorization.split('.')[1], 'base64url')).sub } catch { return 'anonymous' }
@@ -40,6 +40,13 @@ const server = createServer(async (req, res) => {
   if (path === '/auth/logout' && req.method === 'POST') { res.statusCode = 204; res.end(); return }
   if (path === '/search') return send({ data: { items: [book], total: 1, page: 1, pageSize: 10 } }, state.searchStatus)
   if (path === '/search/suggest') return send({ data: [book] })
+  if (path === '/books/9788936434120/acquire' && req.method === 'POST') {
+    if (identity(req) === 'anonymous') return send({ error: 'login_required' }, 401)
+    state.acquired = true; state.acquisitionWrites++
+    return send({ ...book, isbn: '9788936434120' })
+  }
+  if (path === '/books/9788936434120') return state.acquired
+    ? send({ ...book, isbn: '9788936434120' }) : send({ code: 'BOOK_NOT_ACQUIRED' }, 409)
   if (path === `/books/${isbn}`) {
     state.bookReads = (state.bookReads ?? 0) + 1
     const status = state.bookStatus ?? 200

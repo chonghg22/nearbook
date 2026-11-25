@@ -1,10 +1,14 @@
 import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import axios, { AxiosInstance, isAxiosError } from 'axios'
-import { QuotaService } from '../quota/quota.service'
+import { AcquisitionScope, QuotaService } from '../quota/quota.service'
+import { ProviderCacheService } from './provider-cache.service'
 import { Priority, positiveInteger } from '../quota/quota-policy'
 
-type RequestOptions = { timeoutMs?: number; priority?: Priority }
+type RequestOptions = { timeoutMs?: number; priority?: Priority; scope?: AcquisitionScope }
+const SHARED_TTL: Record<string, number> = {
+  '/srchBooks': 900, '/usageAnalysisList': 86400, '/usageTrend': 21600, '/loanItemSrch': 21600,
+}
 
 @Injectable()
 export class JeongbonaruClient implements OnModuleInit {
@@ -15,7 +19,8 @@ export class JeongbonaruClient implements OnModuleInit {
   private readonly inflight = new Map<string, Promise<unknown>>()
   constructor(
     private readonly config: ConfigService,
-    private readonly quota: QuotaService
+    private readonly quota: QuotaService,
+    private readonly shared: ProviderCacheService,
   ) {}
   onModuleInit(): void {
     this.authKey = this.config.get<string>('JEONGBONARU_API_KEY')
@@ -34,11 +39,12 @@ export class JeongbonaruClient implements OnModuleInit {
   ): Promise<T> {
     if (!/^\/[a-zA-Z][a-zA-Z0-9]*$/.test(endpoint))
       return Promise.reject(new Error('INVALID_PROVIDER_ENDPOINT'))
-    if (!this.authKey) return Promise.reject(new Error('PROVIDER_NOT_CONFIGURED'))
     const priority = options.priority ?? 'HIGH'
     if (priority !== 'HIGH' && priority !== 'LOW')
       return Promise.reject(new Error('INVALID_PROVIDER_PRIORITY'))
-    const timeoutMs = Math.min(this.timeoutMs, positiveInteger(options.timeoutMs, this.timeoutMs))
+    // A shared-cache lease lasts 40s; transport must finish before another owner can take over.
+    const timeoutMs = Math.min(this.timeoutMs, positiveInteger(options.timeoutMs, this.timeoutMs),
+      SHARED_TTL[endpoint] ? 30000 : this.timeoutMs)
     // User-supplied proxy query params must not override the configured key or JSON envelope.
     const safeParams = { ...params }
     delete safeParams.authKey
@@ -46,14 +52,17 @@ export class JeongbonaruClient implements OnModuleInit {
     const key = JSON.stringify([
       endpoint,
       priority,
-      timeoutMs,
+      timeoutMs, options.scope ?? 'refresh',
       Object.keys(safeParams)
         .sort()
         .map((name) => [name, safeParams[name]]),
     ])
     const existing = this.inflight.get(key)
     if (existing) return existing as Promise<T>
-    const request = this.dispatch<T>(endpoint, safeParams, priority, timeoutMs)
+    const dispatch = () => this.dispatch<T>(endpoint, safeParams, priority, timeoutMs, options.scope ?? 'refresh')
+    const request = SHARED_TTL[endpoint]
+      ? this.shared.get<T>(endpoint, safeParams, dispatch, SHARED_TTL[endpoint])
+      : dispatch()
     // Bounded single-flight only, no new long-lived content/PII cache.
     if (this.inflight.size < 500) {
       this.inflight.set(key, request)
@@ -70,9 +79,11 @@ export class JeongbonaruClient implements OnModuleInit {
     endpoint: string,
     params: Record<string, unknown>,
     priority: Priority,
-    timeoutMs: number
+    timeoutMs: number,
+    scope: AcquisitionScope
   ): Promise<T> {
-    const reservationId = await this.quota.acquire('jeongbonaru', priority, endpoint)
+    if (!this.authKey) throw new Error('PROVIDER_NOT_CONFIGURED')
+    const reservationId = await this.quota.acquire('jeongbonaru', priority, endpoint, scope)
     const start = Date.now()
     let statusCode = 500
     try {
@@ -86,6 +97,7 @@ export class JeongbonaruClient implements OnModuleInit {
         // Safe error only. Provider text may contain the URL/key and is never logged/returned.
         throw new Error('JEONGBONARU_APP_ERROR')
       }
+      if (SHARED_TTL[endpoint]) this.validateCacheable(endpoint, data, params)
       statusCode = 200
       return data
     } catch (error) {
@@ -111,11 +123,48 @@ export class JeongbonaruClient implements OnModuleInit {
     return this.quota.getLocalStatus()
   }
 
+  peekBook(isbn: string) {
+    return this.shared.peek<import('./jeongbonaru.types').JeongbonaruDocsResponse>(
+      '/srchBooks', { isbn13: isbn, pageNo: 1, pageSize: 1 })
+  }
+
+  private validateCacheable(endpoint: string, data: unknown, params: Record<string, unknown>) {
+    const response = (data as { response?: Record<string, unknown> } | null)?.response
+    if (!response || typeof response !== 'object') throw new Error('INVALID_PROVIDER_RESPONSE')
+    if (['/srchBooks', '/loanItemSrch'].includes(endpoint) && !Array.isArray(response.docs))
+      throw new Error('INVALID_PROVIDER_RESPONSE')
+    if (Array.isArray(response.docs) && response.docs.some((entry: { doc?: { bookname?: unknown; isbn13?: unknown } }) =>
+      typeof entry?.doc?.bookname !== 'string' || !entry.doc.bookname.trim() ||
+      (endpoint === '/srchBooks' && params.isbn13 && entry.doc.isbn13 !== params.isbn13)))
+      throw new Error('INVALID_PROVIDER_RESPONSE')
+    if (endpoint === '/usageTrend' && !Array.isArray(response.results))
+      throw new Error('INVALID_PROVIDER_RESPONSE')
+    if (endpoint === '/usageTrend' && (response.results as unknown[]).some((entry) => {
+      const row = (entry as { result?: unknown } | null)?.result ?? entry
+      return !row || typeof row !== 'object' || Array.isArray(row) ||
+        !['dayOfWeek', 'hour', 'loan', 'return'].some((key) => key in row)
+    })) throw new Error('INVALID_PROVIDER_RESPONSE')
+    if (endpoint === '/usageAnalysisList' && !('book' in response || 'loanHistory' in response || 'loanGrps' in response))
+      throw new Error('INVALID_PROVIDER_RESPONSE')
+    if (endpoint === '/usageAnalysisList') {
+      const object = (value: unknown) => !!value && typeof value === 'object' && !Array.isArray(value)
+      if (response.book != null && !object(response.book)) throw new Error('INVALID_PROVIDER_RESPONSE')
+      for (const [name, wrapper] of Object.entries({ loanHistory: 'loan', loanGrps: 'loanGrp', keywords: 'keyword',
+        coLoanBooks: 'book', maniaRecBooks: 'book', readerRecBooks: 'book' })) {
+        const value = response[name]
+        if (value == null) continue
+        const entries = Array.isArray(value) ? value : [value]
+        if (entries.some((entry) => !object(entry) || !object(entry[wrapper] ?? entry)))
+          throw new Error('INVALID_PROVIDER_RESPONSE')
+      }
+    }
+  }
+
   private extractApiError(data: unknown): string | null {
     if (!data || typeof data !== 'object') return null
     const response = (data as { response?: unknown }).response
     if (!response || typeof response !== 'object') return null
     const error = (response as { error?: unknown }).error
-    return typeof error === 'string' && error.trim() ? error.trim() : null
+    return typeof error === 'string' ? error.trim() || null : error == null ? null : 'PROVIDER_ERROR'
   }
 }

@@ -208,9 +208,9 @@ describe('actual module graph and named scheduler registration', () => {
         .mockRejectedValue(new QuotaBlockedError('QUOTA_BLOCKED_ALL'))
       const blocked = await request(app.getHttpServer())
         .get('/naru/bookExist?isbn13=9788954682152&libCode=111314')
-        .expect(429)
-      expect(blocked.body.message).toBe('API_LIMIT_EXCEEDED')
-      expect(reserve).toHaveBeenCalledWith('jeongbonaru', 'HIGH', '/bookExist')
+        .expect(404)
+      expect(blocked.body.message).toBe('Not Found')
+      expect(reserve).not.toHaveBeenCalled()
       const curation = app.get(HomeCurationsService)
       jest.spyOn(curation, 'refreshLoanItemBooks').mockResolvedValue({
         refreshed: false,

@@ -5,7 +5,7 @@ jest.mock('@nearbook/db', () => ({}))
 describe('empty curation caching', () => {
   const cache = { get: jest.fn(), set: jest.fn() }
   const curations = { getCategories: jest.fn(), getCategoryBooks: jest.fn() }
-  const service = new BooksService({} as never, {} as never, {} as never, cache as never, {} as never, curations as never)
+  const service = new BooksService({} as never, {} as never, {} as never, cache as never, {} as never, curations as never, {} as never)
   beforeEach(() => jest.clearAllMocks())
 
   it('does not cache an empty category list for six hours', async () => {

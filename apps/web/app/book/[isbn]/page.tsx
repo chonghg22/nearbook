@@ -11,6 +11,7 @@ import { JsonLd } from '@/components/seo/json-ld'
 import { buildBookJsonLd } from '@/lib/seo/json-ld'
 import { buildDetailMetadata, buildPageMetadata } from '@/lib/seo/metadata'
 import { fetchBookDetail, fetchOptionalDetail } from '@/lib/detail-data'
+import { CacheNote } from '@/components/cache-note'
 
 export const revalidate = 0 // Do not persist a transient detail error as a page.
 export const dynamicParams = true
@@ -155,6 +156,9 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
             {hasAnalysis && (
               <BookAnalysisSection analysis={analysis} />
             )}
+            {(!analysis || analysis.availability === 'unavailable') && (
+              <p className="text-sm text-muted-foreground">이용 분석 정보를 잠시 불러올 수 없습니다. 도서 정보는 계속 확인할 수 있습니다.</p>
+            )}
 
             <AdSenseSlot
               slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_BOOK_INLINE}
@@ -223,6 +227,7 @@ function BookAnalysisSection({ analysis }: { analysis: any }) {
     <section className="space-y-8">
       <div>
         <h2 className="text-lg font-bold text-foreground mb-2">📊 이 책의 이용 분석</h2>
+        <CacheNote info={analysis.cacheInfo} />
         <p className="text-sm text-muted-foreground">
           도서관 정보나루의 대출 빅데이터를 바탕으로 최근 대출 흐름과 함께 읽힌 책을 보여드립니다.
         </p>
