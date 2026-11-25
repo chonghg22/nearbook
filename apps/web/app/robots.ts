@@ -5,6 +5,7 @@ import { getSiteOrigin } from '@/lib/seo/site-url'
 /** 색인 대상이 아닌 라우트. 색인 정책표의 noindex 집합과 일치해야 한다. */
 const DISALLOWED_PATHS = [
   '/api/',
+  '/book-request',
   '/auth-api/',
   '/auth/',
   '/admin/',

@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common'
 
-export type QuotaBlockReason = 'QUOTA_BLOCKED_LOW' | 'QUOTA_BLOCKED_ALL'
+export type QuotaBlockReason = 'QUOTA_BLOCKED_LOW' | 'QUOTA_BLOCKED_ALL' | 'QUOTA_BLOCKED_SCOPE'
 
 export class QuotaBlockedError extends HttpException {
   constructor(public readonly reason: QuotaBlockReason) {

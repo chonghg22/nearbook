@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Query, DefaultValuePipe, ParseIntPipe, BadRequestException, Header } from '@nestjs/common'
+import { Controller, Get, Post, Param, Query, DefaultValuePipe, ParseIntPipe, BadRequestException, Header, UseGuards, Req, HttpCode } from '@nestjs/common'
+import { AuthGuard } from '../auth/auth.guard'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { BooksService } from './books.service'
 
@@ -6,6 +7,15 @@ import { BooksService } from './books.service'
 @Controller('books')
 export class BooksController {
   constructor(private readonly service: BooksService) {}
+
+  @Post(':isbn/acquire')
+  @UseGuards(AuthGuard)
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  acquire(@Param('isbn') isbn: string, @Req() request: { user: { supabaseUserId: string } }) {
+    if (!/^(?:97[89]\d{10}|\d{9}[\dXx])$/.test(isbn)) throw new BadRequestException('ISBN을 확인해 주세요.')
+    return this.service.acquire(isbn, request.user.supabaseUserId)
+  }
 
   @Get('popular')
   @ApiOperation({ summary: '인기 대출 도서' })

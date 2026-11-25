@@ -61,6 +61,19 @@ test('search → book → holding library → official link', async ({ page, req
   await expect(page.getByText('평일 09:00~18:00')).toBeVisible()
 })
 
+test('an unacquired book stays 503 until a signed-in user explicitly requests its information', async ({ page, context, request }) => {
+  await signIn(context, 'acquisition-fixture')
+  const response = await page.goto('/book/9788936434120')
+  expect(response?.status()).toBe(503)
+  expect(response?.headers()['retry-after']).toBe('3600')
+  await page.getByRole('link', { name: '도서 정보 가져오기', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '도서 정보 가져오기' })).toBeVisible()
+  expect((await (await request.get(`${fixture}/__state`)).json()).acquisitionWrites).toBe(0)
+  await page.getByRole('button', { name: '도서 정보 가져오기', exact: true }).click()
+  await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
+  expect((await (await request.get(`${fixture}/__state`)).json()).acquisitionWrites).toBe(1)
+})
+
 test('regional directory exposes eligible content and opens a library detail', async ({ page }) => {
   await page.goto('/regions')
   await expect(page.getByRole('heading', { name: '지역별 공공도서관', exact: true })).toBeVisible()

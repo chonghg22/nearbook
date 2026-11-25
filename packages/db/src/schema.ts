@@ -188,10 +188,30 @@ export const apiUsage = nearbookSchema.table('api_usage', {
   endpoint: varchar('endpoint', { length: 128 }).notNull(),
   statusCode: integer('status_code'),
   cachedHit: boolean('cached_hit').notNull().default(false),
+  acquisitionScope: varchar('acquisition_scope', { length: 16 }),
   durationMs: integer('duration_ms'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (t) => ({
   providerCreatedIdx: index('api_usage_provider_created_idx').on(t.provider, t.createdAt),
+  scopeCreatedIdx: index('api_usage_scope_created_idx').on(t.provider, t.acquisitionScope, t.createdAt),
+}))
+
+export const providerResponseCache = nearbookSchema.table('provider_response_cache', {
+  cacheKey: varchar('cache_key', { length: 64 }).primaryKey(),
+  payload: jsonb('payload'),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  retryAfter: timestamp('retry_after', { withTimezone: true }).notNull().default(sql`'-infinity'`),
+  leaseToken: uuid('lease_token'),
+  leaseUntil: timestamp('lease_until', { withTimezone: true }),
+})
+
+export const bookAcquisitionAttempts = nearbookSchema.table('book_acquisition_attempts', {
+  id: serial('id').primaryKey(),
+  subjectHash: varchar('subject_hash', { length: 64 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  subjectCreatedIdx: index('book_acquisition_subject_created_idx').on(t.subjectHash, t.createdAt),
 }))
 
 // 11. 공지사항

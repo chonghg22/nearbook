@@ -5,6 +5,7 @@ import { AffiliatesService } from '../affiliates/affiliates.service'
 import { CacheService } from '../../common/cache.service'
 import { BooksRepository } from './books.repository'
 import { HomeCurationsService } from '../home-curations/home-curations.service'
+import { BookAcquisitionLimiter } from '../jeongbonaru/book-acquisition-limiter.service'
 
 @Injectable()
 export class BooksService {
@@ -17,6 +18,7 @@ export class BooksService {
     private readonly cache: CacheService,
     private readonly repo: BooksRepository,
     private readonly homeCurations: HomeCurationsService,
+    private readonly acquisitionLimiter: BookAcquisitionLimiter,
   ) {}
 
   async getByIsbn(isbn: string) {
@@ -27,7 +29,7 @@ export class BooksService {
 
     // L4 DB
     const dbRow = await this.repo.findByIsbn(isbn)
-    if (dbRow && dbRow.expiresAt > new Date()) {
+    if (dbRow) {
       this.cache.set(memKey, dbRow)
       return dbRow
     }
@@ -46,6 +48,14 @@ export class BooksService {
     const rows = await this.repo.getPopular(region, limit)
     this.cache.set(cacheKey, rows, 60 * 60 * 1000) // 1시간
     return rows
+  }
+
+  async acquire(isbn: string, subject: string) {
+    await this.acquisitionLimiter.check(subject)
+    const book = await this.jeongbonaru.getBookByIsbn(isbn, 'HIGH', true)
+    if (!book) throw new NotFoundException('도서 정보 제공처에서 이 책을 찾지 못했습니다.')
+    this.cache.set(`book:meta:${isbn}`, book)
+    return book
   }
 
   async getRecent(limit = 10) {
@@ -94,18 +104,15 @@ export class BooksService {
   }
 
   async getUsageAnalysis(isbn: string) {
-    const cacheKey = `book:analysis:${isbn}`
-    const hit = this.cache.get<unknown>(cacheKey)
-    if (hit) return hit
-
+    await this.getByIsbn(isbn) // Unknown ISBN enumeration cannot dispatch analysis either.
     try {
       const analysis = await this.jeongbonaru.getBookUsageAnalysis(isbn)
       await this.enrichAnalysisCoverUrls(analysis)
-      this.cache.set(cacheKey, analysis, 24 * 60 * 60 * 1000)
       return analysis
     } catch (err) {
       this.logger.warn(`getUsageAnalysis failed: ${isbn} (${String(err)})`)
       return {
+        availability: 'unavailable',
         book: null,
         loanHistory: [],
         loanGroups: [],
@@ -135,8 +142,8 @@ export class BooksService {
   }
 
   async getWithLibraries(isbn: string, lat: number, lng: number, radiusKm = 5) {
-    const [book, libsWithAvail, affiliateLinks] = await Promise.all([
-      this.getByIsbn(isbn),
+    const book = await this.getByIsbn(isbn)
+    const [libsWithAvail, affiliateLinks] = await Promise.all([
       this.libraries.getNearbyHoldings(lat, lng, isbn, radiusKm),
       this.affiliates.getAffiliateOptions(isbn),
     ])

@@ -4,6 +4,7 @@ import { db, apiUsage, eq, sql } from '@nearbook/db'
 import { QuotaAccountingUnavailableError, QuotaBlockedError } from './quota.errors'
 import { Priority, quotaMode, quotaPolicy } from './quota-policy'
 export type { Priority, QuotaMode } from './quota-policy'
+export type AcquisitionScope = 'refresh' | 'explicit' | 'ssr'
 
 @Injectable()
 export class QuotaService {
@@ -14,10 +15,19 @@ export class QuotaService {
       this.logger.warn('Configured provider budget exceeds verified account limit; capped at 500')
   }
 
+  private scopeLimit(scope: AcquisitionScope): number {
+    const settings = { refresh: ['JEONGBONARU_REFRESH_DAILY_LIMIT', 100], explicit: ['JEONGBONARU_EXPLICIT_DAILY_LIMIT', 50], ssr: ['JEONGBONARU_SSR_DAILY_LIMIT', 0] } as const
+    const [name, fallback] = settings[scope]
+    const value = Number(this.config.get(name) ?? fallback)
+    if (!Number.isSafeInteger(value) || value < 0 || value > 500) throw new QuotaAccountingUnavailableError()
+    return value
+  }
+
   /** Durable reservation before dispatch. No HTTP or notifications under the lock. */
-  async acquire(provider: 'jeongbonaru', priority: Priority, endpoint: string): Promise<number> {
+  async acquire(provider: 'jeongbonaru', priority: Priority, endpoint: string, scope?: AcquisitionScope): Promise<number> {
     const policy = quotaPolicy(this.config)
     const budget = priority === 'LOW' ? policy.lowPriorityLimit : policy.limit
+    const scopedBudget = scope ? this.scopeLimit(scope) : policy.limit
     try {
       return await db.transaction(
         async (tx) => {
@@ -29,26 +39,27 @@ export class QuotaService {
           await tx.execute(sql`SELECT pg_advisory_xact_lock(73291012)`)
           const rows = await tx.execute(sql`
           WITH usage AS (
-            SELECT count(*)::int AS called
+            SELECT count(*)::int AS called,
+              count(*) FILTER (WHERE acquisition_scope = ${scope ?? null})::int AS scoped_called
             FROM nearbook.api_usage
             WHERE provider = ${provider} AND cached_hit = false
               AND created_at >= (date_trunc('day', statement_timestamp() AT TIME ZONE 'Asia/Seoul') - interval '9 hours')
               AND created_at < (date_trunc('day', statement_timestamp() AT TIME ZONE 'Asia/Seoul') + interval '15 hours')
           ), reservation AS (
-            INSERT INTO nearbook.api_usage (provider, endpoint, status_code, cached_hit, created_at)
-            SELECT ${provider}, ${endpoint}, 0, false, statement_timestamp() AT TIME ZONE 'UTC'
-            FROM usage WHERE called < ${budget}
+            INSERT INTO nearbook.api_usage (provider, endpoint, status_code, cached_hit, created_at, acquisition_scope)
+            SELECT ${provider}, ${endpoint}, 0, false, statement_timestamp() AT TIME ZONE 'UTC', ${scope ?? null}
+            FROM usage WHERE called < ${budget} AND scoped_called < ${scopedBudget}
             RETURNING id
           )
-          SELECT usage.called, reservation.id FROM usage LEFT JOIN reservation ON true
+          SELECT usage.called, usage.scoped_called, reservation.id FROM usage LEFT JOIN reservation ON true
         `)
-          const row = rows[0] as { called?: unknown; id?: unknown } | undefined
+          const row = rows[0] as { called?: unknown; scoped_called?: unknown; id?: unknown } | undefined
           const called = Number(row?.called)
           if (!row || !Number.isSafeInteger(called) || called < 0)
             throw new QuotaAccountingUnavailableError()
           if (row.id === null || row.id === undefined) {
             throw new QuotaBlockedError(
-              called >= policy.limit ? 'QUOTA_BLOCKED_ALL' : 'QUOTA_BLOCKED_LOW'
+              called >= policy.limit ? 'QUOTA_BLOCKED_ALL' : Number(row.scoped_called) >= scopedBudget ? 'QUOTA_BLOCKED_SCOPE' : 'QUOTA_BLOCKED_LOW'
             )
           }
           const id = Number(row.id)
@@ -83,6 +94,9 @@ export class QuotaService {
         SELECT count(*)::int AS called,
           count(*) FILTER (WHERE status_code = 200)::int AS succeeded,
           count(*) FILTER (WHERE status_code IS NULL OR status_code = 0)::int AS unresolved,
+          count(*) FILTER (WHERE acquisition_scope = 'refresh')::int AS refresh_called,
+          count(*) FILTER (WHERE acquisition_scope = 'explicit')::int AS explicit_called,
+          count(*) FILTER (WHERE acquisition_scope = 'ssr')::int AS ssr_called,
           to_char(statement_timestamp() AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS day_key
         FROM nearbook.api_usage
         WHERE provider = 'jeongbonaru' AND cached_hit = false
@@ -94,6 +108,9 @@ export class QuotaService {
         succeeded: unknown
         unresolved: unknown
         day_key: string
+        refresh_called?: unknown
+        explicit_called?: unknown
+        ssr_called?: unknown
       }
       const called = Number(row?.called),
         succeeded = Number(row?.succeeded),
@@ -119,6 +136,11 @@ export class QuotaService {
         resetAt: new Date(row.day_key + 'T15:00:00.000Z').toISOString(),
         observedAt: new Date().toISOString(),
         source: 'database',
+        budgets: {
+          refresh: { called: Number(row.refresh_called ?? 0), limit: this.scopeLimit('refresh') },
+          explicit: { called: Number(row.explicit_called ?? 0), limit: this.scopeLimit('explicit') },
+          ssr: { called: Number(row.ssr_called ?? 0), limit: this.scopeLimit('ssr') },
+        },
       }
       this.snapshot = status
       return status

@@ -11,6 +11,7 @@ import { JsonLd } from '@/components/seo/json-ld'
 import { buildBookJsonLd } from '@/lib/seo/json-ld'
 import { buildDetailMetadata, buildPageMetadata } from '@/lib/seo/metadata'
 import { fetchBookDetail, fetchOptionalDetail } from '@/lib/detail-data'
+import { CacheNote } from '@/components/cache-note'
 
 export const revalidate = 0 // Do not persist a transient detail error as a page.
 export const dynamicParams = true
@@ -223,6 +224,7 @@ function BookAnalysisSection({ analysis }: { analysis: any }) {
     <section className="space-y-8">
       <div>
         <h2 className="text-lg font-bold text-foreground mb-2">📊 이 책의 이용 분석</h2>
+        <CacheNote info={analysis.cacheInfo} />
         <p className="text-sm text-muted-foreground">
           도서관 정보나루의 대출 빅데이터를 바탕으로 최근 대출 흐름과 함께 읽힌 책을 보여드립니다.
         </p>

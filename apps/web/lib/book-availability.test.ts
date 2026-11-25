@@ -3,6 +3,7 @@ import {
   BOOK_RETRY_AFTER_SECONDS,
   bookIsbnFromPath,
   bookUnavailableResponse,
+  bookAvailability,
   isBookTemporarilyUnavailable,
 } from './book-availability'
 
@@ -32,6 +33,17 @@ describe('isBookTemporarilyUnavailable', () => {
 
   it.each([429, 500, 503])('reports unavailable on %i', async (status) => {
     expect(await isBookTemporarilyUnavailable('9788936434120', respond(status))).toBe(true)
+  })
+
+  it('distinguishes an unacquired book and links to an explicit action without fetching in the page', async () => {
+    expect(await bookAvailability('9788936434120', respond(409))).toBe('unacquired')
+    const response = bookUnavailableResponse('9788936434120', 'unacquired')
+    expect(response.status).toBe(503)
+    expect(await response.text()).toContain('/book-request?isbn=9788936434120')
+  })
+
+  it('does not reflect arbitrary path text into the HTML action', async () => {
+    expect(await bookUnavailableResponse('\"><script>alert(1)</script>', 'unacquired').text()).not.toContain('<script>')
   })
 
   it('reports unavailable when the API cannot be reached', async () => {

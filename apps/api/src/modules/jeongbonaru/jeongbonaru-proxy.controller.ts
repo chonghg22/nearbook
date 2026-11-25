@@ -1,4 +1,5 @@
-import { Controller, Get, Query, Header } from '@nestjs/common'
+import { Controller, Get, Query, Header, UseGuards } from '@nestjs/common'
+import { ProxyDisabledGuard } from './proxy-disabled.guard'
 import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { JeongbonaruClient } from './jeongbonaru.client'
 
@@ -9,6 +10,7 @@ import { JeongbonaruClient } from './jeongbonaru.client'
  */
 @ApiTags('naru-proxy')
 @Controller('naru')
+@UseGuards(ProxyDisabledGuard)
 export class JeongbonaruProxyController {
   constructor(private readonly client: JeongbonaruClient) {}
 
