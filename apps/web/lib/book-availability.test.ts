@@ -36,7 +36,8 @@ describe('isBookTemporarilyUnavailable', () => {
   })
 
   it('distinguishes an unacquired book and links to an explicit action without fetching in the page', async () => {
-    expect(await bookAvailability('9788936434120', respond(409))).toBe('unacquired')
+    const unacquired = vi.fn(async () => Response.json({ code: 'BOOK_NOT_ACQUIRED' }, { status: 409 })) as unknown as typeof fetch
+    expect(await bookAvailability('9788936434120', unacquired)).toBe('unacquired')
     const response = bookUnavailableResponse('9788936434120', 'unacquired')
     expect(response.status).toBe(503)
     expect(await response.text()).toContain('/book-request?isbn=9788936434120')
@@ -45,6 +46,19 @@ describe('isBookTemporarilyUnavailable', () => {
   it('does not reflect arbitrary path text into the HTML action', async () => {
     expect(await bookUnavailableResponse('\"><script>alert(1)</script>', 'unacquired').text()).not.toContain('<script>')
   })
+  it('maps only the explicit unacquired metadata contract to temporary unavailability', async () => {
+    const fetchImpl = vi.fn(async () => Response.json({
+      code: 'BOOK_NOT_ACQUIRED', message: '도서 정보를 아직 가져오지 않았습니다.',
+    }, { status: 409 })) as unknown as typeof fetch
+    expect(await isBookTemporarilyUnavailable('9788936434120', fetchImpl)).toBe(true)
+  })
+
+  it.each(['{}', '{"code":"OTHER_CONFLICT"}', 'not json', 'null'])(
+    'does not reinterpret an unrelated or malformed 409: %s', async (body) => {
+      const fetchImpl = vi.fn(async () => new Response(body, { status: 409 })) as unknown as typeof fetch
+      expect(await isBookTemporarilyUnavailable('9788936434120', fetchImpl)).toBe(false)
+    },
+  )
 
   it('reports unavailable when the API cannot be reached', async () => {
     const failing = vi.fn(async () => {

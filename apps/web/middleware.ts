@@ -17,7 +17,7 @@ const REFRESH_BEFORE_SECONDS = 60
 
 export async function middleware(request: NextRequest) {
   // 책 메타데이터를 잠시 가져올 수 없으면 페이지가 500을 내기 전에 503 + Retry-After로 답한다.
-  const isbn = request.method === 'GET' ? bookIsbnFromPath(request.nextUrl.pathname) : null
+  const isbn = ['GET', 'HEAD'].includes(request.method) ? bookIsbnFromPath(request.nextUrl.pathname) : null
   if (isbn) {
     const state = await bookAvailability(isbn)
     if (state !== 'ready') return bookUnavailableResponse(isbn, state)

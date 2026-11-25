@@ -47,7 +47,11 @@ const server = createServer(async (req, res) => {
   }
   if (path === '/books/9788936434120') return state.acquired
     ? send({ ...book, isbn: '9788936434120' }) : send({ code: 'BOOK_NOT_ACQUIRED' }, 409)
-  if (path === `/books/${isbn}`) return send(book)
+  if (path === `/books/${isbn}`) {
+    state.bookReads = (state.bookReads ?? 0) + 1
+    const status = state.bookStatus ?? 200
+    return status === 200 ? send(book) : send({ code: status === 409 ? 'BOOK_NOT_ACQUIRED' : 'fixture_error' }, status)
+  }
   if (path === `/books/${isbn}/holdings`) return send(holdings())
   if (path === `/books/${isbn}/analysis`) return send({ data: {} })
   if (path === '/libraries/111314') return send({ data: library })
