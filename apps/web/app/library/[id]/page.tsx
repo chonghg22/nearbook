@@ -281,7 +281,8 @@ function LibraryTrendCard({ trends }: { trends: any }) {
   return (
     <section className="rounded-2xl border border-border bg-white p-5 shadow-card">
       <h3 className="text-sm font-bold text-foreground">대출·반납 이용 패턴</h3>
-      <CacheNote info={trends?.cacheInfo?.days} />
+      <CacheNote label="요일 자료 확인" info={trends?.cacheInfo?.days} />
+      <CacheNote label="시간대 자료 확인" info={trends?.cacheInfo?.hours} />
       <p className="mt-2 text-xs leading-5 text-muted-foreground">
         최근 30일 대출·반납량을 상대 비율로 보여드립니다.
       </p>

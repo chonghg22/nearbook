@@ -132,6 +132,22 @@ describe('provider dispatch: one durable reservation per actual attempt', () => 
     expect(quota.complete).toHaveBeenCalledTimes(1)
     expect(quota.complete).toHaveBeenCalledWith(123, 422, expect.any(Number))
   })
+  it.each([
+    ['/usageTrend', { results: [null] }],
+    ['/usageTrend', { results: [{}] }],
+    ['/usageAnalysisList', { book: null, loanHistory: 'invalid' }],
+    ['/usageAnalysisList', { book: null, keywords: [null] }],
+    ['/loanItemSrch', { docs: [{}] }],
+  ])('rejects malformed shared-cache data from %s before successful caching', async (endpoint, response) => {
+    get.mockResolvedValue({ data: { response } })
+    await expect(client.get(endpoint as string)).rejects.toThrow('INVALID_PROVIDER_RESPONSE')
+    expect(quota.complete).toHaveBeenCalledWith(123, 500, expect.any(Number))
+  })
+  it('never treats a structured provider error with an empty docs array as genuine absence', async () => {
+    get.mockResolvedValue({ data: { response: { docs: [], error: { message: 'provider unavailable' } } } })
+    await expect(client.get('/srchBooks')).rejects.toThrow('JEONGBONARU_APP_ERROR')
+    expect(quota.complete).toHaveBeenCalledWith(123, 422, expect.any(Number))
+  })
   it('retries only on a later explicit request after a failed single-flight is removed', async () => {
     get.mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ data: { response: {} } })
     await expect(client.get('/bookExist')).rejects.toThrow('offline')

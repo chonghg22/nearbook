@@ -156,6 +156,9 @@ export default async function BookPage({ params }: { params: Promise<{ isbn: str
             {hasAnalysis && (
               <BookAnalysisSection analysis={analysis} />
             )}
+            {(!analysis || analysis.availability === 'unavailable') && (
+              <p className="text-sm text-muted-foreground">이용 분석 정보를 잠시 불러올 수 없습니다. 도서 정보는 계속 확인할 수 있습니다.</p>
+            )}
 
             <AdSenseSlot
               slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_BOOK_INLINE}

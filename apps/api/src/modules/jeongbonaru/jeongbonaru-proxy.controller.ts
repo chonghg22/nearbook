@@ -4,9 +4,8 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger'
 import { JeongbonaruClient } from './jeongbonaru.client'
 
 /**
- * 정보나루 API 프록시 — 브라우저에서 직접 테스트용.
- * 모든 파라미터를 query string으로 받아 그대로 정보나루에 전달.
- * authKey, format은 자동 주입됨.
+ * Retired public test proxy: the controller guard rejects provider dispatch routes.
+ * Only status remains public and reads the local reservation ledger.
  */
 @ApiTags('naru-proxy')
 @Controller('naru')

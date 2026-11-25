@@ -139,8 +139,25 @@ export class JeongbonaruClient implements OnModuleInit {
       throw new Error('INVALID_PROVIDER_RESPONSE')
     if (endpoint === '/usageTrend' && !Array.isArray(response.results))
       throw new Error('INVALID_PROVIDER_RESPONSE')
+    if (endpoint === '/usageTrend' && (response.results as unknown[]).some((entry) => {
+      const row = (entry as { result?: unknown } | null)?.result ?? entry
+      return !row || typeof row !== 'object' || Array.isArray(row) ||
+        !['dayOfWeek', 'hour', 'loan', 'return'].some((key) => key in row)
+    })) throw new Error('INVALID_PROVIDER_RESPONSE')
     if (endpoint === '/usageAnalysisList' && !('book' in response || 'loanHistory' in response || 'loanGrps' in response))
       throw new Error('INVALID_PROVIDER_RESPONSE')
+    if (endpoint === '/usageAnalysisList') {
+      const object = (value: unknown) => !!value && typeof value === 'object' && !Array.isArray(value)
+      if (response.book != null && !object(response.book)) throw new Error('INVALID_PROVIDER_RESPONSE')
+      for (const [name, wrapper] of Object.entries({ loanHistory: 'loan', loanGrps: 'loanGrp', keywords: 'keyword',
+        coLoanBooks: 'book', maniaRecBooks: 'book', readerRecBooks: 'book' })) {
+        const value = response[name]
+        if (value == null) continue
+        const entries = Array.isArray(value) ? value : [value]
+        if (entries.some((entry) => !object(entry) || !object(entry[wrapper] ?? entry)))
+          throw new Error('INVALID_PROVIDER_RESPONSE')
+      }
+    }
   }
 
   private extractApiError(data: unknown): string | null {
@@ -148,6 +165,6 @@ export class JeongbonaruClient implements OnModuleInit {
     const response = (data as { response?: unknown }).response
     if (!response || typeof response !== 'object') return null
     const error = (response as { error?: unknown }).error
-    return typeof error === 'string' && error.trim() ? error.trim() : null
+    return typeof error === 'string' ? error.trim() || null : error == null ? null : 'PROVIDER_ERROR'
   }
 }
