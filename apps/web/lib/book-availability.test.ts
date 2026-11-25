@@ -34,6 +34,20 @@ describe('isBookTemporarilyUnavailable', () => {
     expect(await isBookTemporarilyUnavailable('9788936434120', respond(status))).toBe(true)
   })
 
+  it('maps only the explicit unacquired metadata contract to temporary unavailability', async () => {
+    const fetchImpl = vi.fn(async () => Response.json({
+      code: 'BOOK_NOT_ACQUIRED', message: '도서 정보를 아직 가져오지 않았습니다.',
+    }, { status: 409 })) as unknown as typeof fetch
+    expect(await isBookTemporarilyUnavailable('9788936434120', fetchImpl)).toBe(true)
+  })
+
+  it.each(['{}', '{"code":"OTHER_CONFLICT"}', 'not json', 'null'])(
+    'does not reinterpret an unrelated or malformed 409: %s', async (body) => {
+      const fetchImpl = vi.fn(async () => new Response(body, { status: 409 })) as unknown as typeof fetch
+      expect(await isBookTemporarilyUnavailable('9788936434120', fetchImpl)).toBe(false)
+    },
+  )
+
   it('reports unavailable when the API cannot be reached', async () => {
     const failing = vi.fn(async () => {
       throw new TypeError('fetch failed')

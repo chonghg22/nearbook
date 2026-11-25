@@ -40,7 +40,11 @@ const server = createServer(async (req, res) => {
   if (path === '/auth/logout' && req.method === 'POST') { res.statusCode = 204; res.end(); return }
   if (path === '/search') return send({ data: { items: [book], total: 1, page: 1, pageSize: 10 } }, state.searchStatus)
   if (path === '/search/suggest') return send({ data: [book] })
-  if (path === `/books/${isbn}`) return send(book)
+  if (path === `/books/${isbn}`) {
+    state.bookReads = (state.bookReads ?? 0) + 1
+    const status = state.bookStatus ?? 200
+    return status === 200 ? send(book) : send({ code: status === 409 ? 'BOOK_NOT_ACQUIRED' : 'fixture_error' }, status)
+  }
   if (path === `/books/${isbn}/holdings`) return send(holdings())
   if (path === `/books/${isbn}/analysis`) return send({ data: {} })
   if (path === '/libraries/111314') return send({ data: library })
