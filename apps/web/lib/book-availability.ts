@@ -45,6 +45,12 @@ export async function isBookTemporarilyUnavailable(
       cache: 'no-store',
       signal: AbortSignal.timeout(TIMEOUT_MS),
     })
+    // PR33's metadata contract: not acquired yet, distinct from a genuine 404.
+    // Other conflicts (or malformed bodies) keep their existing error path.
+    if (response.status === 409) {
+      const body = await response.json().catch(() => null)
+      return body?.code === 'BOOK_NOT_ACQUIRED'
+    }
     return response.status === 429 || response.status >= 500
   } catch {
     // 설정 오류·네트워크 오류·시간 초과: 페이지도 같은 이유로 실패한다.
